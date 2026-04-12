@@ -6,6 +6,7 @@ import {
   Navigate,
   Link,
 } from "react-router-dom";
+import { supabase } from "./supabase";
 
 /* AUTH */
 const useAuth = () => {
@@ -77,44 +78,121 @@ const ModelSignup = () => {
     email: "",
     instagram: "",
   });
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [success, setSuccess] = React.useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
 
-    const data = JSON.parse(localStorage.getItem("models")) || [];
-    data.push(form);
-    localStorage.setItem("models", JSON.stringify(data));
+    try {
+      // Validate required fields
+      if (!form.name.trim() || !form.email.trim()) {
+        throw new Error("Name and email are required");
+      }
 
-    alert("Model submitted!");
-    setForm({ name: "", email: "", instagram: "" });
+      const { data, error: supabaseError } = await supabase
+        .from("models")
+        .insert([
+          {
+            name: form.name.trim(),
+            email: form.email.trim(),
+            instagram: form.instagram.trim(),
+            submitted_at: new Date().toISOString(),
+          },
+        ])
+        .select();
+
+      if (supabaseError) throw supabaseError;
+
+      setSuccess(true);
+      setForm({ name: "", email: "", instagram: "" });
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      setError(err.message || "Failed to submit. Please try again.");
+      console.error("Submission error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div style={{ padding: 40 }}>
       <h1>Model Signup</h1>
       <form onSubmit={handleSubmit}>
-        <input value={form.name} placeholder="Name" onChange={(e) => setForm({...form, name: e.target.value})} />
+        <input 
+          value={form.name} 
+          placeholder="Name" 
+          onChange={(e) => setForm({...form, name: e.target.value})}
+          disabled={loading}
+        />
         <br /><br />
-        <input value={form.email} placeholder="Email" onChange={(e) => setForm({...form, email: e.target.value})} />
+        <input 
+          value={form.email} 
+          placeholder="Email" 
+          type="email"
+          onChange={(e) => setForm({...form, email: e.target.value})}
+          disabled={loading}
+        />
         <br /><br />
-        <input value={form.instagram} placeholder="Instagram" onChange={(e) => setForm({...form, instagram: e.target.value})} />
+        <input 
+          value={form.instagram} 
+          placeholder="Instagram (@username)" 
+          onChange={(e) => setForm({...form, instagram: e.target.value})}
+          disabled={loading}
+        />
         <br /><br />
-        <button>Submit</button>
+        <button disabled={loading}>{loading ? "Submitting..." : "Submit"}</button>
       </form>
+      {error && <div style={{ color: "red", marginTop: 10 }}>{error}</div>}
+      {success && <div style={{ color: "green", marginTop: 10 }}>✓ Submitted successfully!</div>}
     </div>
   );
 };
 
 /* SUBMISSIONS */
 const Submissions = () => {
-  const data = JSON.parse(localStorage.getItem("models")) || [];
+  const [submissions, setSubmissions] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    const fetchSubmissions = async () => {
+      try {
+        setError("");
+        const { data, error: supabaseError } = await supabase
+          .from("models")
+          .select("*")
+          .order("submitted_at", { ascending: false });
+
+        if (supabaseError) throw supabaseError;
+        setSubmissions(data || []);
+      } catch (err) {
+        setError(err.message || "Failed to load submissions");
+        console.error("Fetch error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSubmissions();
+  }, []);
 
   return (
     <div style={{ padding: 40 }}>
       <h1>Submissions</h1>
-      {data.map((m, i) => (
-        <div key={i}>
-          {m.name} — {m.email} — {m.instagram}
+      {loading && <p>Loading...</p>}
+      {error && <div style={{ color: "red", marginBottom: 10 }}>Error: {error}</div>}
+      {!loading && submissions.length === 0 && <p>No submissions yet.</p>}
+      {!loading && submissions.map((m) => (
+        <div key={m.id} style={{ padding: 10, borderBottom: "1px solid #ccc", marginBottom: 10 }}>
+          <strong>{m.name}</strong> — {m.email}
+          {m.instagram && <> — @{m.instagram}</>}
+          <div style={{ fontSize: "0.85em", color: "#666", marginTop: 5 }}>
+            {new Date(m.submitted_at).toLocaleString()}
+          </div>
         </div>
       ))}
     </div>
