@@ -70,7 +70,47 @@ CREATE INDEX idx_models_submitted_at ON models(submitted_at DESC);
 3. Add a policy to allow public read access (should be auto-created for public buckets)
 4. Your app can now upload to `/models` folder inside this bucket
 
-## Step 7: Test the Setup
+## Step 7: Create Bookings Table
+
+In Supabase dashboard:
+
+1. Go to **SQL Editor** (left sidebar)
+2. Click **New Query**
+3. Copy and paste this SQL, then run it:
+
+```sql
+-- Create bookings table
+CREATE TABLE bookings (
+  id BIGSERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  company TEXT NOT NULL,
+  service_type TEXT NOT NULL,
+  preferred_date TEXT,
+  message TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'completed')),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create indexes
+CREATE INDEX idx_bookings_email ON bookings(email);
+CREATE INDEX idx_bookings_status ON bookings(status);
+CREATE INDEX idx_bookings_created_at ON bookings(created_at DESC);
+```
+
+4. Click **Run** (or Ctrl+Enter)
+
+## Step 8: Email Setup (Optional but Recommended)
+
+Email notifications require Supabase Edge Functions with Resend integration:
+
+1. Install Supabase CLI: `npm install -g supabase`
+2. Link your project: `supabase link --project-ref <your-project-id>`
+3. Create email functions (see FEATURE_EMAIL_BOOKINGS.md for details)
+
+For now, the app works perfectly without emails - they're just bonus notifications!
+
+## Step 9: Test the Full Setup
 
 1. Make sure `.env` file has your real keys
 2. **Don't restart** the dev server (it won't pick up .env changes) - close and reopen it with `npm run dev`

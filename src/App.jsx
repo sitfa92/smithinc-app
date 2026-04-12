@@ -8,6 +8,7 @@ import {
 } from "react-router-dom";
 import { supabase } from "./supabase";
 import { uploadImage } from "./imageUpload";
+import { sendModelSubmissionEmail, sendModelStatusUpdateEmail, sendBookingConfirmationEmail, sendBookingConfirmedEmail } from "./emailService";
 
 /* AUTH */
 const useAuth = () => {
@@ -39,6 +40,7 @@ const Nav = () => (
     <Link to="/">Dashboard</Link> |{" "}
     <Link to="/model-signup">Model Signup</Link> |{" "}
     <Link to="/submissions">Submissions</Link> |{" "}
+    <Link to="/bookings">Bookings</Link> |{" "}
     <Link to="/login">Login</Link>
   </nav>
 );
@@ -137,6 +139,13 @@ const ModelSignup = () => {
         .select();
 
       if (supabaseError) throw supabaseError;
+
+      // Send confirmation emails (async, don't block UI)
+      sendModelSubmissionEmail({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        instagram: form.instagram.trim(),
+      });
 
       setSuccess(true);
       setForm({ name: "", email: "", instagram: "" });
@@ -278,6 +287,9 @@ const Submissions = () => {
   };
 
   const updateModelStatus = async (modelId, newStatus) => {
+    const model = submissions.find((m) => m.id === modelId);
+    if (!model) return;
+
     setActionLoading((prev) => ({ ...prev, [modelId]: true }));
     try {
       const { error: supabaseError } = await supabase
@@ -286,6 +298,9 @@ const Submissions = () => {
         .eq("id", modelId);
 
       if (supabaseError) throw supabaseError;
+
+      // Send status update email (async, don't block UI)
+      sendModelStatusUpdateEmail(model, newStatus);
 
       // Update local state
       setSubmissions((prev) =>
@@ -443,6 +458,417 @@ const Submissions = () => {
   );
 };
 
+/* PUBLIC BOOKING */
+const PublicBooking = () => {
+  const [form, setForm] = React.useState({
+    name: "",
+    email: "",
+    company: "",
+    service_type: "Model Booking",
+    preferred_date: "",
+    message: "",
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [success, setSuccess] = React.useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      // Validate required fields
+      if (!form.name.trim() || !form.email.trim() || !form.company.trim()) {
+        throw new Error("Name, email, and company are required");
+      }
+
+      // Insert booking
+      const { error: supabaseError } = await supabase
+        .from("bookings")
+        .insert([
+          {
+            name: form.name.trim(),
+            email: form.email.trim(),
+            company: form.company.trim(),
+            service_type: form.service_type,
+            preferred_date: form.preferred_date,
+            message: form.message.trim(),
+            status: "pending",
+            created_at: new Date().toISOString(),
+          },
+        ]);
+
+      if (supabaseError) throw supabaseError;
+
+      // Send confirmation emails (async, don't block UI)
+      sendBookingConfirmationEmail({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        company: form.company.trim(),
+        service_type: form.service_type,
+        preferred_date: form.preferred_date,
+      });
+
+      setSuccess(true);
+      setForm({
+        name: "",
+        email: "",
+        company: "",
+        service_type: "Model Booking",
+        preferred_date: "",
+        message: "",
+      });
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      setError(err.message || "Failed to submit booking. Please try again.");
+      console.error("Booking error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ padding: 40, maxWidth: 600, margin: "0 auto" }}>
+      <h1>Book Our Services</h1>
+      <p style={{ color: "#666", marginBottom: 30 }}>
+        Interested in booking talent or services? Let's connect.
+      </p>
+
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            Full Name *
+          </label>
+          <input
+            value={form.name}
+            placeholder="Your full name"
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            disabled={loading}
+            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            Email *
+          </label>
+          <input
+            value={form.email}
+            placeholder="your@email.com"
+            type="email"
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            disabled={loading}
+            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            Company / Brand *
+          </label>
+          <input
+            value={form.company}
+            placeholder="Your company name"
+            onChange={(e) => setForm({ ...form, company: e.target.value })}
+            disabled={loading}
+            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            Service Type *
+          </label>
+          <select
+            value={form.service_type}
+            onChange={(e) => setForm({ ...form, service_type: e.target.value })}
+            disabled={loading}
+            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+          >
+            <option value="Model Booking">Model Booking</option>
+            <option value="Creative Direction">Creative Direction</option>
+            <option value="Photoshoot">Photoshoot</option>
+            <option value="Consultation">Consultation</option>
+          </select>
+        </div>
+
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            Preferred Date
+          </label>
+          <input
+            value={form.preferred_date}
+            type="date"
+            onChange={(e) => setForm({ ...form, preferred_date: e.target.value })}
+            disabled={loading}
+            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            Message / Notes
+          </label>
+          <textarea
+            value={form.message}
+            placeholder="Tell us more about your project..."
+            onChange={(e) => setForm({ ...form, message: e.target.value })}
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: 10,
+              boxSizing: "border-box",
+              minHeight: 120,
+              fontFamily: "inherit",
+            }}
+          />
+        </div>
+
+        <button
+          disabled={loading}
+          style={{
+            width: "100%",
+            padding: 12,
+            backgroundColor: loading ? "#ccc" : "#333",
+            color: "white",
+            border: "none",
+            borderRadius: 4,
+            fontSize: 16,
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
+        >
+          {loading ? "Sending..." : "Send Booking Request"}
+        </button>
+      </form>
+
+      {error && (
+        <div
+          style={{
+            color: "#d32f2f",
+            marginTop: 20,
+            padding: 10,
+            backgroundColor: "#ffebee",
+            borderRadius: 4,
+          }}
+        >
+          {error}
+        </div>
+      )}
+      {success && (
+        <div
+          style={{
+            color: "#388e3c",
+            marginTop: 20,
+            padding: 10,
+            backgroundColor: "#e8f5e9",
+            borderRadius: 4,
+          }}
+        >
+          ✓ Booking request submitted! We'll get back to you shortly.
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ADMIN BOOKINGS */
+const AdminBookings = () => {
+  const [bookings, setBookings] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const [actionLoading, setActionLoading] = React.useState({});
+
+  React.useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  const fetchBookings = async () => {
+    try {
+      setError("");
+      const { data, error: supabaseError } = await supabase
+        .from("bookings")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (supabaseError) throw supabaseError;
+      setBookings(data || []);
+    } catch (err) {
+      setError(err.message || "Failed to load bookings");
+      console.error("Fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateBookingStatus = async (bookingId, newStatus) => {
+    const booking = bookings.find((b) => b.id === bookingId);
+    if (!booking) return;
+
+    setActionLoading((prev) => ({ ...prev, [bookingId]: true }));
+    try {
+      const { error: supabaseError } = await supabase
+        .from("bookings")
+        .update({ status: newStatus })
+        .eq("id", bookingId);
+
+      if (supabaseError) throw supabaseError;
+
+      // Send confirmation email if status is confirmed
+      if (newStatus === "confirmed") {
+        sendBookingConfirmedEmail(booking);
+      }
+
+      // Update local state
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
+      );
+    } catch (err) {
+      console.error("Update error:", err);
+      alert(`Failed to update booking: ${err.message}`);
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "confirmed":
+        return "#4caf50"; // Green
+      case "completed":
+        return "#2196f3"; // Blue
+      case "pending":
+      default:
+        return "#ff9800"; // Orange
+    }
+  };
+
+  return (
+    <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
+      <h1>Booking Requests</h1>
+
+      {loading && <p>Loading bookings...</p>}
+      {error && (
+        <div
+          style={{
+            color: "#d32f2f",
+            marginBottom: 20,
+            padding: 10,
+            backgroundColor: "#ffebee",
+            borderRadius: 4,
+          }}
+        >
+          Error: {error}
+        </div>
+      )}
+
+      {!loading && bookings.length === 0 && (
+        <p style={{ color: "#999", fontSize: 16 }}>No booking requests yet.</p>
+      )}
+
+      {!loading &&
+        bookings.map((booking) => (
+          <div
+            key={booking.id}
+            style={{
+              padding: 20,
+              marginBottom: 20,
+              border: "1px solid #e0e0e0",
+              borderRadius: 8,
+              backgroundColor: "#fafafa",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: "0 0 10px 0" }}>{booking.name}</h3>
+                <p style={{ margin: "5px 0", color: "#666" }}>
+                  <strong>Company:</strong> {booking.company}
+                </p>
+                <p style={{ margin: "5px 0", color: "#666" }}>
+                  <strong>Email:</strong> {booking.email}
+                </p>
+                <p style={{ margin: "5px 0", color: "#666" }}>
+                  <strong>Service:</strong> {booking.service_type}
+                </p>
+                {booking.preferred_date && (
+                  <p style={{ margin: "5px 0", color: "#666" }}>
+                    <strong>Preferred Date:</strong>{" "}
+                    {new Date(booking.preferred_date).toLocaleDateString()}
+                  </p>
+                )}
+                {booking.message && (
+                  <p style={{ margin: "10px 0 0 0", padding: 10, backgroundColor: "#fff", borderRadius: 4, color: "#555" }}>
+                    <strong>Message:</strong> {booking.message}
+                  </p>
+                )}
+                <p style={{ margin: "10px 0 0 0", color: "#999", fontSize: "0.9em" }}>
+                  Received: {new Date(booking.created_at).toLocaleString()}
+                </p>
+              </div>
+
+              <div style={{ marginLeft: 20, textAlign: "right" }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "6px 12px",
+                    backgroundColor: getStatusColor(booking.status),
+                    color: "white",
+                    borderRadius: 20,
+                    fontSize: "0.85em",
+                    fontWeight: "bold",
+                    textTransform: "uppercase",
+                    marginBottom: 15,
+                  }}
+                >
+                  {booking.status}
+                </span>
+
+                {booking.status === "pending" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <button
+                      onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                      disabled={actionLoading[booking.id]}
+                      style={{
+                        padding: "8px 12px",
+                        backgroundColor: "#4caf50",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 4,
+                        cursor: actionLoading[booking.id] ? "not-allowed" : "pointer",
+                        opacity: actionLoading[booking.id] ? 0.6 : 1,
+                        fontSize: "0.9em",
+                      }}
+                    >
+                      {actionLoading[booking.id] ? "..." : "✓ Confirm"}
+                    </button>
+                  </div>
+                )}
+                {booking.status === "confirmed" && (
+                  <button
+                    onClick={() => updateBookingStatus(booking.id, "completed")}
+                    disabled={actionLoading[booking.id]}
+                    style={{
+                      padding: "8px 12px",
+                      backgroundColor: "#2196f3",
+                      color: "white",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: actionLoading[booking.id] ? "not-allowed" : "pointer",
+                      opacity: actionLoading[booking.id] ? 0.6 : 1,
+                      fontSize: "0.9em",
+                    }}
+                  >
+                    {actionLoading[booking.id] ? "..." : "✓ Completed"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+    </div>
+  );
+};
+
 /* DASHBOARD */
 const Dashboard = () => {
   const { logout } = useAuth();
@@ -467,6 +893,7 @@ const ProtectedApp = () => {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/submissions" element={<Submissions />} />
+        <Route path="/bookings" element={<AdminBookings />} />
       </Routes>
     </>
   );
@@ -479,6 +906,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/model-signup" element={<ModelSignup />} />
+        <Route path="/book" element={<PublicBooking />} />
         <Route path="/*" element={<ProtectedApp />} />
       </Routes>
     </BrowserRouter>
