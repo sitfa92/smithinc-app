@@ -9,6 +9,7 @@ import {
 import { supabase } from "./supabase";
 import { uploadImage } from "./imageUpload";
 import { sendModelSubmissionEmail, sendModelStatusUpdateEmail, sendBookingConfirmationEmail, sendBookingConfirmedEmail } from "./emailService";
+import { calculateMetrics, MetricCard } from "./analyticsUtils";
 
 /* AUTH */
 const useAuth = () => {
@@ -35,15 +36,160 @@ const useAuth = () => {
 };
 
 /* NAV */
-const Nav = () => (
-  <nav style={{ padding: 20 }}>
-    <Link to="/">Dashboard</Link> |{" "}
-    <Link to="/model-signup">Model Signup</Link> |{" "}
-    <Link to="/submissions">Submissions</Link> |{" "}
-    <Link to="/bookings">Bookings</Link> |{" "}
-    <Link to="/login">Login</Link>
-  </nav>
-);
+const Nav = () => {
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      if (window.innerWidth > 768) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const navStyle = {
+    padding: "15px 20px",
+    backgroundColor: "#fff",
+    borderBottom: "1px solid #e0e0e0",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    position: "relative",
+  };
+
+  const desktopNavStyle = {
+    display: isMobile ? "none" : "flex",
+    gap: "20px",
+    flexWrap: "wrap",
+  };
+
+  const linkStyle = {
+    textDecoration: "none",
+    color: "#333",
+    fontWeight: 500,
+    fontSize: 14,
+    padding: "8px 12px",
+    borderRadius: 4,
+    transition: "background-color 0.2s",
+    cursor: "pointer",
+    display: "block",
+  };
+
+  const mobileMenuStyle = {
+    display: mobileMenuOpen ? "flex" : "none",
+    flexDirection: "column",
+    position: "absolute",
+    top: "55px",
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderBottom: "1px solid #e0e0e0",
+    padding: "10px",
+    gap: "8px",
+    zIndex: 1000,
+    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+  };
+
+  const mobileMenuButtonStyle = {
+    backgroundColor: "transparent",
+    border: "none",
+    fontSize: 24,
+    cursor: "pointer",
+    padding: "5px 10px",
+    display: isMobile ? "block" : "none",
+    color: "#333",
+  };
+
+  return (
+    <nav style={navStyle}>
+      <div style={{ fontWeight: "bold", fontSize: 18, whiteSpace: "nowrap" }}>
+        SmithInc
+      </div>
+
+      {/* Desktop Navigation */}
+      <div style={desktopNavStyle}>
+        <Link to="/" style={linkStyle}>
+          Dashboard
+        </Link>
+        <Link to="/model-signup" style={linkStyle}>
+          Model Signup
+        </Link>
+        <Link to="/submissions" style={linkStyle}>
+          Submissions
+        </Link>
+        <Link to="/bookings" style={linkStyle}>
+          Bookings
+        </Link>
+        <Link to="/analytics" style={linkStyle}>
+          Analytics
+        </Link>
+        <Link to="/login" style={linkStyle}>
+          Login
+        </Link>
+      </div>
+
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        style={mobileMenuButtonStyle}
+        aria-label="Toggle menu"
+      >
+        ☰
+      </button>
+
+      {/* Mobile Navigation */}
+      <div style={mobileMenuStyle}>
+        <Link 
+          to="/" 
+          style={linkStyle} 
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          Dashboard
+        </Link>
+        <Link 
+          to="/model-signup" 
+          style={linkStyle} 
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          Model Signup
+        </Link>
+        <Link 
+          to="/submissions" 
+          style={linkStyle} 
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          Submissions
+        </Link>
+        <Link 
+          to="/bookings" 
+          style={linkStyle} 
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          Bookings
+        </Link>
+        <Link 
+          to="/analytics" 
+          style={linkStyle} 
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          Analytics
+        </Link>
+        <Link 
+          to="/login" 
+          style={linkStyle} 
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          Login
+        </Link>
+      </div>
+    </nav>
+  );
+};
 
 /* LOGIN */
 const Login = () => {
@@ -61,14 +207,55 @@ const Login = () => {
   };
 
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Admin Login</h1>
+    <div style={{ padding: "20px", maxWidth: "400px", margin: "50px auto" }}>
+      <h1 style={{ textAlign: "center", marginBottom: 30 }}>Admin Login</h1>
       <form onSubmit={handleSubmit}>
-        <input placeholder="Email" onChange={(e) => setEmail(e.target.value)} />
-        <br /><br />
-        <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} />
-        <br /><br />
-        <button>Login</button>
+        <div style={{ marginBottom: 20 }}>
+          <input 
+            placeholder="Email" 
+            onChange={(e) => setEmail(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "12px",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <input 
+            type="password" 
+            placeholder="Password" 
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "12px",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+
+        <button
+          style={{
+            width: "100%",
+            padding: "12px",
+            backgroundColor: "#333",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            fontSize: "16px",
+            fontWeight: "bold",
+            cursor: "pointer",
+          }}
+        >
+          Login
+        </button>
       </form>
     </div>
   );
@@ -161,11 +348,11 @@ const ModelSignup = () => {
   };
 
   return (
-    <div style={{ padding: 40, maxWidth: 600, margin: "0 auto" }}>
-      <h1>Model Signup</h1>
+    <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto", boxSizing: "border-box" }}>
+      <h1 style={{ fontSize: "clamp(24px, 5vw, 32px)" }}>Model Signup</h1>
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
             Full Name *
           </label>
           <input 
@@ -173,12 +360,19 @@ const ModelSignup = () => {
             placeholder="Your full name" 
             onChange={(e) => setForm({...form, name: e.target.value})}
             disabled={loading}
-            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              padding: "12px",
+              boxSizing: "border-box",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+            }}
           />
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
             Email *
           </label>
           <input 
@@ -187,12 +381,19 @@ const ModelSignup = () => {
             type="email"
             onChange={(e) => setForm({...form, email: e.target.value})}
             disabled={loading}
-            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              padding: "12px",
+              boxSizing: "border-box",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+            }}
           />
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
             Instagram
           </label>
           <input 
@@ -200,12 +401,19 @@ const ModelSignup = () => {
             placeholder="@yourprofile" 
             onChange={(e) => setForm({...form, instagram: e.target.value})}
             disabled={loading}
-            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              padding: "12px",
+              boxSizing: "border-box",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+            }}
           />
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
             Profile Image * (JPG, PNG, GIF, WebP - Max 5MB)
           </label>
           <input 
@@ -213,14 +421,25 @@ const ModelSignup = () => {
             accept="image/*"
             onChange={handleImageChange}
             disabled={loading}
-            style={{ width: "100%", padding: 10 }}
+            style={{
+              width: "100%",
+              padding: "12px",
+              boxSizing: "border-box",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+            }}
           />
           {imagePreview && (
             <div style={{ marginTop: 15, textAlign: "center" }}>
               <img 
                 src={imagePreview} 
                 alt="Preview" 
-                style={{ maxWidth: "100%", maxHeight: 300, borderRadius: 8 }}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "300px",
+                  borderRadius: 8,
+                }}
               />
             </div>
           )}
@@ -230,12 +449,13 @@ const ModelSignup = () => {
           disabled={loading}
           style={{
             width: "100%",
-            padding: 12,
+            padding: "12px",
             backgroundColor: loading ? "#ccc" : "#333",
             color: "white",
             border: "none",
             borderRadius: 4,
             fontSize: 16,
+            fontWeight: "bold",
             cursor: loading ? "not-allowed" : "pointer",
           }}
         >
@@ -244,12 +464,24 @@ const ModelSignup = () => {
       </form>
 
       {error && (
-        <div style={{ color: "#d32f2f", marginTop: 20, padding: 10, backgroundColor: "#ffebee", borderRadius: 4 }}>
+        <div style={{
+          color: "#d32f2f",
+          marginTop: 20,
+          padding: 15,
+          backgroundColor: "#ffebee",
+          borderRadius: 4,
+        }}>
           {error}
         </div>
       )}
       {success && (
-        <div style={{ color: "#388e3c", marginTop: 20, padding: 10, backgroundColor: "#e8f5e9", borderRadius: 4 }}>
+        <div style={{
+          color: "#388e3c",
+          marginTop: 20,
+          padding: 15,
+          backgroundColor: "#e8f5e9",
+          borderRadius: 4,
+        }}>
           ✓ Application submitted successfully! We'll review it soon.
         </div>
       )}
@@ -327,8 +559,8 @@ const Submissions = () => {
   };
 
   return (
-    <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
-      <h1>Model Applications</h1>
+    <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto", boxSizing: "border-box" }}>
+      <h1 style={{ fontSize: "clamp(24px, 5vw, 32px)" }}>Model Applications</h1>
       
       {loading && <p>Loading applications...</p>}
       {error && <div style={{ color: "#d32f2f", marginBottom: 20, padding: 10, backgroundColor: "#ffebee", borderRadius: 4 }}>Error: {error}</div>}
@@ -337,123 +569,141 @@ const Submissions = () => {
         <p style={{ color: "#999", fontSize: 16 }}>No submissions yet.</p>
       )}
 
-      {!loading && submissions.map((model) => (
-        <div
-          key={model.id}
-          style={{
-            display: "flex",
-            gap: 20,
-            padding: 20,
-            marginBottom: 20,
-            border: "1px solid #e0e0e0",
-            borderRadius: 8,
-            backgroundColor: "#fafafa",
-          }}
-        >
-          {/* Image */}
-          <div style={{ flex: "0 0 150px" }}>
-            {model.image_url ? (
-              <img
-                src={model.image_url}
-                alt={model.name}
-                style={{
-                  width: "100%",
-                  height: 200,
-                  objectFit: "cover",
-                  borderRadius: 8,
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: "100%",
-                  height: 200,
-                  backgroundColor: "#e0e0e0",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 8,
-                  color: "#999",
-                }}
-              >
-                No Image
-              </div>
-            )}
-          </div>
-
-          {/* Info */}
-          <div style={{ flex: 1 }}>
-            <div style={{ marginBottom: 10 }}>
-              <h3 style={{ margin: "0 0 5px 0" }}>{model.name}</h3>
-              <p style={{ margin: "5px 0", color: "#666" }}>
-                <strong>Email:</strong> {model.email}
-              </p>
-              {model.instagram && (
-                <p style={{ margin: "5px 0", color: "#666" }}>
-                  <strong>Instagram:</strong> @{model.instagram}
-                </p>
+      {!loading && submissions.map((model) => {
+        const isMobile = window.innerWidth <= 768;
+        return (
+          <div
+            key={model.id}
+            style={{
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              gap: isMobile ? "15px" : "20px",
+              padding: "20px",
+              marginBottom: "20px",
+              border: "1px solid #e0e0e0",
+              borderRadius: 8,
+              backgroundColor: "#fafafa",
+              boxSizing: "border-box",
+            }}
+          >
+            {/* Image */}
+            <div style={{ 
+              flex: isMobile ? "1 1 100%" : "0 0 150px",
+              minWidth: 0,
+            }}>
+              {model.image_url ? (
+                <img
+                  src={model.image_url}
+                  alt={model.name}
+                  style={{
+                    width: "100%",
+                    height: isMobile ? "250px" : "200px",
+                    objectFit: "cover",
+                    borderRadius: 8,
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    width: "100%",
+                    height: isMobile ? "250px" : "200px",
+                    backgroundColor: "#e0e0e0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 8,
+                    color: "#999",
+                  }}
+                >
+                  No Image
+                </div>
               )}
-              <p style={{ margin: "5px 0", color: "#999", fontSize: "0.9em" }}>
-                Submitted: {new Date(model.submitted_at).toLocaleString()}
-              </p>
             </div>
 
-            {/* Status Badge */}
-            <div style={{ marginBottom: 15 }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  padding: "6px 12px",
-                  backgroundColor: getStatusColor(model.status),
-                  color: "white",
-                  borderRadius: 20,
-                  fontSize: "0.85em",
-                  fontWeight: "bold",
-                  textTransform: "uppercase",
-                }}
-              >
-                {model.status}
-              </span>
-            </div>
-
-            {/* Actions */}
-            {model.status === "pending" && (
-              <div style={{ display: "flex", gap: 10 }}>
-                <button
-                  onClick={() => updateModelStatus(model.id, "approved")}
-                  disabled={actionLoading[model.id]}
-                  style={{
-                    padding: "8px 16px",
-                    backgroundColor: "#4caf50",
-                    color: "white",
-                    border: "none",
-                    borderRadius: 4,
-                    cursor: actionLoading[model.id] ? "not-allowed" : "pointer",
-                    opacity: actionLoading[model.id] ? 0.6 : 1,
-                  }}
-                >
-                  {actionLoading[model.id] ? "..." : "✓ Approve"}
-                </button>
-                <button
-                  onClick={() => updateModelStatus(model.id, "rejected")}
-                  disabled={actionLoading[model.id]}
-                  style={{
-                    padding: "8px 16px",
-                    backgroundColor: "#f44336",
-                    color: "white",
-                    border: "none",
-                    borderRadius: 4,
-                    cursor: actionLoading[model.id] ? "not-allowed" : "pointer",
-                    opacity: actionLoading[model.id] ? 0.6 : 1,
-                  }}
-                >
-                  {actionLoading[model.id] ? "..." : "✕ Reject"}
-                </button>
+            {/* Info */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ marginBottom: 10 }}>
+                <h3 style={{ margin: "0 0 5px 0", fontSize: "clamp(18px, 4vw, 20px)" }}>{model.name}</h3>
+                <p style={{ margin: "5px 0", color: "#666", wordBreak: "break-word" }}>
+                  <strong>Email:</strong> {model.email}
+                </p>
+                {model.instagram && (
+                  <p style={{ margin: "5px 0", color: "#666", wordBreak: "break-word" }}>
+                    <strong>Instagram:</strong> @{model.instagram}
+                  </p>
+                )}
+                <p style={{ margin: "5px 0", color: "#999", fontSize: "0.9em" }}>
+                  Submitted: {new Date(model.submitted_at).toLocaleString()}
+                </p>
               </div>
-            )}
+
+              {/* Status Badge */}
+              <div style={{ marginBottom: 15 }}>
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "6px 12px",
+                    backgroundColor: getStatusColor(model.status),
+                    color: "white",
+                    borderRadius: 20,
+                    fontSize: "0.85em",
+                    fontWeight: "bold",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {model.status}
+                </span>
+              </div>
+
+              {/* Actions */}
+              {model.status === "pending" && (
+                <div style={{ 
+                  display: "flex", 
+                  gap: 10,
+                  flexDirection: isMobile ? "column" : "row",
+                }}>
+                  <button
+                    onClick={() => updateModelStatus(model.id, "approved")}
+                    disabled={actionLoading[model.id]}
+                    style={{
+                      flex: isMobile ? "1 1 100%" : "auto",
+                      padding: isMobile ? "10px 16px" : "8px 16px",
+                      backgroundColor: "#4caf50",
+                      color: "white",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: actionLoading[model.id] ? "not-allowed" : "pointer",
+                      opacity: actionLoading[model.id] ? 0.6 : 1,
+                      fontSize: "14px",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {actionLoading[model.id] ? "..." : "✓ Approve"}
+                  </button>
+                  <button
+                    onClick={() => updateModelStatus(model.id, "rejected")}
+                    disabled={actionLoading[model.id]}
+                    style={{
+                      flex: isMobile ? "1 1 100%" : "auto",
+                      padding: isMobile ? "10px 16px" : "8px 16px",
+                      backgroundColor: "#f44336",
+                      color: "white",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: actionLoading[model.id] ? "not-allowed" : "pointer",
+                      opacity: actionLoading[model.id] ? 0.6 : 1,
+                      fontSize: "14px",
+                      fontWeight: 5,
+                    }}
+                  >
+                    {actionLoading[model.id] ? "..." : "✕ Reject"}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
@@ -529,15 +779,15 @@ const PublicBooking = () => {
   };
 
   return (
-    <div style={{ padding: 40, maxWidth: 600, margin: "0 auto" }}>
-      <h1>Book Our Services</h1>
+    <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto", boxSizing: "border-box" }}>
+      <h1 style={{ fontSize: "clamp(24px, 5vw, 32px)" }}>Book Our Services</h1>
       <p style={{ color: "#666", marginBottom: 30 }}>
         Interested in booking talent or services? Let's connect.
       </p>
 
       <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
             Full Name *
           </label>
           <input
@@ -545,12 +795,19 @@ const PublicBooking = () => {
             placeholder="Your full name"
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             disabled={loading}
-            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              padding: "12px",
+              boxSizing: "border-box",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+            }}
           />
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
             Email *
           </label>
           <input
@@ -559,12 +816,19 @@ const PublicBooking = () => {
             type="email"
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             disabled={loading}
-            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              padding: "12px",
+              boxSizing: "border-box",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+            }}
           />
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
             Company / Brand *
           </label>
           <input
@@ -572,19 +836,33 @@ const PublicBooking = () => {
             placeholder="Your company name"
             onChange={(e) => setForm({ ...form, company: e.target.value })}
             disabled={loading}
-            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              padding: "12px",
+              boxSizing: "border-box",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+            }}
           />
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
             Service Type *
           </label>
           <select
             value={form.service_type}
             onChange={(e) => setForm({ ...form, service_type: e.target.value })}
             disabled={loading}
-            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              padding: "12px",
+              boxSizing: "border-box",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+            }}
           >
             <option value="Model Booking">Model Booking</option>
             <option value="Creative Direction">Creative Direction</option>
@@ -593,8 +871,8 @@ const PublicBooking = () => {
           </select>
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
             Preferred Date
           </label>
           <input
@@ -602,12 +880,19 @@ const PublicBooking = () => {
             type="date"
             onChange={(e) => setForm({ ...form, preferred_date: e.target.value })}
             disabled={loading}
-            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+            style={{
+              width: "100%",
+              padding: "12px",
+              boxSizing: "border-box",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+            }}
           />
         </div>
 
-        <div style={{ marginBottom: 15 }}>
-          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
             Message / Notes
           </label>
           <textarea
@@ -617,10 +902,13 @@ const PublicBooking = () => {
             disabled={loading}
             style={{
               width: "100%",
-              padding: 10,
+              padding: "12px",
               boxSizing: "border-box",
               minHeight: 120,
               fontFamily: "inherit",
+              fontSize: "16px",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
             }}
           />
         </div>
@@ -629,12 +917,13 @@ const PublicBooking = () => {
           disabled={loading}
           style={{
             width: "100%",
-            padding: 12,
+            padding: "12px",
             backgroundColor: loading ? "#ccc" : "#333",
             color: "white",
             border: "none",
             borderRadius: 4,
             fontSize: 16,
+            fontWeight: "bold",
             cursor: loading ? "not-allowed" : "pointer",
           }}
         >
@@ -647,7 +936,7 @@ const PublicBooking = () => {
           style={{
             color: "#d32f2f",
             marginTop: 20,
-            padding: 10,
+            padding: 15,
             backgroundColor: "#ffebee",
             borderRadius: 4,
           }}
@@ -660,7 +949,7 @@ const PublicBooking = () => {
           style={{
             color: "#388e3c",
             marginTop: 20,
-            padding: 10,
+            padding: 15,
             backgroundColor: "#e8f5e9",
             borderRadius: 4,
           }}
@@ -744,8 +1033,8 @@ const AdminBookings = () => {
   };
 
   return (
-    <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
-      <h1>Booking Requests</h1>
+    <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto", boxSizing: "border-box" }}>
+      <h1 style={{ fontSize: "clamp(24px, 5vw, 32px)" }}>Booking Requests</h1>
 
       {loading && <p>Loading bookings...</p>}
       {error && (
@@ -767,104 +1056,246 @@ const AdminBookings = () => {
       )}
 
       {!loading &&
-        bookings.map((booking) => (
-          <div
-            key={booking.id}
-            style={{
-              padding: 20,
-              marginBottom: 20,
-              border: "1px solid #e0e0e0",
-              borderRadius: 8,
-              backgroundColor: "#fafafa",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
-              <div style={{ flex: 1 }}>
-                <h3 style={{ margin: "0 0 10px 0" }}>{booking.name}</h3>
-                <p style={{ margin: "5px 0", color: "#666" }}>
-                  <strong>Company:</strong> {booking.company}
-                </p>
-                <p style={{ margin: "5px 0", color: "#666" }}>
-                  <strong>Email:</strong> {booking.email}
-                </p>
-                <p style={{ margin: "5px 0", color: "#666" }}>
-                  <strong>Service:</strong> {booking.service_type}
-                </p>
-                {booking.preferred_date && (
-                  <p style={{ margin: "5px 0", color: "#666" }}>
-                    <strong>Preferred Date:</strong>{" "}
-                    {new Date(booking.preferred_date).toLocaleDateString()}
+        bookings.map((booking) => {
+          const isMobile = window.innerWidth <= 768;
+          return (
+            <div
+              key={booking.id}
+              style={{
+                padding: 20,
+                marginBottom: 20,
+                border: "1px solid #e0e0e0",
+                borderRadius: 8,
+                backgroundColor: "#fafafa",
+                boxSizing: "border-box",
+              }}
+            >
+              <div style={{ 
+                display: "flex", 
+                flexDirection: isMobile ? "column" : "row",
+                justifyContent: "space-between", 
+                alignItems: isMobile ? "flex-start" : "flex-start",
+                gap: isMobile ? "15px" : "20px",
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 style={{ margin: "0 0 10px 0", fontSize: "clamp(16px, 4vw, 18px)" }}>{booking.name}</h3>
+                  <p style={{ margin: "5px 0", color: "#666", wordBreak: "break-word" }}>
+                    <strong>Company:</strong> {booking.company}
                   </p>
-                )}
-                {booking.message && (
-                  <p style={{ margin: "10px 0 0 0", padding: 10, backgroundColor: "#fff", borderRadius: 4, color: "#555" }}>
-                    <strong>Message:</strong> {booking.message}
+                  <p style={{ margin: "5px 0", color: "#666", wordBreak: "break-word" }}>
+                    <strong>Email:</strong> {booking.email}
                   </p>
-                )}
-                <p style={{ margin: "10px 0 0 0", color: "#999", fontSize: "0.9em" }}>
-                  Received: {new Date(booking.created_at).toLocaleString()}
-                </p>
-              </div>
+                  <p style={{ margin: "5px 0", color: "#666", wordBreak: "break-word" }}>
+                    <strong>Service:</strong> {booking.service_type}
+                  </p>
+                  {booking.preferred_date && (
+                    <p style={{ margin: "5px 0", color: "#666" }}>
+                      <strong>Preferred Date:</strong>{" "}
+                      {new Date(booking.preferred_date).toLocaleDateString()}
+                    </p>
+                  )}
+                  {booking.message && (
+                    <p style={{ margin: "10px 0 0 0", padding: 10, backgroundColor: "#fff", borderRadius: 4, color: "#555", wordBreak: "break-word" }}>
+                      <strong>Message:</strong> {booking.message}
+                    </p>
+                  )}
+                  <p style={{ margin: "10px 0 0 0", color: "#999", fontSize: "0.9em" }}>
+                    Received: {new Date(booking.created_at).toLocaleString()}
+                  </p>
+                </div>
 
-              <div style={{ marginLeft: 20, textAlign: "right" }}>
-                <span
-                  style={{
-                    display: "inline-block",
-                    padding: "6px 12px",
-                    backgroundColor: getStatusColor(booking.status),
-                    color: "white",
-                    borderRadius: 20,
-                    fontSize: "0.85em",
-                    fontWeight: "bold",
-                    textTransform: "uppercase",
-                    marginBottom: 15,
-                  }}
-                >
-                  {booking.status}
-                </span>
+                <div style={{ 
+                  marginLeft: isMobile ? 0 : 20, 
+                  textAlign: isMobile ? "left" : "right",
+                  width: isMobile ? "100%" : "auto",
+                }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "6px 12px",
+                      backgroundColor: getStatusColor(booking.status),
+                      color: "white",
+                      borderRadius: 20,
+                      fontSize: "0.85em",
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                      marginBottom: isMobile ? 10 : 15,
+                    }}
+                  >
+                    {booking.status}
+                  </span>
 
-                {booking.status === "pending" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {booking.status === "pending" && (
+                    <div style={{ 
+                      display: "flex", 
+                      flexDirection: isMobile ? "row" : "column", 
+                      gap: isMobile ? 8 : 8,
+                    }}>
+                      <button
+                        onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                        disabled={actionLoading[booking.id]}
+                        style={{
+                          flex: isMobile ? "1 1 100%" : "auto",
+                          padding: isMobile ? "10px 16px" : "8px 12px",
+                          backgroundColor: "#4caf50",
+                          color: "white",
+                          border: "none",
+                          borderRadius: 4,
+                          cursor: actionLoading[booking.id] ? "not-allowed" : "pointer",
+                          opacity: actionLoading[booking.id] ? 0.6 : 1,
+                          fontSize: "0.9em",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {actionLoading[booking.id] ? "..." : "✓ Confirm"}
+                      </button>
+                    </div>
+                  )}
+                  {booking.status === "confirmed" && (
                     <button
-                      onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                      onClick={() => updateBookingStatus(booking.id, "completed")}
                       disabled={actionLoading[booking.id]}
                       style={{
-                        padding: "8px 12px",
-                        backgroundColor: "#4caf50",
+                        width: isMobile ? "100%" : "auto",
+                        padding: isMobile ? "10px 16px" : "8px 12px",
+                        backgroundColor: "#2196f3",
                         color: "white",
                         border: "none",
                         borderRadius: 4,
                         cursor: actionLoading[booking.id] ? "not-allowed" : "pointer",
                         opacity: actionLoading[booking.id] ? 0.6 : 1,
                         fontSize: "0.9em",
+                        fontWeight: 5,
                       }}
                     >
-                      {actionLoading[booking.id] ? "..." : "✓ Confirm"}
+                      {actionLoading[booking.id] ? "..." : "✓ Completed"}
                     </button>
-                  </div>
-                )}
-                {booking.status === "confirmed" && (
-                  <button
-                    onClick={() => updateBookingStatus(booking.id, "completed")}
-                    disabled={actionLoading[booking.id]}
-                    style={{
-                      padding: "8px 12px",
-                      backgroundColor: "#2196f3",
-                      color: "white",
-                      border: "none",
-                      borderRadius: 4,
-                      cursor: actionLoading[booking.id] ? "not-allowed" : "pointer",
-                      opacity: actionLoading[booking.id] ? 0.6 : 1,
-                      fontSize: "0.9em",
-                    }}
-                  >
-                    {actionLoading[booking.id] ? "..." : "✓ Completed"}
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
             </div>
+          );
+        })}
+    </div>
+  );
+};
+
+/* ANALYTICS */
+const Analytics = () => {
+  const [models, setModels] = React.useState([]);
+  const [bookings, setBookings] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setError("");
+      const [modelsResult, bookingsResult] = await Promise.all([
+        supabase.from("models").select("*"),
+        supabase.from("bookings").select("*"),
+      ]);
+
+      if (modelsResult.error) throw modelsResult.error;
+      if (bookingsResult.error) throw bookingsResult.error;
+
+      setModels(modelsResult.data || []);
+      setBookings(bookingsResult.data || []);
+    } catch (err) {
+      setError(err.message || "Failed to load analytics");
+      console.error("Analytics error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const metrics = calculateMetrics(models, bookings);
+
+  const metricsGridStyle = {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "15px",
+    justifyContent: "center",
+  };
+
+  return (
+    <div
+      style={{
+        padding: "20px",
+        maxWidth: "1200px",
+        margin: "0 auto",
+        boxSizing: "border-box",
+      }}
+    >
+      <h1 style={{ margin: "0 0 30px 0", textAlign: "center", fontSize: "clamp(24px, 5vw, 32px)" }}>Analytics</h1>
+
+      {loading && <p style={{ textAlign: "center" }}>Loading analytics...</p>}
+      {error && (
+        <div
+          style={{
+            color: "#d32f2f",
+            marginBottom: 20,
+            padding: 15,
+            backgroundColor: "#ffebee",
+            borderRadius: 4,
+            textAlign: "center",
+          }}
+        >
+          Error: {error}
+        </div>
+      )}
+
+      {!loading && (
+        <>
+          {/* Model Metrics */}
+          <div style={{ marginBottom: 40 }}>
+            <h2 style={{ fontSize: "clamp(18px, 4vw, 20px)", marginBottom: 20, color: "#333" }}>
+              Model Pipeline
+            </h2>
+            <div style={metricsGridStyle}>
+              <MetricCard label="Total Submissions" value={metrics.totalModels} color="#333" />
+              <MetricCard label="Pending Review" value={metrics.pendingModels} color="#ff9800" />
+              <MetricCard label="Approved" value={metrics.approvedModels} color="#4caf50" />
+              <MetricCard label="Rejected" value={metrics.rejectedModels} color="#f44336" />
+            </div>
           </div>
-        ))}
+
+          {/* Booking Metrics */}
+          <div style={{ marginBottom: 40 }}>
+            <h2 style={{ fontSize: "clamp(18px, 4vw, 20px)", marginBottom: 20, color: "#333" }}>
+              Booking Activity
+            </h2>
+            <div style={metricsGridStyle}>
+              <MetricCard label="Total Bookings" value={metrics.totalBookings} color="#333" />
+              <MetricCard label="Pending" value={metrics.pendingBookings} color="#ff9800" />
+              <MetricCard label="Confirmed" value={metrics.confirmedBookings} color="#4caf50" />
+              <MetricCard label="Completed" value={metrics.completedBookings} color="#2196f3" />
+            </div>
+          </div>
+
+          {/* This Week */}
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: "clamp(18px, 4vw, 20px)", marginBottom: 20, color: "#333" }}>
+              This Week
+            </h2>
+            <div style={metricsGridStyle}>
+              <MetricCard
+                label="Model Submissions"
+                value={metrics.modelsThisWeek}
+                color="#667bc6"
+              />
+              <MetricCard
+                label="New Bookings"
+                value={metrics.bookingsThisWeek}
+                color="#667bc6"
+              />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
@@ -894,6 +1325,7 @@ const ProtectedApp = () => {
         <Route path="/" element={<Dashboard />} />
         <Route path="/submissions" element={<Submissions />} />
         <Route path="/bookings" element={<AdminBookings />} />
+        <Route path="/analytics" element={<Analytics />} />
       </Routes>
     </>
   );
