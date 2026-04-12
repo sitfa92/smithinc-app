@@ -1,11 +1,11 @@
-# Supabase Setup Guide for Serenity App
+# Supabase Setup Guide for SmithInc App
 
 ## Step 1: Create a Supabase Project
 
 1. Go to [supabase.com](https://supabase.com) and sign up/log in
 2. Click "New Project"
 3. Fill in the project details:
-   - **Name**: serenity-app
+   - **Name**: smithinc-app
    - **Database Password**: Create a strong password
    - **Region**: Choose closest to your users
 4. Wait for the project to be created (2-3 minutes)
