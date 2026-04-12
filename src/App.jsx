@@ -7,6 +7,7 @@ import {
   Link,
 } from "react-router-dom";
 import { supabase } from "./supabase";
+import { uploadImage } from "./imageUpload";
 
 /* AUTH */
 const useAuth = () => {
@@ -78,9 +79,24 @@ const ModelSignup = () => {
     email: "",
     instagram: "",
   });
+  const [image, setImage] = React.useState(null);
+  const [imagePreview, setImagePreview] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [success, setSuccess] = React.useState(false);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImage(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -93,6 +109,19 @@ const ModelSignup = () => {
         throw new Error("Name and email are required");
       }
 
+      if (!image) {
+        throw new Error("Please upload a profile image");
+      }
+
+      // Upload image first
+      let imageUrl = "";
+      try {
+        imageUrl = await uploadImage(image);
+      } catch (uploadErr) {
+        throw new Error(`Image upload failed: ${uploadErr.message}`);
+      }
+
+      // Insert model with image URL and pending status
       const { data, error: supabaseError } = await supabase
         .from("models")
         .insert([
@@ -100,6 +129,8 @@ const ModelSignup = () => {
             name: form.name.trim(),
             email: form.email.trim(),
             instagram: form.instagram.trim(),
+            image_url: imageUrl,
+            status: "pending",
             submitted_at: new Date().toISOString(),
           },
         ])
@@ -109,6 +140,8 @@ const ModelSignup = () => {
 
       setSuccess(true);
       setForm({ name: "", email: "", instagram: "" });
+      setImage(null);
+      setImagePreview("");
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       setError(err.message || "Failed to submit. Please try again.");
@@ -119,35 +152,98 @@ const ModelSignup = () => {
   };
 
   return (
-    <div style={{ padding: 40 }}>
+    <div style={{ padding: 40, maxWidth: 600, margin: "0 auto" }}>
       <h1>Model Signup</h1>
       <form onSubmit={handleSubmit}>
-        <input 
-          value={form.name} 
-          placeholder="Name" 
-          onChange={(e) => setForm({...form, name: e.target.value})}
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            Full Name *
+          </label>
+          <input 
+            value={form.name} 
+            placeholder="Your full name" 
+            onChange={(e) => setForm({...form, name: e.target.value})}
+            disabled={loading}
+            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            Email *
+          </label>
+          <input 
+            value={form.email} 
+            placeholder="your@email.com" 
+            type="email"
+            onChange={(e) => setForm({...form, email: e.target.value})}
+            disabled={loading}
+            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            Instagram
+          </label>
+          <input 
+            value={form.instagram} 
+            placeholder="@yourprofile" 
+            onChange={(e) => setForm({...form, instagram: e.target.value})}
+            disabled={loading}
+            style={{ width: "100%", padding: 10, boxSizing: "border-box" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 15 }}>
+          <label style={{ display: "block", marginBottom: 5, fontWeight: "bold" }}>
+            Profile Image * (JPG, PNG, GIF, WebP - Max 5MB)
+          </label>
+          <input 
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            disabled={loading}
+            style={{ width: "100%", padding: 10 }}
+          />
+          {imagePreview && (
+            <div style={{ marginTop: 15, textAlign: "center" }}>
+              <img 
+                src={imagePreview} 
+                alt="Preview" 
+                style={{ maxWidth: "100%", maxHeight: 300, borderRadius: 8 }}
+              />
+            </div>
+          )}
+        </div>
+
+        <button 
           disabled={loading}
-        />
-        <br /><br />
-        <input 
-          value={form.email} 
-          placeholder="Email" 
-          type="email"
-          onChange={(e) => setForm({...form, email: e.target.value})}
-          disabled={loading}
-        />
-        <br /><br />
-        <input 
-          value={form.instagram} 
-          placeholder="Instagram (@username)" 
-          onChange={(e) => setForm({...form, instagram: e.target.value})}
-          disabled={loading}
-        />
-        <br /><br />
-        <button disabled={loading}>{loading ? "Submitting..." : "Submit"}</button>
+          style={{
+            width: "100%",
+            padding: 12,
+            backgroundColor: loading ? "#ccc" : "#333",
+            color: "white",
+            border: "none",
+            borderRadius: 4,
+            fontSize: 16,
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
+        >
+          {loading ? "Uploading..." : "Submit Application"}
+        </button>
       </form>
-      {error && <div style={{ color: "red", marginTop: 10 }}>{error}</div>}
-      {success && <div style={{ color: "green", marginTop: 10 }}>✓ Submitted successfully!</div>}
+
+      {error && (
+        <div style={{ color: "#d32f2f", marginTop: 20, padding: 10, backgroundColor: "#ffebee", borderRadius: 4 }}>
+          {error}
+        </div>
+      )}
+      {success && (
+        <div style={{ color: "#388e3c", marginTop: 20, padding: 10, backgroundColor: "#e8f5e9", borderRadius: 4 }}>
+          ✓ Application submitted successfully! We'll review it soon.
+        </div>
+      )}
     </div>
   );
 };
@@ -157,41 +253,189 @@ const Submissions = () => {
   const [submissions, setSubmissions] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [actionLoading, setActionLoading] = React.useState({});
 
   React.useEffect(() => {
-    const fetchSubmissions = async () => {
-      try {
-        setError("");
-        const { data, error: supabaseError } = await supabase
-          .from("models")
-          .select("*")
-          .order("submitted_at", { ascending: false });
-
-        if (supabaseError) throw supabaseError;
-        setSubmissions(data || []);
-      } catch (err) {
-        setError(err.message || "Failed to load submissions");
-        console.error("Fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchSubmissions();
   }, []);
 
+  const fetchSubmissions = async () => {
+    try {
+      setError("");
+      const { data, error: supabaseError } = await supabase
+        .from("models")
+        .select("*")
+        .order("submitted_at", { ascending: false });
+
+      if (supabaseError) throw supabaseError;
+      setSubmissions(data || []);
+    } catch (err) {
+      setError(err.message || "Failed to load submissions");
+      console.error("Fetch error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateModelStatus = async (modelId, newStatus) => {
+    setActionLoading((prev) => ({ ...prev, [modelId]: true }));
+    try {
+      const { error: supabaseError } = await supabase
+        .from("models")
+        .update({ status: newStatus })
+        .eq("id", modelId);
+
+      if (supabaseError) throw supabaseError;
+
+      // Update local state
+      setSubmissions((prev) =>
+        prev.map((m) => (m.id === modelId ? { ...m, status: newStatus } : m))
+      );
+    } catch (err) {
+      console.error("Update error:", err);
+      alert(`Failed to update status: ${err.message}`);
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [modelId]: false }));
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "approved":
+        return "#4caf50"; // Green
+      case "rejected":
+        return "#f44336"; // Red
+      case "pending":
+      default:
+        return "#ff9800"; // Orange
+    }
+  };
+
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Submissions</h1>
-      {loading && <p>Loading...</p>}
-      {error && <div style={{ color: "red", marginBottom: 10 }}>Error: {error}</div>}
-      {!loading && submissions.length === 0 && <p>No submissions yet.</p>}
-      {!loading && submissions.map((m) => (
-        <div key={m.id} style={{ padding: 10, borderBottom: "1px solid #ccc", marginBottom: 10 }}>
-          <strong>{m.name}</strong> — {m.email}
-          {m.instagram && <> — @{m.instagram}</>}
-          <div style={{ fontSize: "0.85em", color: "#666", marginTop: 5 }}>
-            {new Date(m.submitted_at).toLocaleString()}
+    <div style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
+      <h1>Model Applications</h1>
+      
+      {loading && <p>Loading applications...</p>}
+      {error && <div style={{ color: "#d32f2f", marginBottom: 20, padding: 10, backgroundColor: "#ffebee", borderRadius: 4 }}>Error: {error}</div>}
+      
+      {!loading && submissions.length === 0 && (
+        <p style={{ color: "#999", fontSize: 16 }}>No submissions yet.</p>
+      )}
+
+      {!loading && submissions.map((model) => (
+        <div
+          key={model.id}
+          style={{
+            display: "flex",
+            gap: 20,
+            padding: 20,
+            marginBottom: 20,
+            border: "1px solid #e0e0e0",
+            borderRadius: 8,
+            backgroundColor: "#fafafa",
+          }}
+        >
+          {/* Image */}
+          <div style={{ flex: "0 0 150px" }}>
+            {model.image_url ? (
+              <img
+                src={model.image_url}
+                alt={model.name}
+                style={{
+                  width: "100%",
+                  height: 200,
+                  objectFit: "cover",
+                  borderRadius: 8,
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: "100%",
+                  height: 200,
+                  backgroundColor: "#e0e0e0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 8,
+                  color: "#999",
+                }}
+              >
+                No Image
+              </div>
+            )}
+          </div>
+
+          {/* Info */}
+          <div style={{ flex: 1 }}>
+            <div style={{ marginBottom: 10 }}>
+              <h3 style={{ margin: "0 0 5px 0" }}>{model.name}</h3>
+              <p style={{ margin: "5px 0", color: "#666" }}>
+                <strong>Email:</strong> {model.email}
+              </p>
+              {model.instagram && (
+                <p style={{ margin: "5px 0", color: "#666" }}>
+                  <strong>Instagram:</strong> @{model.instagram}
+                </p>
+              )}
+              <p style={{ margin: "5px 0", color: "#999", fontSize: "0.9em" }}>
+                Submitted: {new Date(model.submitted_at).toLocaleString()}
+              </p>
+            </div>
+
+            {/* Status Badge */}
+            <div style={{ marginBottom: 15 }}>
+              <span
+                style={{
+                  display: "inline-block",
+                  padding: "6px 12px",
+                  backgroundColor: getStatusColor(model.status),
+                  color: "white",
+                  borderRadius: 20,
+                  fontSize: "0.85em",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                }}
+              >
+                {model.status}
+              </span>
+            </div>
+
+            {/* Actions */}
+            {model.status === "pending" && (
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => updateModelStatus(model.id, "approved")}
+                  disabled={actionLoading[model.id]}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#4caf50",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 4,
+                    cursor: actionLoading[model.id] ? "not-allowed" : "pointer",
+                    opacity: actionLoading[model.id] ? 0.6 : 1,
+                  }}
+                >
+                  {actionLoading[model.id] ? "..." : "✓ Approve"}
+                </button>
+                <button
+                  onClick={() => updateModelStatus(model.id, "rejected")}
+                  disabled={actionLoading[model.id]}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: "#f44336",
+                    color: "white",
+                    border: "none",
+                    borderRadius: 4,
+                    cursor: actionLoading[model.id] ? "not-allowed" : "pointer",
+                    opacity: actionLoading[model.id] ? 0.6 : 1,
+                  }}
+                >
+                  {actionLoading[model.id] ? "..." : "✕ Reject"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ))}

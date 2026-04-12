@@ -41,20 +41,36 @@ CREATE TABLE models (
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   instagram TEXT,
+  image_url TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
   submitted_at TIMESTAMP DEFAULT NOW(),
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Create index on email for faster lookups
+-- Create indexes
 CREATE INDEX idx_models_email ON models(email);
-
--- Create index for sorting by submission date
+CREATE INDEX idx_models_status ON models(status);
 CREATE INDEX idx_models_submitted_at ON models(submitted_at DESC);
 ```
 
 4. Click **Run** (or Ctrl+Enter)
 
-## Step 5: Test the Setup
+## Step 5: Create Storage Bucket
+
+1. Go to **Storage** in left sidebar
+2. Click **Create a new bucket**
+3. Name it: `model-images`
+4. Select **Public** access
+5. Click **Save**
+
+## Step 6: Storage Bucket Policies
+
+1. Click on the `model-images` bucket
+2. Go to **Policies** tab
+3. Add a policy to allow public read access (should be auto-created for public buckets)
+4. Your app can now upload to `/models` folder inside this bucket
+
+## Step 7: Test the Setup
 
 1. Make sure `.env` file has your real keys
 2. **Don't restart** the dev server (it won't pick up .env changes) - close and reopen it with `npm run dev`
