@@ -18,7 +18,9 @@ const DEFAULT_ROLE_BY_EMAIL = {
 };
 
 /* AUTH */
-const useAuth = () => {
+const AuthContext = React.createContext(null);
+
+const useProvideAuth = () => {
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [roleByEmail, setRoleByEmail] = React.useState(DEFAULT_ROLE_BY_EMAIL);
@@ -48,7 +50,8 @@ const useAuth = () => {
         });
 
         if (mounted && Object.keys(mapped).length > 0) {
-          setRoleByEmail(mapped);
+          // Keep built-in admin/ops accounts available even when DB rows are partial.
+          setRoleByEmail({ ...DEFAULT_ROLE_BY_EMAIL, ...mapped });
         }
       } catch (err) {
         // Fall back to default hardcoded roles when users table is not ready.
@@ -122,6 +125,19 @@ const useAuth = () => {
   const isAdmin = role === "admin";
 
   return { user, login, logout, loading, role, isAdmin, roleByEmail };
+};
+
+const AuthProvider = ({ children }) => {
+  const auth = useProvideAuth();
+  return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
+};
+
+const useAuth = () => {
+  const context = React.useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+  return context;
 };
 
 /* NAV */
@@ -2116,12 +2132,14 @@ const ProtectedApp = () => {
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/model-signup" element={<ModelSignup />} />
-        <Route path="/book" element={<PublicBooking />} />
-        <Route path="/*" element={<ProtectedApp />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/model-signup" element={<ModelSignup />} />
+          <Route path="/book" element={<PublicBooking />} />
+          <Route path="/*" element={<ProtectedApp />} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
