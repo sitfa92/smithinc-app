@@ -11,22 +11,54 @@ import { uploadImage } from "./imageUpload";
 import { sendModelSubmissionEmail, sendModelStatusUpdateEmail, sendBookingConfirmationEmail, sendBookingConfirmedEmail } from "./emailService";
 import { calculateMetrics, MetricCard } from "./analyticsUtils";
 
+const DEFAULT_ROLE_BY_EMAIL = {
+  "sitfa92@gmail.com": "admin",
+  "marthajohn223355@gmail.com": "va",
+  "chizzyboi72@gmail.com": "agent",
+};
+
 /* AUTH */
 const useAuth = () => {
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
-  const ROLE_BY_EMAIL = {
-    "sitfa92@gmail.com": "admin",
-    "marthajohn223355@gmail.com": "va",
-    "chizzyboi72@gmail.com": "agent",
-  };
-  const ALLOWED_EMAILS = new Set(Object.keys(ROLE_BY_EMAIL));
+  const [roleByEmail, setRoleByEmail] = React.useState(DEFAULT_ROLE_BY_EMAIL);
+
+  const ALLOWED_EMAILS = new Set(Object.keys(roleByEmail));
 
   const isAllowedEmail = (email) =>
     ALLOWED_EMAILS.has((email || "").trim().toLowerCase());
 
   React.useEffect(() => {
     let mounted = true;
+
+    const loadRoles = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("email, role, is_active");
+
+        if (error) throw error;
+
+        const mapped = {};
+        (data || []).forEach((row) => {
+          const email = (row.email || "").trim().toLowerCase();
+          if (email && row.is_active !== false) {
+            mapped[email] = row.role || "user";
+          }
+        });
+
+        if (mounted && Object.keys(mapped).length > 0) {
+          setRoleByEmail(mapped);
+        }
+      } catch (err) {
+        // Fall back to default hardcoded roles when users table is not ready.
+        if (mounted) {
+          setRoleByEmail(DEFAULT_ROLE_BY_EMAIL);
+        }
+      }
+    };
+
+    loadRoles();
 
     const initSession = async () => {
       const { data, error } = await supabase.auth.getSession();
@@ -86,10 +118,10 @@ const useAuth = () => {
     }
   };
 
-  const role = user?.email ? ROLE_BY_EMAIL[user.email.toLowerCase()] || "user" : "user";
+  const role = user?.email ? roleByEmail[user.email.toLowerCase()] || "user" : "user";
   const isAdmin = role === "admin";
 
-  return { user, login, logout, loading, role, isAdmin };
+  return { user, login, logout, loading, role, isAdmin, roleByEmail };
 };
 
 /* NAV */
@@ -225,6 +257,11 @@ const Nav = () => {
             Integrations
           </Link>
         )}
+        {canAccess("team") && (
+          <Link to="/team" style={linkStyle}>
+            Team
+          </Link>
+        )}
         <button
           onClick={async () => {
             try {
@@ -313,6 +350,15 @@ const Nav = () => {
             onClick={() => setMobileMenuOpen(false)}
           >
             Integrations
+          </Link>
+        )}
+        {canAccess("team") && (
+          <Link 
+            to="/team" 
+            style={linkStyle} 
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Team
           </Link>
         )}
         <button
@@ -1831,6 +1877,141 @@ const Dashboard = () => {
   );
 };
 
+/* TEAM (ADMIN) */
+const Team = () => {
+  const [members, setMembers] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const [form, setForm] = React.useState({ email: "", role: "user", is_active: true });
+
+  const fetchMembers = async () => {
+    try {
+      setError("");
+      const { data, error } = await supabase
+        .from("users")
+        .select("id, email, role, is_active, created_at")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setMembers(data || []);
+    } catch (err) {
+      setError("Users table missing. Run SQL to create users table for role management.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchMembers();
+  }, []);
+
+  const addMember = async (e) => {
+    e.preventDefault();
+    try {
+      const { error } = await supabase.from("users").insert([
+        {
+          email: form.email.trim().toLowerCase(),
+          role: form.role,
+          is_active: form.is_active,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      if (error) throw error;
+      setForm({ email: "", role: "user", is_active: true });
+      fetchMembers();
+    } catch (err) {
+      setError(err.message || "Failed to add team member");
+    }
+  };
+
+  const updateRole = async (memberId, role) => {
+    try {
+      const { error } = await supabase.from("users").update({ role }).eq("id", memberId);
+      if (error) throw error;
+      fetchMembers();
+    } catch (err) {
+      setError(err.message || "Failed to update role");
+    }
+  };
+
+  const toggleActive = async (memberId, isActive) => {
+    try {
+      const { error } = await supabase.from("users").update({ is_active: !isActive }).eq("id", memberId);
+      if (error) throw error;
+      fetchMembers();
+    } catch (err) {
+      setError(err.message || "Failed to update status");
+    }
+  };
+
+  return (
+    <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto" }}>
+      <h1>Team Management</h1>
+      <p style={{ color: "#666" }}>Manage allowed users and assign role access.</p>
+
+      <form onSubmit={addMember} style={{ display: "grid", gap: 10, marginTop: 14, marginBottom: 20 }}>
+        <input
+          value={form.email}
+          placeholder="team@meetserenity.com"
+          type="email"
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          required
+          style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}
+        />
+        <select
+          value={form.role}
+          onChange={(e) => setForm({ ...form, role: e.target.value })}
+          style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}
+        >
+          <option value="admin">Admin</option>
+          <option value="va">Virtual Assistant</option>
+          <option value="agent">Agent</option>
+          <option value="user">User</option>
+        </select>
+        <label style={{ color: "#666" }}>
+          <input
+            type="checkbox"
+            checked={form.is_active}
+            onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+            style={{ marginRight: 8 }}
+          />
+          Active account
+        </label>
+        <button style={{ width: 160, padding: 10, background: "#333", color: "#fff", border: "none", borderRadius: 4 }}>
+          Add Team Member
+        </button>
+      </form>
+
+      {loading && <p>Loading team...</p>}
+      {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
+
+      {!loading && members.map((member) => (
+        <div key={member.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+          <p style={{ margin: 0, fontWeight: 600 }}>{member.email}</p>
+          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+            <select
+              value={member.role || "user"}
+              onChange={(e) => updateRole(member.id, e.target.value)}
+              style={{ padding: 8, border: "1px solid #ccc", borderRadius: 4 }}
+            >
+              <option value="admin">Admin</option>
+              <option value="va">Virtual Assistant</option>
+              <option value="agent">Agent</option>
+              <option value="user">User</option>
+            </select>
+            <button
+              onClick={() => toggleActive(member.id, !!member.is_active)}
+              style={{ padding: "8px 10px", border: "none", borderRadius: 4, background: member.is_active ? "#f44336" : "#4caf50", color: "white" }}
+            >
+              {member.is_active ? "Deactivate" : "Activate"}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 /* PROTECTED */
 const canAccessRoute = (role, routeKey) => {
   if (role === "admin") return true;
@@ -1852,7 +2033,7 @@ const RoleRoute = ({ routeKey, children }) => {
 };
 
 const ProtectedApp = () => {
-  const { user, loading, role } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) {
     return (
@@ -1914,6 +2095,14 @@ const ProtectedApp = () => {
           element={
             <RoleRoute routeKey="integrations">
               <Integrations />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/team"
+          element={
+            <RoleRoute routeKey="team">
+              <Team />
             </RoleRoute>
           }
         />
