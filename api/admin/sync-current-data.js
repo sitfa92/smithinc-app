@@ -14,12 +14,6 @@ const DEFAULT_ROLE_BY_EMAIL = {
   "chizzyboi72@gmail.com": "agent",
 };
 
-const DEFAULT_ADMIN_EMAILS = new Set(
-  Object.entries(DEFAULT_ROLE_BY_EMAIL)
-    .filter(([, role]) => role === "admin")
-    .map(([email]) => normalizeEmail(email))
-);
-
 const isTableMissingError = (err) =>
   err?.code === "42P01" ||
   err?.code === "42501" ||
@@ -30,6 +24,12 @@ const isTableMissingError = (err) =>
   (err?.message || "").toLowerCase().includes("rls");
 
 const normalizeEmail = (value) => (value || "").trim().toLowerCase();
+
+const DEFAULT_ADMIN_EMAILS = new Set(
+  Object.entries(DEFAULT_ROLE_BY_EMAIL)
+    .filter(([, role]) => role === "admin")
+    .map(([email]) => normalizeEmail(email))
+);
 
 async function isAuthorizedSyncRequest(req, admin) {
   if (SYNC_SECRET) {
