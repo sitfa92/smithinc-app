@@ -2531,6 +2531,7 @@ alter table public.bookings disable row level security;`;
 
 /* INTEGRATIONS */
 const Integrations = () => {
+  const { role } = useAuth();
   const [bookings, setBookings] = React.useState([]);
   const [zapierStatus, setZapierStatus] = React.useState({ loading: true, configured: false, events: [] });
   const [zapierTestState, setZapierTestState] = React.useState({ loading: false, message: "" });
@@ -2538,6 +2539,7 @@ const Integrations = () => {
   const [opsTasks, setOpsTasks] = React.useState([]);
   const [opsTasksSource, setOpsTasksSource] = React.useState("fallback");
   const [manyChatStatus, setManyChatStatus] = React.useState({ loading: true, configured: false, widgetConfigured: false });
+  const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false });
   const gmailMessages = [
     { id: 1, from: "client@brand.com", subject: "Campaign availability", time: "2h ago" },
     { id: 2, from: "team@meetserenity.com", subject: "Weekly operations sync", time: "5h ago" },
@@ -2641,11 +2643,53 @@ const Integrations = () => {
     }
   };
 
+  const runCurrentDataSync = async () => {
+    setCurrentDataSyncState({ loading: true, message: "Syncing current app data...", error: false });
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) throw sessionError;
+      if (!session?.access_token) {
+        throw new Error("Your session expired. Please log in again.");
+      }
+
+      const resp = await fetch("/api/admin/sync-current-data", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const json = await resp.json();
+      if (!resp.ok || !json.ok) {
+        throw new Error(json.error || "Sync failed");
+      }
+
+      setCurrentDataSyncState({
+        loading: false,
+        error: false,
+        message: `Sync complete. Models: ${json.models_count}, bookings: ${json.bookings_count}, clients: ${json.clients_count}, leads: ${json.leads_count}, enrollments: ${json.enrollments_count}, tasks synced: ${json.tasks_synced}.`,
+      });
+    } catch (err) {
+      setCurrentDataSyncState({
+        loading: false,
+        error: true,
+        message: err.message || "Sync failed",
+      });
+    }
+  };
+
   const upcoming = bookings.filter((b) => b.preferred_date).slice(0, 5);
   const zoomMeetings = bookings.filter((b) => b.zoom_link).slice(0, 5);
   const calendlyUrl = "https://calendly.com/meetserenity";
   const embedModelSignup = `${window.location.origin}/model-signup`;
   const embedBooking = `${window.location.origin}/book`;
+  const canRunCurrentDataSync = role === "admin";
 
   return (
     <div style={{ padding: 20, maxWidth: 1100, margin: "0 auto" }}>
@@ -2714,6 +2758,27 @@ const Integrations = () => {
           </>
         )}
       </div>
+
+      {canRunCurrentDataSync && (
+        <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 16 }}>
+          <h2>Current Data Sync</h2>
+          <p style={{ color: "#666", marginBottom: 10 }}>
+            Rebuild app state from the records already stored in Supabase. This does not pull historical records directly from external platforms.
+          </p>
+          <button
+            onClick={runCurrentDataSync}
+            disabled={currentDataSyncState.loading}
+            style={{ padding: "8px 12px", border: "none", backgroundColor: "#333", color: "white", borderRadius: 4, cursor: currentDataSyncState.loading ? "not-allowed" : "pointer", opacity: currentDataSyncState.loading ? 0.6 : 1 }}
+          >
+            {currentDataSyncState.loading ? "Syncing..." : "Run Current Data Sync"}
+          </button>
+          {currentDataSyncState.message && (
+            <p style={{ color: currentDataSyncState.error ? "#b71c1c" : "#666", marginTop: 10 }}>
+              {currentDataSyncState.message}
+            </p>
+          )}
+        </div>
+      )}
 
       <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14 }}>
         <h2>Operations Tasks</h2>

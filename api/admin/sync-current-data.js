@@ -14,6 +14,12 @@ const DEFAULT_ROLE_BY_EMAIL = {
   "chizzyboi72@gmail.com": "agent",
 };
 
+const DEFAULT_ADMIN_EMAILS = new Set(
+  Object.entries(DEFAULT_ROLE_BY_EMAIL)
+    .filter(([, role]) => role === "admin")
+    .map(([email]) => normalizeEmail(email))
+);
+
 const isTableMissingError = (err) =>
   err?.code === "42P01" ||
   err?.code === "42501" ||
@@ -24,6 +30,41 @@ const isTableMissingError = (err) =>
   (err?.message || "").toLowerCase().includes("rls");
 
 const normalizeEmail = (value) => (value || "").trim().toLowerCase();
+
+async function isAuthorizedSyncRequest(req, admin) {
+  if (SYNC_SECRET) {
+    const providedSecret =
+      (req.headers["x-sync-secret"] || req.headers["x-zapier-secret"] || "").trim();
+    if (providedSecret && providedSecret === SYNC_SECRET) {
+      return true;
+    }
+  }
+
+  const authHeader = req.headers.authorization || "";
+  if (!authHeader.startsWith("Bearer ")) {
+    return false;
+  }
+
+  const token = authHeader.slice("Bearer ".length).trim();
+  if (!token) {
+    return false;
+  }
+
+  try {
+    const {
+      data: { user },
+      error,
+    } = await admin.auth.getUser(token);
+
+    if (error || !user?.email) {
+      return false;
+    }
+
+    return DEFAULT_ADMIN_EMAILS.has(normalizeEmail(user.email));
+  } catch (_err) {
+    return false;
+  }
+}
 
 async function getAssigneeByRole(admin) {
   const fallback = { admin: "", va: "", agent: "" };
@@ -138,15 +179,11 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: "Missing Supabase server environment variables" });
   }
 
-  if (SYNC_SECRET) {
-    const providedSecret =
-      (req.headers["x-sync-secret"] || req.headers["x-zapier-secret"] || "").trim();
-    if (!providedSecret || providedSecret !== SYNC_SECRET) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-  }
-
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  if (!(await isAuthorizedSyncRequest(req, admin))) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
   try {
     const [modelsRes, bookingsRes, clientsRes, leadsRes, enrollmentsRes] = await Promise.all([
