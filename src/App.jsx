@@ -96,6 +96,33 @@ const sendBackendWebhook = async (type, data) => {
   }
 };
 
+const runAuthenticatedCurrentDataSync = async () => {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  if (sessionError) throw sessionError;
+  if (!session?.access_token) {
+    throw new Error("Your session expired. Please log in again.");
+  }
+
+  const resp = await fetch("/api/admin/sync-current-data", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  const json = await resp.json();
+  if (!resp.ok || !json.ok) {
+    throw new Error(json.error || "Sync failed");
+  }
+
+  return json;
+};
+
 // Allowlist is always derived from the defaults — keeps stale closures safe.
 const STATIC_ALLOWED_EMAILS = new Set(Object.keys(DEFAULT_ROLE_BY_EMAIL));
 const isStaticallyAllowed = (email) =>
@@ -313,9 +340,13 @@ const Nav = () => {
 
   return (
     <nav style={navStyle}>
-      <div style={{ fontWeight: "bold", fontSize: 18, whiteSpace: "nowrap" }}>
+      <Link
+        to={user ? "/" : "/login"}
+        style={{ fontWeight: "bold", fontSize: 18, whiteSpace: "nowrap", color: "#333", textDecoration: "none" }}
+        onClick={() => setMobileMenuOpen(false)}
+      >
         MEET SERENITY
-      </div>
+      </Link>
 
       {/* Desktop Navigation */}
       <div style={desktopNavStyle}>
@@ -2647,28 +2678,7 @@ const Integrations = () => {
     setCurrentDataSyncState({ loading: true, message: "Syncing current app data...", error: false });
 
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError) throw sessionError;
-      if (!session?.access_token) {
-        throw new Error("Your session expired. Please log in again.");
-      }
-
-      const resp = await fetch("/api/admin/sync-current-data", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      const json = await resp.json();
-      if (!resp.ok || !json.ok) {
-        throw new Error(json.error || "Sync failed");
-      }
+      const json = await runAuthenticatedCurrentDataSync();
 
       setCurrentDataSyncState({
         loading: false,
@@ -2876,6 +2886,7 @@ const Dashboard = () => {
   const [tasksTableReady, setTasksTableReady] = React.useState(true);
   const [eventsTableReady, setEventsTableReady] = React.useState(true);
   const [syncingTasks, setSyncingTasks] = React.useState(false);
+  const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false });
   const [savingEvent, setSavingEvent] = React.useState(false);
   const [eventForm, setEventForm] = React.useState({
     title: "",
@@ -3174,6 +3185,28 @@ alter table public.calendar_events disable row level security;`;
     }
   };
 
+  const runCurrentDataSync = async () => {
+    setCurrentDataSyncState({ loading: true, message: "Syncing current app data...", error: false });
+
+    try {
+      const json = await runAuthenticatedCurrentDataSync();
+      await fetchOverview();
+      await fetchOpsAndEvents();
+
+      setCurrentDataSyncState({
+        loading: false,
+        error: false,
+        message: `Sync complete. Models: ${json.models_count}, bookings: ${json.bookings_count}, clients: ${json.clients_count}, leads: ${json.leads_count}, enrollments: ${json.enrollments_count}, tasks synced: ${json.tasks_synced}.`,
+      });
+    } catch (err) {
+      setCurrentDataSyncState({
+        loading: false,
+        error: true,
+        message: err.message || "Sync failed",
+      });
+    }
+  };
+
   const userEmail = (user?.email || "").toLowerCase();
   const canManageAllTasks = role === "admin";
 
@@ -3262,6 +3295,22 @@ alter table public.calendar_events disable row level security;`;
 
       <div style={{ marginTop: 24, border: "1px solid #e0e0e0", borderRadius: 8, padding: 14 }}>
         <h2>Quick Actions</h2>
+        {role === "admin" && (
+          <div style={{ marginBottom: 12 }}>
+            <button
+              onClick={runCurrentDataSync}
+              disabled={currentDataSyncState.loading}
+              style={{ marginRight: 8, padding: "10px 14px" }}
+            >
+              {currentDataSyncState.loading ? "Syncing Current Data..." : "Run Current Data Sync"}
+            </button>
+            {currentDataSyncState.message && (
+              <p style={{ color: currentDataSyncState.error ? "#d32f2f" : "#666", margin: "8px 0 0" }}>
+                {currentDataSyncState.message}
+              </p>
+            )}
+          </div>
+        )}
         {(role === "admin" || role === "agent") && nextPendingModel && (
           <button
             onClick={async () => {
