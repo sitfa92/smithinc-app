@@ -1,5 +1,8 @@
 import { supabase } from "./supabase";
 
+const configuredBucket = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || "").trim();
+const STORAGE_BUCKETS = [configuredBucket, "model-images", "models", "images"].filter(Boolean);
+
 /**
  * Upload image to Supabase Storage and return public URL
  * @param {File} file - Image file to upload
@@ -29,19 +32,33 @@ export const uploadImage = async (file, folder = "models") => {
     const fileName = `${timestamp}-${random}.${extension}`;
     const filePath = `${folder}/${fileName}`;
 
-    // Upload file to Supabase Storage
-    const { data, error: uploadError } = await supabase.storage
-      .from("model-images")
-      .upload(filePath, file);
+    let lastError = null;
 
-    if (uploadError) throw uploadError;
+    for (const bucket of STORAGE_BUCKETS) {
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file);
 
-    // Get public URL
-    const { data: publicData } = supabase.storage
-      .from("model-images")
-      .getPublicUrl(filePath);
+      if (uploadError) {
+        lastError = uploadError;
+        const msg = (uploadError.message || "").toLowerCase();
+        if (msg.includes("bucket") && msg.includes("not found")) {
+          continue;
+        }
+        throw uploadError;
+      }
 
-    return publicData.publicUrl;
+      const { data: publicData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
+
+      return publicData.publicUrl;
+    }
+
+    throw new Error(
+      lastError?.message ||
+        "Image upload failed: no valid Supabase Storage bucket found. Configure VITE_SUPABASE_STORAGE_BUCKET or create a bucket named model-images."
+    );
   } catch (error) {
     console.error("Image upload error:", error);
     throw error;
@@ -54,18 +71,25 @@ export const uploadImage = async (file, folder = "models") => {
  */
 export const deleteImage = async (imageUrl) => {
   try {
-    // Extract file path from URL
-    const urlParts = imageUrl.split("/storage/v1/object/public/model-images/");
-    if (urlParts.length < 2) {
+    const publicSegment = "/storage/v1/object/public/";
+    const publicIndex = imageUrl.indexOf(publicSegment);
+
+    if (publicIndex < 0) {
       console.warn("Could not extract file path from URL");
       return;
     }
 
-    const filePath = decodeURIComponent(urlParts[1]);
+    const objectPath = imageUrl.slice(publicIndex + publicSegment.length);
+    const firstSlash = objectPath.indexOf("/");
+    if (firstSlash < 0) {
+      console.warn("Could not extract bucket and file path from URL");
+      return;
+    }
 
-    const { error } = await supabase.storage
-      .from("model-images")
-      .remove([filePath]);
+    const bucket = objectPath.slice(0, firstSlash);
+    const filePath = decodeURIComponent(objectPath.slice(firstSlash + 1));
+
+    const { error } = await supabase.storage.from(bucket).remove([filePath]);
 
     if (error) throw error;
   } catch (error) {
