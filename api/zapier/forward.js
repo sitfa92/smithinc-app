@@ -1,6 +1,19 @@
+const ALLOWED_ORIGINS = new Set([
+  "https://meet-serenity.online",
+  "https://smithinc-app.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+]);
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const origin = req.headers.origin || req.headers.referer || "";
+  const originBase = origin.split("/").slice(0, 3).join("/");
+  if (origin && !ALLOWED_ORIGINS.has(originBase)) {
+    return res.status(403).json({ ok: false, error: "Forbidden" });
   }
 
   const webhookUrl = process.env.ZAPIER_WEBHOOK_URL;

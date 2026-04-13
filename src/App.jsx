@@ -1139,9 +1139,10 @@ const Submissions = () => {
 
     setActionLoading((prev) => ({ ...prev, [modelId]: true }));
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch("/api/models/delete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
         body: JSON.stringify({ modelId }),
       });
 
@@ -1172,9 +1173,10 @@ const Submissions = () => {
 
     setBulkDeleteLoading(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch("/api/models/delete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
         body: JSON.stringify({ deleteRejectedOnly: true }),
       });
 
@@ -1252,8 +1254,7 @@ const Submissions = () => {
           if (sourceFilter === "direct") return m.source !== "manychat";
           return true;
         })
-        .map((model) => {
-        const isMobile = window.innerWidth <= 768;
+        .map(((isMobile) => (model) => {
         return (
           <div
             key={model.id}
@@ -1424,7 +1425,7 @@ const Submissions = () => {
             </div>
           </div>
         );
-      })}
+      }))(window.innerWidth <= 768)}
     </div>
   );
 };
@@ -1876,8 +1877,7 @@ const AdminBookings = () => {
       )}
 
       {!loading &&
-        bookings.map((booking) => {
-          const isMobile = window.innerWidth <= 768;
+        bookings.map(((isMobile) => (booking) => {
           return (
             <div
               key={booking.id}
@@ -2017,7 +2017,7 @@ const AdminBookings = () => {
               </div>
             </div>
           );
-        })}
+        }))(window.innerWidth <= 768)}
     </div>
   );
 };
@@ -2417,9 +2417,10 @@ alter table public.models disable row level security;`;
 
     setActionLoading((prev) => ({ ...prev, [modelId]: true }));
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch("/api/models/update-pipeline", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
         body: JSON.stringify({
           modelId,
           updates: { ...updates, last_updated: new Date().toISOString() },
@@ -2917,11 +2918,6 @@ const Integrations = () => {
   const [opsTasksSource, setOpsTasksSource] = React.useState("fallback");
   const [manyChatStatus, setManyChatStatus] = React.useState({ loading: true, configured: false, widgetConfigured: false });
   const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false, syncedAt: "" });
-  const gmailMessages = [
-    { id: 1, from: "client@brand.com", subject: "Campaign availability", time: "2h ago" },
-    { id: 2, from: "team@meetserenity.com", subject: "Weekly operations sync", time: "5h ago" },
-    { id: 3, from: "photo@studio.com", subject: "Shoot schedule confirmation", time: "1d ago" },
-  ];
 
   React.useEffect(() => {
     const fetchBookings = async () => {
@@ -2980,9 +2976,11 @@ const Integrations = () => {
     };
 
     const init = async () => {
-      const loadedBookings = await fetchBookings();
-      await fetchZapierStatus();
-      await fetchBackendHealth();
+      const [loadedBookings] = await Promise.all([
+        fetchBookings(),
+        fetchZapierStatus(),
+        fetchBackendHealth(),
+      ]);
       await fetchOpsTasks(loadedBookings);
 
       try {
@@ -3061,15 +3059,6 @@ const Integrations = () => {
         {upcoming.map((booking) => (
           <p key={booking.id} style={{ margin: "4px 0", color: "#666" }}>
             {booking.name} - {booking.preferred_date} ({booking.status})
-          </p>
-        ))}
-      </div>
-
-      <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 16 }}>
-        <h2>Gmail (API-ready mock)</h2>
-        {gmailMessages.map((msg) => (
-          <p key={msg.id} style={{ margin: "6px 0", color: "#666" }}>
-            <strong>{msg.from}</strong> - {msg.subject} <span style={{ color: "#999" }}>({msg.time})</span>
           </p>
         ))}
       </div>
@@ -3531,8 +3520,11 @@ alter table public.alerts disable row level security;`;
   React.useEffect(() => {
     if (!tasksTableReady) return;
     if (models.length === 0 && bookings.length === 0 && clients.length === 0) return;
+    // Only auto-sync when the ops_tasks table is freshly empty (first load / new account)
+    // Manual syncing is always available via the "Sync Incoming Data" button on the dashboard
+    if (opsTasks.length > 0) return;
     syncIncomingTasks();
-  }, [tasksTableReady, models.length, bookings.length, clients.length, assigneeByRole.admin, assigneeByRole.va, assigneeByRole.agent, syncIncomingTasks]);
+  }, [tasksTableReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateTaskStatus = async (taskId, status) => {
     try {
@@ -3761,8 +3753,8 @@ alter table public.alerts disable row level security;`;
         {(role === "admin" || role === "agent") && nextPendingModel && (
           <button
             onClick={async () => {
-              await supabase.from("models").update({ status: "approved" }).eq("id", nextPendingModel.id);
-              window.location.reload();
+              const { error } = await supabase.from("models").update({ status: "approved" }).eq("id", nextPendingModel.id);
+              if (!error) setModels((prev) => prev.map((m) => m.id === nextPendingModel.id ? { ...m, status: "approved" } : m));
             }}
             style={{ marginRight: 8, padding: "10px 14px" }}
           >
@@ -3772,8 +3764,8 @@ alter table public.alerts disable row level security;`;
         {(role === "admin" || role === "va") && nextPendingBooking && (
           <button
             onClick={async () => {
-              await supabase.from("bookings").update({ status: "confirmed" }).eq("id", nextPendingBooking.id);
-              window.location.reload();
+              const { error } = await supabase.from("bookings").update({ status: "confirmed" }).eq("id", nextPendingBooking.id);
+              if (!error) setBookings((prev) => prev.map((b) => b.id === nextPendingBooking.id ? { ...b, status: "confirmed" } : b));
             }}
             style={{ padding: "10px 14px" }}
           >

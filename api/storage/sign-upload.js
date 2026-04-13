@@ -6,12 +6,22 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const configuredBucket = (process.env.SUPABASE_STORAGE_BUCKET || "").trim();
 const candidateBuckets = [configuredBucket, "model-images", "models", "images"].filter(Boolean);
 
+const ALLOWED_ORIGINS = new Set([
+  "https://meet-serenity.online",
+  "https://smithinc-app.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+]);
+
 const allowedMimeTypes = new Set([
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
 ]);
+
+// Module-scope client reused across warm invocations
+const admin = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -20,6 +30,12 @@ export default async function handler(req, res) {
 
   if (!supabaseUrl || !serviceRoleKey) {
     return res.status(503).json({ error: "Missing Supabase server environment variables" });
+  }
+
+  const origin = req.headers.origin || req.headers.referer || "";
+  const originBase = origin.split("/").slice(0, 3).join("/");
+  if (origin && !ALLOWED_ORIGINS.has(originBase)) {
+    return res.status(403).json({ error: "Forbidden" });
   }
 
   const { fileName, contentType, folder = "models" } = req.body || {};
@@ -36,8 +52,6 @@ export default async function handler(req, res) {
   const timestamp = Date.now();
   const random = Math.random().toString(36).slice(2, 8);
   const filePath = `${folder}/${timestamp}-${random}.${extension}`;
-
-  const admin = createClient(supabaseUrl, serviceRoleKey);
 
   let lastError = null;
   for (const bucket of candidateBuckets) {

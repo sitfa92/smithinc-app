@@ -6,6 +6,13 @@ const DEFAULT_ROLE_BY_EMAIL = {
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 
+const ALLOWED_ORIGINS = new Set([
+  "https://meet-serenity.online",
+  "https://smithinc-app.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+]);
+
 const normalizeEmail = (value) => (value || "").trim().toLowerCase();
 
 const isValidEmail = (value) => /.+@.+\..+/.test(normalizeEmail(value));
@@ -20,6 +27,12 @@ const getRecipientsFromRoles = (roles) => {
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const origin = req.headers.origin || req.headers.referer || "";
+  const originBase = origin.split("/").slice(0, 3).join("/");
+  if (origin && !ALLOWED_ORIGINS.has(originBase)) {
+    return res.status(403).json({ error: "Forbidden" });
   }
 
   const resendKey = (process.env.RESEND_API_KEY || "").trim();
