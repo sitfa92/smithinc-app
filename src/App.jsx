@@ -1656,13 +1656,21 @@ create table if not exists public.clients (
   created_at timestamptz default now()
 );
 
+-- Disable RLS so the app can read/write (internal admin tool):
+alter table public.clients disable row level security;
+
 -- Also add zoom_link to bookings if missing:
-alter table public.bookings add column if not exists zoom_link text;`;
+alter table public.bookings add column if not exists zoom_link text;
+alter table public.bookings disable row level security;`;
 
   const isTableMissingError = (err) =>
     err?.code === "42P01" ||
+    err?.code === "42501" ||
     err?.message?.toLowerCase().includes("does not exist") ||
-    err?.message?.toLowerCase().includes("relation");
+    err?.message?.toLowerCase().includes("relation") ||
+    err?.message?.toLowerCase().includes("permission") ||
+    err?.message?.toLowerCase().includes("policy") ||
+    err?.message?.toLowerCase().includes("rls");
 
   const fetchClients = async () => {
     try {
@@ -1976,6 +1984,9 @@ create table if not exists public.users (
   created_at timestamptz default now()
 );
 
+-- Disable RLS so the app can read/write (internal admin tool):
+alter table public.users disable row level security;
+
 -- Seed your three team members:
 insert into public.users (email, role, is_active) values
   ('sitfa92@gmail.com', 'admin', true),
@@ -1985,8 +1996,12 @@ on conflict (email) do nothing;`;
 
   const isTableMissingError = (err) =>
     err?.code === "42P01" ||
+    err?.code === "42501" ||
     err?.message?.toLowerCase().includes("does not exist") ||
-    err?.message?.toLowerCase().includes("relation");
+    err?.message?.toLowerCase().includes("relation") ||
+    err?.message?.toLowerCase().includes("permission") ||
+    err?.message?.toLowerCase().includes("policy") ||
+    err?.message?.toLowerCase().includes("rls");
 
   // Fallback members derived from static defaults when table is missing.
   const DEFAULT_MEMBERS = Object.entries(DEFAULT_ROLE_BY_EMAIL).map(([email, role]) => ({
