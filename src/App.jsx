@@ -503,7 +503,7 @@ const Login = () => {
   // Already logged in — bounce to dashboard without a full reload.
   React.useEffect(() => {
     if (user) navigate("/", { replace: true });
-  }, [user]);
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1991,7 +1991,7 @@ alter table public.models disable row level security;`;
 
   React.useEffect(() => {
     fetchModels();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateModelPipeline = async (modelId, updates) => {
     if (!canEditPipeline || !pipelineSchemaReady) return;
@@ -2256,7 +2256,7 @@ alter table public.bookings disable row level security;`;
 
   React.useEffect(() => {
     fetchClients();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveClient = async (e) => {
     e.preventDefault();
@@ -2739,7 +2739,7 @@ on conflict (email) do nothing;`;
 
   React.useEffect(() => {
     fetchMembers();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addMember = async (e) => {
     e.preventDefault();
