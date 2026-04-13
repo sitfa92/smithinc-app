@@ -7,6 +7,7 @@ import {
   Link,
   useNavigate,
 } from "react-router-dom";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 import { supabase } from "./supabase";
 import { uploadImage } from "./imageUpload";
 import { sendModelSubmissionEmail, sendModelStatusUpdateEmail, sendBookingConfirmationEmail, sendBookingConfirmedEmail } from "./emailService";
@@ -2620,6 +2621,7 @@ function App() {
           <Route path="/*" element={<ProtectedApp />} />
         </Routes>
       </AuthProvider>
+      <VercelAnalytics />
     </BrowserRouter>
   );
 }
