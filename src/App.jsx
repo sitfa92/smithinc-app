@@ -147,6 +147,24 @@ const createInAppAlerts = async (alerts) => {
   }
 };
 
+const sendInternalTeamEmailAlert = async ({ subject, message, roles = [], submissionEmail = "", extraRecipients = [] }) => {
+  try {
+    await fetch("/api/alerts/team-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subject,
+        message,
+        roles,
+        submissionEmail,
+        extraRecipients,
+      }),
+    });
+  } catch (_err) {
+    // Email alerts are additive only and should never block core app flows.
+  }
+};
+
 const buildPrefilledLoginLink = (email) =>
   `${window.location.origin}/login?email=${encodeURIComponent((email || "").trim().toLowerCase())}`;
 
@@ -860,6 +878,13 @@ const ModelSignup = () => {
         },
       ]);
 
+      sendInternalTeamEmailAlert({
+        subject: `New model submission: ${form.name.trim()}`,
+        message: `${form.name.trim()} submitted a model application.\nEmail: ${form.email.trim()}\nInstagram: ${form.instagram.trim() || "N/A"}`,
+        roles: ["admin", "agent"],
+        submissionEmail: form.email.trim(),
+      });
+
       sendBackendWebhook("model_signup", {
         name: form.name.trim(),
         instagram: form.instagram.trim(),
@@ -1088,6 +1113,13 @@ const Submissions = () => {
           level: newStatus === "rejected" ? "warning" : "success",
         },
       ]);
+
+      sendInternalTeamEmailAlert({
+        subject: `Model ${newStatus}: ${model.name || "Submission"}`,
+        message: `${model.name || "A submission"} was marked ${newStatus}.\nEmail: ${model.email || "N/A"}`,
+        roles: ["admin", "agent"],
+        submissionEmail: model.email || "",
+      });
 
       // Update local state
       setSubmissions((prev) =>
@@ -1466,6 +1498,13 @@ const PublicBooking = () => {
         },
       ]);
 
+      sendInternalTeamEmailAlert({
+        subject: `New booking request: ${form.name.trim()}`,
+        message: `${form.name.trim()} from ${form.company.trim()} submitted a booking request.\nEmail: ${form.email.trim()}\nService: ${form.service_type}`,
+        roles: ["admin", "va"],
+        submissionEmail: form.email.trim(),
+      });
+
       sendZapierEvent("booking.created", {
         name: form.name.trim(),
         email: form.email.trim(),
@@ -1759,6 +1798,13 @@ const AdminBookings = () => {
             level: "success",
           },
         ]);
+
+        sendInternalTeamEmailAlert({
+          subject: `Booking confirmed: ${booking.name || "Booking"}`,
+          message: `${booking.name || "A booking"} was confirmed.\nEmail: ${booking.email || "N/A"}\nCompany: ${booking.company || "N/A"}`,
+          roles: ["admin", "va"],
+          submissionEmail: booking.email || "",
+        });
       }
 
       // Update local state
@@ -2729,6 +2775,13 @@ alter table public.bookings disable row level security;`;
           level: form.status === "lead" ? "info" : "success",
         },
       ]);
+
+      sendInternalTeamEmailAlert({
+        subject: `Client added: ${form.name.trim()}`,
+        message: `${form.name.trim()} was added to client management.\nEmail: ${form.email.trim() || "N/A"}\nStatus: ${form.status}`,
+        roles: ["admin"],
+        submissionEmail: form.email.trim(),
+      });
 
       sendBackendWebhook("new_client", {
         name: form.name.trim(),
