@@ -13,30 +13,60 @@ import { calculateMetrics, MetricCard } from "./analyticsUtils";
 
 /* AUTH */
 const useAuth = () => {
-  const [user, setUser] = React.useState(
-    JSON.parse(localStorage.getItem("user"))
-  );
+  const [user, setUser] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
 
-  const login = (email, password) => {
-    if (email === "admin@smithinc.com" && password === "password123") {
-      const userData = { email };
-      localStorage.setItem("user", JSON.stringify(userData));
-      setUser(userData);
-      return true;
+  React.useEffect(() => {
+    let mounted = true;
+
+    const initSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      if (!mounted) return;
+
+      if (error) {
+        console.error("Session fetch error:", error);
+      }
+
+      setUser(data?.session?.user ?? null);
+      setLoading(false);
+    };
+
+    initSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const login = async (email, password) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      throw error;
     }
-    return false;
+    return true;
   };
 
-  const logout = () => {
-    localStorage.removeItem("user");
-    setUser(null);
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      throw error;
+    }
   };
 
-  return { user, login, logout };
+  return { user, login, logout, loading };
 };
 
 /* NAV */
 const Nav = () => {
+  const { user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
 
@@ -80,6 +110,13 @@ const Nav = () => {
     display: "block",
   };
 
+  const userEmailStyle = {
+    color: "#666",
+    fontSize: 13,
+    marginRight: 8,
+    whiteSpace: "nowrap",
+  };
+
   const mobileMenuStyle = {
     display: mobileMenuOpen ? "flex" : "none",
     flexDirection: "column",
@@ -113,6 +150,7 @@ const Nav = () => {
 
       {/* Desktop Navigation */}
       <div style={desktopNavStyle}>
+        {user?.email && <span style={userEmailStyle}>{user.email}</span>}
         <Link to="/" style={linkStyle}>
           Dashboard
         </Link>
@@ -128,9 +166,19 @@ const Nav = () => {
         <Link to="/analytics" style={linkStyle}>
           Analytics
         </Link>
-        <Link to="/login" style={linkStyle}>
-          Login
-        </Link>
+        <button
+          onClick={async () => {
+            try {
+              await logout();
+              window.location.href = "/login";
+            } catch (err) {
+              alert(err.message || "Failed to logout");
+            }
+          }}
+          style={{ ...linkStyle, border: "none", background: "transparent" }}
+        >
+          Logout
+        </button>
       </div>
 
       {/* Mobile Menu Button */}
@@ -144,6 +192,7 @@ const Nav = () => {
 
       {/* Mobile Navigation */}
       <div style={mobileMenuStyle}>
+        {user?.email && <span style={userEmailStyle}>{user.email}</span>}
         <Link 
           to="/" 
           style={linkStyle} 
@@ -179,13 +228,20 @@ const Nav = () => {
         >
           Analytics
         </Link>
-        <Link 
-          to="/login" 
-          style={linkStyle} 
-          onClick={() => setMobileMenuOpen(false)}
+        <button
+          onClick={async () => {
+            try {
+              await logout();
+              setMobileMenuOpen(false);
+              window.location.href = "/login";
+            } catch (err) {
+              alert(err.message || "Failed to logout");
+            }
+          }}
+          style={{ ...linkStyle, border: "none", background: "transparent", textAlign: "left" }}
         >
-          Login
-        </Link>
+          Logout
+        </button>
       </div>
     </nav>
   );
@@ -196,13 +252,21 @@ const Login = () => {
   const { login } = useAuth();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (login(email, password)) {
+    setLoading(true);
+    setError("");
+
+    try {
+      await login(email.trim(), password);
       window.location.href = "/";
-    } else {
-      alert("Invalid login");
+    } catch (err) {
+      setError(err.message || "Invalid login");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -213,6 +277,8 @@ const Login = () => {
         <div style={{ marginBottom: 20 }}>
           <input 
             placeholder="Email" 
+            type="email"
+            value={email}
             onChange={(e) => setEmail(e.target.value)}
             style={{
               width: "100%",
@@ -229,6 +295,7 @@ const Login = () => {
           <input 
             type="password" 
             placeholder="Password" 
+            value={password}
             onChange={(e) => setPassword(e.target.value)}
             style={{
               width: "100%",
@@ -242,21 +309,37 @@ const Login = () => {
         </div>
 
         <button
+          disabled={loading}
           style={{
             width: "100%",
             padding: "12px",
-            backgroundColor: "#333",
+            backgroundColor: loading ? "#999" : "#333",
             color: "white",
             border: "none",
             borderRadius: "4px",
             fontSize: "16px",
             fontWeight: "bold",
-            cursor: "pointer",
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          Login
+          {loading ? "Signing in..." : "Login"}
         </button>
       </form>
+
+      {error && (
+        <div
+          style={{
+            marginTop: 16,
+            color: "#b00020",
+            backgroundColor: "#ffe8ec",
+            borderRadius: 4,
+            padding: 12,
+            fontSize: 14,
+          }}
+        >
+          {error}
+        </div>
+      )}
     </div>
   );
 };
@@ -1302,21 +1385,41 @@ const Analytics = () => {
 
 /* DASHBOARD */
 const Dashboard = () => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <div style={{ padding: 40 }}>
       <h1>Dashboard</h1>
-      <button onClick={logout}>Logout</button>
+      <p style={{ color: "#666", marginTop: 10 }}>Signed in as: {user?.email || "Unknown user"}</p>
+      <button
+        onClick={async () => {
+          try {
+            await logout();
+            window.location.href = "/login";
+          } catch (err) {
+            alert(err.message || "Failed to logout");
+          }
+        }}
+      >
+        Logout
+      </button>
     </div>
   );
 };
 
 /* PROTECTED */
 const ProtectedApp = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
-  if (!user) return <Navigate to="/login" />;
+  if (loading) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <p>Loading session...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
 
   return (
     <>
@@ -1326,6 +1429,7 @@ const ProtectedApp = () => {
         <Route path="/submissions" element={<Submissions />} />
         <Route path="/bookings" element={<AdminBookings />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );
