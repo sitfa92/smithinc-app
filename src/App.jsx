@@ -32,6 +32,17 @@ const sendZapierEvent = async (eventType, payload) => {
 
 const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_URL || "").trim();
 
+const buildFallbackTasksFromBookings = (bookings) =>
+  (bookings || [])
+    .filter((b) => ["pending", "confirmed"].includes(b.status))
+    .slice(0, 6)
+    .map((b) => ({
+      _id: `fallback-${b.id}`,
+      role: "MJ",
+      task: `${b.status === "pending" ? "Review" : "Complete"} booking for ${b.name}`,
+      status: b.status === "pending" ? "pending" : "in_progress",
+    }));
+
 const sendBackendWebhook = async (type, data) => {
   if (!BACKEND_BASE_URL) return;
 
@@ -1870,6 +1881,8 @@ const Integrations = () => {
   const [zapierStatus, setZapierStatus] = React.useState({ loading: true, configured: false, events: [] });
   const [zapierTestState, setZapierTestState] = React.useState({ loading: false, message: "" });
   const [backendStatus, setBackendStatus] = React.useState({ loading: !!BACKEND_BASE_URL, connected: false });
+  const [opsTasks, setOpsTasks] = React.useState([]);
+  const [opsTasksSource, setOpsTasksSource] = React.useState("fallback");
   const gmailMessages = [
     { id: 1, from: "client@brand.com", subject: "Campaign availability", time: "2h ago" },
     { id: 2, from: "team@meetserenity.com", subject: "Weekly operations sync", time: "5h ago" },
@@ -1879,7 +1892,28 @@ const Integrations = () => {
   React.useEffect(() => {
     const fetchBookings = async () => {
       const { data } = await supabase.from("bookings").select("*").order("created_at", { ascending: false });
-      setBookings(data || []);
+      const list = data || [];
+      setBookings(list);
+      return list;
+    };
+
+    const fetchOpsTasks = async (fallbackBookings) => {
+      if (!BACKEND_BASE_URL) {
+        setOpsTasks(buildFallbackTasksFromBookings(fallbackBookings));
+        setOpsTasksSource("supabase");
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${BACKEND_BASE_URL}/public/tasks`);
+        if (!resp.ok) throw new Error("backend tasks unavailable");
+        const json = await resp.json();
+        setOpsTasks(Array.isArray(json) ? json : []);
+        setOpsTasksSource("backend");
+      } catch (_err) {
+        setOpsTasks(buildFallbackTasksFromBookings(fallbackBookings));
+        setOpsTasksSource("supabase");
+      }
     };
 
     const fetchZapierStatus = async () => {
@@ -1911,9 +1945,14 @@ const Integrations = () => {
       }
     };
 
-    fetchBookings();
-    fetchZapierStatus();
-    fetchBackendHealth();
+    const init = async () => {
+      const loadedBookings = await fetchBookings();
+      await fetchZapierStatus();
+      await fetchBackendHealth();
+      await fetchOpsTasks(loadedBookings);
+    };
+
+    init();
   }, []);
 
   const sendZapierTest = async () => {
@@ -2014,6 +2053,19 @@ const Integrations = () => {
       </div>
 
       <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14 }}>
+        <h2>Operations Tasks</h2>
+        <p style={{ color: "#666", marginBottom: 8 }}>
+          Source: {opsTasksSource === "backend" ? "Backend API" : "Supabase fallback"}
+        </p>
+        {opsTasks.length === 0 && <p style={{ color: "#666" }}>No tasks available yet.</p>}
+        {opsTasks.map((task, idx) => (
+          <p key={task._id || task.id || idx} style={{ margin: "6px 0", color: "#666" }}>
+            [{task.role || "OPS"}] {task.task} ({task.status || "pending"})
+          </p>
+        ))}
+      </div>
+
+      <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginTop: 16 }}>
         <h2>Website Integration</h2>
         <p style={{ color: "#666" }}>Embed-ready public pages:</p>
         <p style={{ color: "#666" }}>Model Signup: {embedModelSignup}</p>

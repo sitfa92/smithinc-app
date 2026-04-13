@@ -163,6 +163,16 @@ app.post("/webhook/zapier", async (req, res) => {
   }
 });
 
+// Phase 2 migration helper: read-only task feed for frontend.
+app.get("/public/tasks", async (_req, res) => {
+  try {
+    const tasks = await Task.find().sort({ createdAt: -1 }).limit(25);
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ msg: err.message || "Failed to fetch public tasks" });
+  }
+});
+
 app.get("/models", auth, async (_req, res) => {
   try {
     const models = await Model.find().sort({ createdAt: -1 });
