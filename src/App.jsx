@@ -1267,6 +1267,16 @@ const AdminBookings = () => {
       // Send confirmation email if status is confirmed
       if (newStatus === "confirmed") {
         sendBookingConfirmedEmail(booking);
+        sendZapierEvent("booking.confirmed", {
+          id: booking.id,
+          name: booking.name,
+          email: booking.email,
+          company: booking.company,
+          service_type: booking.service_type,
+          preferred_date: booking.preferred_date,
+          status: newStatus,
+          zoom_link: booking.zoom_link || null,
+        });
       }
 
       // Update local state
