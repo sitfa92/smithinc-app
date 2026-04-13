@@ -5,6 +5,7 @@ import {
   Route,
   Navigate,
   Link,
+  useNavigate,
 } from "react-router-dom";
 import { supabase } from "./supabase";
 import { uploadImage } from "./imageUpload";
@@ -17,6 +18,11 @@ const DEFAULT_ROLE_BY_EMAIL = {
   "chizzyboi72@gmail.com": "agent",
 };
 
+// Allowlist is always derived from the defaults — keeps stale closures safe.
+const STATIC_ALLOWED_EMAILS = new Set(Object.keys(DEFAULT_ROLE_BY_EMAIL));
+const isStaticallyAllowed = (email) =>
+  STATIC_ALLOWED_EMAILS.has((email || "").trim().toLowerCase());
+
 /* AUTH */
 const AuthContext = React.createContext(null);
 
@@ -24,11 +30,6 @@ const useProvideAuth = () => {
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [roleByEmail, setRoleByEmail] = React.useState(DEFAULT_ROLE_BY_EMAIL);
-
-  const ALLOWED_EMAILS = new Set(Object.keys(roleByEmail));
-
-  const isAllowedEmail = (email) =>
-    ALLOWED_EMAILS.has((email || "").trim().toLowerCase());
 
   React.useEffect(() => {
     let mounted = true;
@@ -50,8 +51,8 @@ const useProvideAuth = () => {
         });
 
         if (mounted && Object.keys(mapped).length > 0) {
-          // Keep built-in admin/ops accounts available even when DB rows are partial.
-          setRoleByEmail({ ...DEFAULT_ROLE_BY_EMAIL, ...mapped });
+          // Defaults ALWAYS win — DB cannot override hardcoded admin/va/agent.
+          setRoleByEmail({ ...mapped, ...DEFAULT_ROLE_BY_EMAIL });
         }
       } catch (err) {
         // Fall back to default hardcoded roles when users table is not ready.
@@ -72,7 +73,7 @@ const useProvideAuth = () => {
       }
 
       const sessionUser = data?.session?.user ?? null;
-      if (sessionUser?.email && !isAllowedEmail(sessionUser.email)) {
+      if (sessionUser?.email && !isStaticallyAllowed(sessionUser.email)) {
         await supabase.auth.signOut();
         setUser(null);
       } else {
@@ -87,7 +88,7 @@ const useProvideAuth = () => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       const sessionUser = session?.user ?? null;
-      if (sessionUser?.email && !isAllowedEmail(sessionUser.email)) {
+      if (sessionUser?.email && !isStaticallyAllowed(sessionUser.email)) {
         supabase.auth.signOut();
         setUser(null);
       } else {
@@ -103,7 +104,7 @@ const useProvideAuth = () => {
   }, []);
 
   const login = async (email, password) => {
-    if (!isAllowedEmail(email)) {
+    if (!isStaticallyAllowed(email)) {
       throw new Error("This account is not authorized for this platform.");
     }
 
@@ -398,11 +399,17 @@ const Nav = () => {
 
 /* LOGIN */
 const Login = () => {
-  const { login } = useAuth();
+  const { login, user } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+
+  // Already logged in — bounce to dashboard without a full reload.
+  React.useEffect(() => {
+    if (user) navigate("/", { replace: true });
+  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -411,7 +418,7 @@ const Login = () => {
 
     try {
       await login(email.trim(), password);
-      window.location.href = "/";
+      // onAuthStateChange will update user → the effect above navigates.
     } catch (err) {
       setError(err.message || "Invalid login");
     } finally {
@@ -2041,7 +2048,15 @@ const canAccessRoute = (role, routeKey) => {
 };
 
 const RoleRoute = ({ routeKey, children }) => {
-  const { role } = useAuth();
+  const { role, loading } = useAuth();
+  // Don't redirect while auth is still resolving — wait for real role.
+  if (loading) {
+    return (
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
   if (!canAccessRoute(role, routeKey)) {
     return <Navigate to="/" replace />;
   }
