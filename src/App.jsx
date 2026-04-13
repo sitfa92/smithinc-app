@@ -261,10 +261,13 @@ const Nav = () => {
   const canAccess = (section) => {
     if (role === "admin") return true;
     if (role === "va") {
-      return ["dashboard", "bookings", "clients", "integrations"].includes(section);
+      return ["dashboard", "models", "bookings", "clients", "integrations"].includes(section);
     }
     if (role === "agent") {
       return ["dashboard", "models", "submissions", "analytics"].includes(section);
+    }
+    if (role === "user") {
+      return ["dashboard", "models"].includes(section);
     }
     return false;
   };
@@ -1658,28 +1661,87 @@ const Analytics = () => {
 
 /* MODELS */
 const Models = () => {
+  const { role } = useAuth();
   const [models, setModels] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [saveLoading, setSaveLoading] = React.useState(false);
+  const [saveError, setSaveError] = React.useState("");
+  const [form, setForm] = React.useState({
+    name: "",
+    email: "",
+    instagram: "",
+    height: "",
+    status: "pending",
+  });
+
+  const canAddModels = ["admin", "va", "agent", "user"].includes(role);
+
+  const fetchModels = async () => {
+    try {
+      setError("");
+      const { data, error } = await supabase
+        .from("models")
+        .select("*")
+        .order("submitted_at", { ascending: false });
+      if (error) throw error;
+      setModels(data || []);
+    } catch (err) {
+      setError(err.message || "Failed to load models");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   React.useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("models")
-          .select("*")
-          .order("submitted_at", { ascending: false });
-        if (error) throw error;
-        setModels(data || []);
-      } catch (err) {
-        setError(err.message || "Failed to load models");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchModels();
   }, []);
+
+  const saveModel = async (e) => {
+    e.preventDefault();
+    if (!canAddModels) return;
+
+    setSaveLoading(true);
+    setSaveError("");
+    try {
+      const payload = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        instagram: form.instagram.trim(),
+        height: form.height.trim(),
+        status: form.status,
+        submitted_at: new Date().toISOString(),
+      };
+
+      if (!payload.name || !payload.email) {
+        throw new Error("Name and email are required");
+      }
+
+      const { error } = await supabase.from("models").insert([payload]);
+      if (error) throw error;
+
+      sendZapierEvent("model.created", {
+        name: payload.name,
+        email: payload.email,
+        instagram: payload.instagram,
+        status: payload.status,
+      });
+
+      sendBackendWebhook("model_signup", {
+        name: payload.name,
+        instagram: payload.instagram,
+        height: payload.height,
+        status: payload.status,
+      });
+
+      setForm({ name: "", email: "", instagram: "", height: "", status: "pending" });
+      fetchModels();
+    } catch (err) {
+      setSaveError(err.message || "Failed to add model");
+    } finally {
+      setSaveLoading(false);
+    }
+  };
 
   const approved = models.filter((m) => m.status === "approved").length;
   const pending = models.filter((m) => m.status === "pending").length;
@@ -1687,6 +1749,62 @@ const Models = () => {
   return (
     <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
       <h1>Talent Tracking</h1>
+
+      {canAddModels && (
+        <form onSubmit={saveModel} style={{ display: "grid", gap: 10, marginBottom: 20 }}>
+          <input
+            value={form.name}
+            placeholder="Model name"
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            required
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}
+          />
+          <input
+            value={form.email}
+            placeholder="Model email"
+            type="email"
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}
+          />
+          <input
+            value={form.instagram}
+            placeholder="Instagram"
+            onChange={(e) => setForm({ ...form, instagram: e.target.value })}
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}
+          />
+          <input
+            value={form.height}
+            placeholder="Height (optional)"
+            onChange={(e) => setForm({ ...form, height: e.target.value })}
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}
+          />
+          <select
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}
+          >
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          {saveError && <p style={{ color: "#d32f2f", margin: 0 }}>{saveError}</p>}
+          <button
+            disabled={saveLoading}
+            style={{
+              padding: 10,
+              border: "none",
+              borderRadius: 4,
+              background: saveLoading ? "#999" : "#333",
+              color: "#fff",
+              cursor: saveLoading ? "not-allowed" : "pointer",
+            }}
+          >
+            {saveLoading ? "Saving..." : "Add Model Manually"}
+          </button>
+        </form>
+      )}
+
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
         <MetricCard label="Total Models" value={models.length} color="#333" />
         <MetricCard label="Approved Talent" value={approved} color="#4caf50" />
@@ -1698,6 +1816,7 @@ const Models = () => {
         <div key={model.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 10 }}>
           <strong>{model.name}</strong>
           <p style={{ margin: "6px 0", color: "#666" }}>{model.email}</p>
+          <p style={{ margin: "6px 0", color: "#666" }}>{model.instagram || "No Instagram"}</p>
           <p style={{ margin: 0, color: "#666" }}>Status: {model.status}</p>
         </div>
       ))}
@@ -2382,10 +2501,13 @@ on conflict (email) do nothing;`;
 const canAccessRoute = (role, routeKey) => {
   if (role === "admin") return true;
   if (role === "va") {
-    return ["dashboard", "bookings", "clients", "integrations"].includes(routeKey);
+    return ["dashboard", "models", "bookings", "clients", "integrations"].includes(routeKey);
   }
   if (role === "agent") {
     return ["dashboard", "models", "submissions", "analytics"].includes(routeKey);
+  }
+  if (role === "user") {
+    return ["dashboard", "models"].includes(routeKey);
   }
   return false;
 };
