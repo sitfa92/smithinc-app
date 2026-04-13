@@ -11,6 +11,7 @@ import { supabase } from "./supabase";
 import { uploadImage } from "./imageUpload";
 import { sendModelSubmissionEmail, sendModelStatusUpdateEmail, sendBookingConfirmationEmail, sendBookingConfirmedEmail } from "./emailService";
 import { calculateMetrics, MetricCard } from "./analyticsUtils";
+import WorkflowDashboard from "./components/WorkflowDashboard";
 
 const DEFAULT_ROLE_BY_EMAIL = {
   "sitfa92@gmail.com": "admin",
@@ -299,7 +300,7 @@ const Nav = () => {
   const canAccess = (section) => {
     if (role === "admin") return true;
     if (role === "va") {
-      return ["dashboard", "models", "model-pipeline", "bookings", "clients", "integrations"].includes(section);
+      return ["dashboard", "models", "model-pipeline", "bookings", "clients", "integrations", "workflows"].includes(section);
     }
     if (role === "agent") {
       return ["dashboard", "models", "model-pipeline", "submissions", "analytics"].includes(section);
@@ -357,6 +358,11 @@ const Nav = () => {
         {canAccess("integrations") && (
           <Link to="/integrations" style={linkStyle}>
             Integrations
+          </Link>
+        )}
+        {canAccess("workflows") && (
+          <Link to="/workflows" style={linkStyle}>
+            Workflows
           </Link>
         )}
         {canAccess("team") && (
@@ -455,18 +461,27 @@ const Nav = () => {
           </Link>
         )}
         {canAccess("integrations") && (
-          <Link 
-            to="/integrations" 
-            style={linkStyle} 
+          <Link
+            to="/integrations"
+            style={linkStyle}
             onClick={() => setMobileMenuOpen(false)}
           >
             Integrations
           </Link>
         )}
+        {canAccess("workflows") && (
+          <Link
+            to="/workflows"
+            style={linkStyle}
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Workflows
+          </Link>
+        )}
         {canAccess("team") && (
-          <Link 
-            to="/team" 
-            style={linkStyle} 
+          <Link
+            to="/team"
+            style={linkStyle}
             onClick={() => setMobileMenuOpen(false)}
           >
             Team
@@ -3082,6 +3097,14 @@ const ProtectedApp = () => {
           element={
             <RoleRoute routeKey="integrations">
               <Integrations />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/workflows"
+          element={
+            <RoleRoute routeKey="workflows">
+              <WorkflowDashboard />
             </RoleRoute>
           }
         />
