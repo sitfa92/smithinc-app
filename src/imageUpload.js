@@ -32,33 +32,39 @@ export const uploadImage = async (file, folder = "models") => {
     const fileName = `${timestamp}-${random}.${extension}`;
     const filePath = `${folder}/${fileName}`;
 
-    let lastError = null;
+    const signResp = await fetch("/api/storage/sign-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType: file.type,
+        folder,
+      }),
+    });
 
-    for (const bucket of STORAGE_BUCKETS) {
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
-
-      if (uploadError) {
-        lastError = uploadError;
-        const msg = (uploadError.message || "").toLowerCase();
-        if (msg.includes("bucket") && msg.includes("not found")) {
-          continue;
-        }
-        throw uploadError;
-      }
-
-      const { data: publicData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-
-      return publicData.publicUrl;
+    if (!signResp.ok) {
+      const errData = await signResp.json().catch(() => ({}));
+      throw new Error(errData.error || "Failed to prepare image upload");
     }
 
-    throw new Error(
-      lastError?.message ||
-        "Image upload failed: no valid Supabase Storage bucket found. Configure VITE_SUPABASE_STORAGE_BUCKET or create a bucket named model-images."
-    );
+    const signed = await signResp.json();
+    if (!signed?.bucket || !signed?.path || !signed?.token) {
+      throw new Error("Upload signature response was incomplete");
+    }
+
+    const { error: uploadError } = await supabase.storage
+      .from(signed.bucket)
+      .uploadToSignedUrl(signed.path, signed.token, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data: publicData } = supabase.storage
+      .from(signed.bucket)
+      .getPublicUrl(signed.path);
+
+    return publicData.publicUrl;
   } catch (error) {
     console.error("Image upload error:", error);
     throw error;
