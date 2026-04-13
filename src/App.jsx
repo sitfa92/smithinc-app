@@ -1985,7 +1985,7 @@ const ModelPipeline = () => {
   });
 
   const canEditPipeline = role === "admin" || role === "agent";
-  const visibleStages = ["submitted", "reviewing", "development", "ready_to_pitch", "in_talks", "signed"];
+  const visibleStages = PIPELINE_STAGES;
 
   const PIPELINE_SETUP_SQL = `alter table public.models
   add column if not exists pipeline_stage text default 'submitted',
@@ -2020,7 +2020,7 @@ alter table public.models disable row level security;`;
   const fetchModels = async () => {
     try {
       setError("");
-      const selectFields = "id, name, email, instagram, image_url, status, submitted_at, created_at, pipeline_stage, agency_name, scouting_notes, internal_notes, priority_level, last_updated";
+      const selectFields = "id, name, email, instagram, image_url, status, submitted_at, created_at, pipeline_stage, agency_name, scouting_notes, internal_notes, priority_level, last_updated, source";
       const { data, error: fetchError } = await supabase
         .from("models")
         .select(selectFields)
