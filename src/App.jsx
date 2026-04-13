@@ -123,6 +123,30 @@ const runAuthenticatedCurrentDataSync = async () => {
   return json;
 };
 
+const createInAppAlerts = async (alerts) => {
+  const payload = (alerts || [])
+    .filter((item) => item?.title)
+    .map((item) => ({
+      title: item.title,
+      message: item.message || "",
+      audience_role: item.audience_role || null,
+      audience_email: (item.audience_email || "").trim().toLowerCase() || null,
+      source_type: item.source_type || "system",
+      source_id: item.source_id ? String(item.source_id) : "",
+      level: item.level || "info",
+      status: "unread",
+      created_at: new Date().toISOString(),
+    }));
+
+  if (payload.length === 0) return;
+
+  try {
+    await supabase.from("alerts").insert(payload);
+  } catch (_err) {
+    // Alerts are additive only. Missing table or permission issues must never break core flows.
+  }
+};
+
 const buildPrefilledLoginLink = (email) =>
   `${window.location.origin}/login?email=${encodeURIComponent((email || "").trim().toLowerCase())}`;
 
@@ -738,6 +762,23 @@ const ModelSignup = () => {
         instagram: form.instagram.trim(),
       });
 
+      createInAppAlerts([
+        {
+          title: "New model submission",
+          message: `${form.name.trim()} submitted a new application.`,
+          audience_role: "admin",
+          source_type: "model",
+          source_id: form.email.trim().toLowerCase(),
+        },
+        {
+          title: "Model review needed",
+          message: `${form.name.trim()} is ready for review in submissions.`,
+          audience_role: "agent",
+          source_type: "model",
+          source_id: form.email.trim().toLowerCase(),
+        },
+      ]);
+
       sendBackendWebhook("model_signup", {
         name: form.name.trim(),
         instagram: form.instagram.trim(),
@@ -955,6 +996,17 @@ const Submissions = () => {
 
       // Send status update email (async, don't block UI)
       sendModelStatusUpdateEmail(model, newStatus);
+
+      createInAppAlerts([
+        {
+          title: `Model ${newStatus}`,
+          message: `${model.name || "A submission"} was marked ${newStatus}.`,
+          audience_role: "admin",
+          source_type: "model_status",
+          source_id: modelId,
+          level: newStatus === "rejected" ? "warning" : "success",
+        },
+      ]);
 
       // Update local state
       setSubmissions((prev) =>
@@ -1316,6 +1368,23 @@ const PublicBooking = () => {
         preferred_date: form.preferred_date,
       });
 
+      createInAppAlerts([
+        {
+          title: "New booking request",
+          message: `${form.name.trim()} from ${form.company.trim()} submitted a booking request.`,
+          audience_role: "admin",
+          source_type: "booking",
+          source_id: form.email.trim().toLowerCase(),
+        },
+        {
+          title: "Booking follow-up needed",
+          message: `${form.name.trim()} submitted a booking request that needs confirmation.`,
+          audience_role: "va",
+          source_type: "booking",
+          source_id: form.email.trim().toLowerCase(),
+        },
+      ]);
+
       sendZapierEvent("booking.created", {
         name: form.name.trim(),
         email: form.email.trim(),
@@ -1590,6 +1659,25 @@ const AdminBookings = () => {
           status: newStatus,
           zoom_link: booking.zoom_link || null,
         });
+
+        createInAppAlerts([
+          {
+            title: "Booking confirmed",
+            message: `${booking.name || "A booking"} was confirmed.`,
+            audience_role: "admin",
+            source_type: "booking_status",
+            source_id: bookingId,
+            level: "success",
+          },
+          {
+            title: "Confirmed booking",
+            message: `${booking.name || "A booking"} is confirmed and ready for next steps.`,
+            audience_role: "va",
+            source_type: "booking_status",
+            source_id: bookingId,
+            level: "success",
+          },
+        ]);
       }
 
       // Update local state
@@ -2550,6 +2638,17 @@ alter table public.bookings disable row level security;`;
         contract_signed: form.contract_signed,
       });
 
+      createInAppAlerts([
+        {
+          title: "Client record added",
+          message: `${form.name.trim()} was added to client management.`,
+          audience_role: "admin",
+          source_type: "client",
+          source_id: form.email.trim().toLowerCase() || form.name.trim(),
+          level: form.status === "lead" ? "info" : "success",
+        },
+      ]);
+
       sendBackendWebhook("new_client", {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
@@ -3002,14 +3101,17 @@ const Dashboard = () => {
   const [clients, setClients] = React.useState([]);
   const [members, setMembers] = React.useState([]);
   const [opsTasks, setOpsTasks] = React.useState([]);
+  const [alerts, setAlerts] = React.useState([]);
   const [calendarEvents, setCalendarEvents] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [tasksTableReady, setTasksTableReady] = React.useState(true);
+  const [alertsTableReady, setAlertsTableReady] = React.useState(true);
   const [eventsTableReady, setEventsTableReady] = React.useState(true);
   const [syncingTasks, setSyncingTasks] = React.useState(false);
   const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false, syncedAt: "" });
   const [savingEvent, setSavingEvent] = React.useState(false);
+  const [updatingAlertId, setUpdatingAlertId] = React.useState("");
   const [eventForm, setEventForm] = React.useState({
     title: "",
     event_at: "",
@@ -3043,12 +3145,31 @@ create table if not exists public.calendar_events (
   created_at timestamptz default now()
 );
 
+create table if not exists public.alerts (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  message text default '',
+  audience_role text,
+  audience_email text,
+  source_type text default 'system',
+  source_id text default '',
+  level text not null default 'info',
+  status text not null default 'unread',
+  created_at timestamptz default now(),
+  read_at timestamptz
+);
+
 create index if not exists idx_ops_tasks_assigned_email on public.ops_tasks(assigned_email);
 create index if not exists idx_ops_tasks_status on public.ops_tasks(status);
 create index if not exists idx_calendar_events_event_at on public.calendar_events(event_at);
+create index if not exists idx_alerts_audience_role on public.alerts(audience_role);
+create index if not exists idx_alerts_audience_email on public.alerts(audience_email);
+create index if not exists idx_alerts_status on public.alerts(status);
+create index if not exists idx_alerts_created_at on public.alerts(created_at desc);
 
 alter table public.ops_tasks disable row level security;
-alter table public.calendar_events disable row level security;`;
+alter table public.calendar_events disable row level security;
+alter table public.alerts disable row level security;`;
 
   const isTableMissingError = (err) =>
     err?.code === "42P01" ||
@@ -3199,6 +3320,23 @@ alter table public.calendar_events disable row level security;`;
         setCalendarEvents([]);
       }
     }
+
+    try {
+      const alertsResp = await supabase
+        .from("alerts")
+        .select("id, title, message, audience_role, audience_email, source_type, source_id, level, status, created_at, read_at")
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (alertsResp.error) throw alertsResp.error;
+      setAlertsTableReady(true);
+      setAlerts(alertsResp.data || []);
+    } catch (err) {
+      if (isTableMissingError(err)) {
+        setAlertsTableReady(false);
+        setAlerts([]);
+      }
+    }
   }, []);
 
   const fetchOverview = React.useCallback(async () => {
@@ -3333,6 +3471,12 @@ alter table public.calendar_events disable row level security;`;
 
   const userEmail = (user?.email || "").toLowerCase();
   const canManageAllTasks = role === "admin";
+  const alertsForViewer = alerts.filter((item) => {
+    if (canManageAllTasks) return true;
+    const audienceEmail = (item.audience_email || "").toLowerCase();
+    return audienceEmail === userEmail || item.audience_role === role;
+  });
+  const unreadAlerts = alertsForViewer.filter((item) => item.status !== "read").length;
 
   const taskListForViewer = opsTasks.filter((task) => {
     if (canManageAllTasks) return true;
@@ -3346,9 +3490,41 @@ alter table public.calendar_events disable row level security;`;
     done: "#4caf50",
   };
 
+  const alertLevelColor = {
+    info: "#455a64",
+    success: "#2e7d32",
+    warning: "#ef6c00",
+    error: "#c62828",
+  };
+
   const taskSummary = {
     pending: opsTasks.filter((t) => t.status === "pending").length,
     done: opsTasks.filter((t) => t.status === "done").length,
+  };
+
+  const markAlertRead = async (alertId) => {
+    if (!alertsTableReady) return;
+
+    setUpdatingAlertId(alertId);
+    try {
+      const { error: updateError } = await supabase
+        .from("alerts")
+        .update({ status: "read", read_at: new Date().toISOString() })
+        .eq("id", alertId);
+      if (updateError) throw updateError;
+
+      setAlerts((prev) =>
+        prev.map((item) =>
+          item.id === alertId
+            ? { ...item, status: "read", read_at: new Date().toISOString() }
+            : item
+        )
+      );
+    } catch (err) {
+      alert(err.message || "Failed to mark alert as read");
+    } finally {
+      setUpdatingAlertId("");
+    }
   };
 
   const userProgress = activeMembers.map((member) => {
@@ -3403,13 +3579,14 @@ alter table public.calendar_events disable row level security;`;
         <MetricCard label="Clients" value={clients.length} color="#2196f3" />
         <MetricCard label="Tasks Pending" value={taskSummary.pending} color="#ff9800" />
         <MetricCard label="Tasks Done" value={taskSummary.done} color="#4caf50" />
+        <MetricCard label="Unread Alerts" value={unreadAlerts} color="#ef6c00" />
       </div>
 
-      {(!tasksTableReady || !eventsTableReady) && (
+      {(!tasksTableReady || !eventsTableReady || !alertsTableReady) && (
         <div style={{ background: "#fff3e0", border: "1px solid #ff9800", borderRadius: 8, padding: 16, marginTop: 18 }}>
           <strong style={{ color: "#e65100" }}>Dashboard setup required</strong>
           <p style={{ margin: "8px 0", color: "#555" }}>
-            Task tracking and custom calendar events need one-time table setup. Run this SQL in the
+            Task tracking, alerts, and custom calendar events need one-time table setup. Run this SQL in the
             {" "}<a href="https://supabase.com/dashboard/project/jjmmakbnjzzxbuflucck/sql" target="_blank" rel="noreferrer">Supabase SQL Editor</a>.
           </p>
           <pre style={{ background: "#f5f5f5", padding: 12, borderRadius: 6, fontSize: 12, overflowX: "auto", whiteSpace: "pre-wrap" }}>{DASHBOARD_SETUP_SQL}</pre>
@@ -3472,6 +3649,41 @@ alter table public.calendar_events disable row level security;`;
       </div>
 
       <div style={{ marginTop: 20, display: "grid", gap: 14 }}>
+        <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <h3 style={{ margin: 0 }}>Alerts</h3>
+            <span style={{ color: "#666", fontSize: 13 }}>{unreadAlerts} unread</span>
+          </div>
+          <p style={{ color: "#666", marginTop: 8 }}>
+            Internal alerts for admins and team members. Submission emails continue through the existing email flows.
+          </p>
+          {!alertsTableReady && <p style={{ color: "#666" }}>Run the dashboard setup SQL above to enable alerts.</p>}
+          {alertsTableReady && alertsForViewer.length === 0 && <p style={{ color: "#666" }}>No alerts yet.</p>}
+          {alertsForViewer.slice(0, 10).map((item) => (
+            <div key={item.id} style={{ border: "1px solid #eee", borderRadius: 6, padding: 10, marginBottom: 8, background: item.status === "read" ? "#fafafa" : "#fff" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <p style={{ margin: 0, fontWeight: 600 }}>{item.title}</p>
+                <span style={{ padding: "3px 10px", borderRadius: 12, background: alertLevelColor[item.level] || "#455a64", color: "#fff", fontSize: 12 }}>
+                  {item.level || "info"}
+                </span>
+              </div>
+              <p style={{ margin: "6px 0", color: "#666" }}>{item.message || "No details provided."}</p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <p style={{ margin: 0, color: "#999", fontSize: 12 }}>{new Date(item.created_at).toLocaleString()}</p>
+                {item.status !== "read" && (
+                  <button
+                    onClick={() => markAlertRead(item.id)}
+                    disabled={updatingAlertId === item.id}
+                    style={{ padding: "6px 10px", border: "none", background: "#333", color: "#fff", borderRadius: 4, cursor: updatingAlertId === item.id ? "not-allowed" : "pointer", opacity: updatingAlertId === item.id ? 0.7 : 1 }}
+                  >
+                    {updatingAlertId === item.id ? "Updating..." : "Mark Read"}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <h3 style={{ margin: 0 }}>Role-Based Intake Tasks</h3>
