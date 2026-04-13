@@ -30,6 +30,22 @@ const sendZapierEvent = async (eventType, payload) => {
   }
 };
 
+const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_URL || "").trim();
+
+const sendBackendWebhook = async (type, data) => {
+  if (!BACKEND_BASE_URL) return;
+
+  try {
+    await fetch(`${BACKEND_BASE_URL}/webhook/zapier`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, data }),
+    });
+  } catch (_err) {
+    // Keep frontend flows unaffected if backend is down or not reachable.
+  }
+};
+
 // Allowlist is always derived from the defaults — keeps stale closures safe.
 const STATIC_ALLOWED_EMAILS = new Set(Object.keys(DEFAULT_ROLE_BY_EMAIL));
 const isStaticallyAllowed = (email) =>
@@ -585,6 +601,13 @@ const ModelSignup = () => {
         instagram: form.instagram.trim(),
       });
 
+      sendBackendWebhook("model_signup", {
+        name: form.name.trim(),
+        instagram: form.instagram.trim(),
+        height: "",
+        status: "pending",
+      });
+
       setSuccess(true);
       setForm({ name: "", email: "", instagram: "" });
       setImage(null);
@@ -1018,6 +1041,14 @@ const PublicBooking = () => {
         service_type: form.service_type,
         preferred_date: form.preferred_date,
         message: form.message.trim(),
+      });
+
+      sendBackendWebhook("booking", {
+        client: form.company.trim(),
+        name: form.name.trim(),
+        email: form.email.trim(),
+        service_type: form.service_type,
+        preferred_date: form.preferred_date,
       });
 
       setSuccess(true);
@@ -1749,6 +1780,12 @@ alter table public.bookings disable row level security;`;
         invoice_status: form.invoice_status,
       });
 
+      sendBackendWebhook("new_client", {
+        name: form.name.trim(),
+        email: "",
+        stage: form.status,
+      });
+
       setForm({ name: "", project: "", status: "lead", invoice_status: "pending" });
       fetchClients();
     } catch (err) {
@@ -1832,6 +1869,7 @@ const Integrations = () => {
   const [bookings, setBookings] = React.useState([]);
   const [zapierStatus, setZapierStatus] = React.useState({ loading: true, configured: false, events: [] });
   const [zapierTestState, setZapierTestState] = React.useState({ loading: false, message: "" });
+  const [backendStatus, setBackendStatus] = React.useState({ loading: !!BACKEND_BASE_URL, connected: false });
   const gmailMessages = [
     { id: 1, from: "client@brand.com", subject: "Campaign availability", time: "2h ago" },
     { id: 2, from: "team@meetserenity.com", subject: "Weekly operations sync", time: "5h ago" },
@@ -1854,8 +1892,28 @@ const Integrations = () => {
       }
     };
 
+    const fetchBackendHealth = async () => {
+      if (!BACKEND_BASE_URL) {
+        setBackendStatus({ loading: false, connected: false, message: "Not configured" });
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${BACKEND_BASE_URL}/health`);
+        const json = await resp.json();
+        setBackendStatus({
+          loading: false,
+          connected: !!json?.ok,
+          message: json?.ok ? "Connected" : "Unavailable",
+        });
+      } catch (_err) {
+        setBackendStatus({ loading: false, connected: false, message: "Unavailable" });
+      }
+    };
+
     fetchBookings();
     fetchZapierStatus();
+    fetchBackendHealth();
   }, []);
 
   const sendZapierTest = async () => {
@@ -1960,6 +2018,9 @@ const Integrations = () => {
         <p style={{ color: "#666" }}>Embed-ready public pages:</p>
         <p style={{ color: "#666" }}>Model Signup: {embedModelSignup}</p>
         <p style={{ color: "#666" }}>Booking Form: {embedBooking}</p>
+        <p style={{ color: "#666", marginTop: 8 }}>
+          Backend status: {backendStatus.loading ? "Checking..." : backendStatus.message || "Not configured"}
+        </p>
       </div>
     </div>
   );
