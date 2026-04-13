@@ -2,6 +2,10 @@ import { Client } from "pg";
 
 const CONNECTION_STRING =
   process.env.POSTGRES_URL_NON_POOLING || process.env.POSTGRES_URL || "";
+const POSTGRES_HOST = process.env.POSTGRES_HOST || "";
+const POSTGRES_DATABASE = process.env.POSTGRES_DATABASE || "postgres";
+const POSTGRES_USER = process.env.POSTGRES_USER || "postgres";
+const POSTGRES_PASSWORD = process.env.POSTGRES_PASSWORD || "";
 const SYNC_SECRET =
   (process.env.SYNC_CURRENT_DATA_SECRET ||
     process.env.ZAPIER_WEBHOOK_SECRET ||
@@ -54,18 +58,27 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  if (!CONNECTION_STRING) {
-    return res.status(503).json({ error: "Missing Postgres connection string" });
+  if (!CONNECTION_STRING && (!POSTGRES_HOST || !POSTGRES_PASSWORD)) {
+    return res.status(503).json({ error: "Missing Postgres server environment variables" });
   }
 
   if (!isAuthorized(req)) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const client = new Client({
-    connectionString: CONNECTION_STRING,
-    ssl: { rejectUnauthorized: false },
-  });
+  const client = POSTGRES_HOST && POSTGRES_PASSWORD
+    ? new Client({
+        host: POSTGRES_HOST,
+        database: POSTGRES_DATABASE,
+        user: POSTGRES_USER,
+        password: POSTGRES_PASSWORD,
+        port: 5432,
+        ssl: { rejectUnauthorized: false },
+      })
+    : new Client({
+        connectionString: CONNECTION_STRING,
+        ssl: { rejectUnauthorized: false },
+      });
 
   try {
     await client.connect();
