@@ -163,6 +163,51 @@ app.post("/webhook/zapier", async (req, res) => {
   }
 });
 
+app.post("/webhook/manychat", async (req, res) => {
+  try {
+    const secret = (process.env.MANYCHAT_WEBHOOK_SECRET || "").trim();
+    if (secret) {
+      const provided =
+        req.headers["x-manychat-secret"] || req.body?.secret || "";
+      if (provided !== secret) {
+        return res.status(401).json({ msg: "Unauthorized" });
+      }
+    }
+
+    const { name = "", email = "", instagram = "", interest = "model", message = "" } = req.body || {};
+    if (!email) {
+      return res.status(400).json({ msg: "email is required" });
+    }
+
+    const leadType = interest.trim().toLowerCase();
+    if (leadType === "client") {
+      await Client.create({
+        name: name.trim() || email,
+        email: email.trim().toLowerCase(),
+        stage: "lead",
+      });
+      await Task.create({
+        role: "MJ",
+        task: `Follow up with ManyChat client lead: ${name.trim() || email}`,
+      });
+    } else {
+      await Model.create({
+        name: name.trim() || email,
+        instagram: instagram.replace(/^@/, "").trim(),
+        status: "pending",
+      });
+      await Task.create({
+        role: "MJ",
+        task: `Review ManyChat model lead: ${name.trim() || email}`,
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ msg: err.message || "ManyChat webhook failed" });
+  }
+});
+
 // Phase 2 migration helper: read-only task feed for frontend.
 app.get("/public/tasks", async (_req, res) => {
   try {

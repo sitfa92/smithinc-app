@@ -849,6 +849,7 @@ const Submissions = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState({});
+  const [sourceFilter, setSourceFilter] = React.useState("all");
 
   React.useEffect(() => {
     fetchSubmissions();
@@ -923,7 +924,18 @@ const Submissions = () => {
 
   return (
     <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto", boxSizing: "border-box" }}>
-      <h1 style={{ fontSize: "clamp(24px, 5vw, 32px)" }}>Model Applications</h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+        <h1 style={{ fontSize: "clamp(24px, 5vw, 32px)", margin: 0 }}>Model Applications</h1>
+        <select
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value)}
+          style={{ padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14 }}
+        >
+          <option value="all">All Sources</option>
+          <option value="manychat">ManyChat only</option>
+          <option value="direct">Direct only</option>
+        </select>
+      </div>
       
       {loading && <p>Loading applications...</p>}
       {error && <div style={{ color: "#d32f2f", marginBottom: 20, padding: 10, backgroundColor: "#ffebee", borderRadius: 4 }}>Error: {error}</div>}
@@ -932,7 +944,13 @@ const Submissions = () => {
         <p style={{ color: "#999", fontSize: 16 }}>No submissions yet.</p>
       )}
 
-      {!loading && submissions.map((model) => {
+      {!loading && submissions
+        .filter((m) => {
+          if (sourceFilter === "manychat") return m.source === "manychat";
+          if (sourceFilter === "direct") return m.source !== "manychat";
+          return true;
+        })
+        .map((model) => {
         const isMobile = window.innerWidth <= 768;
         return (
           <div
@@ -1001,7 +1019,7 @@ const Submissions = () => {
               </div>
 
               {/* Status Badge */}
-              <div style={{ marginBottom: 15 }}>
+              <div style={{ marginBottom: 15, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <span
                   style={{
                     display: "inline-block",
@@ -1016,6 +1034,22 @@ const Submissions = () => {
                 >
                   {model.status}
                 </span>
+                {model.source === "manychat" && (
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "4px 10px",
+                      backgroundColor: "#7b2ff7",
+                      color: "white",
+                      borderRadius: 20,
+                      fontSize: "0.78em",
+                      fontWeight: "bold",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    ManyChat
+                  </span>
+                )}
               </div>
 
               {/* Actions */}
@@ -1903,7 +1937,14 @@ const Models = () => {
       {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
       {!loading && models.map((model) => (
         <div key={model.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 10 }}>
-          <strong>{model.name}</strong>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <strong>{model.name}</strong>
+            {model.source === "manychat" && (
+              <span style={{ padding: "2px 8px", backgroundColor: "#7b2ff7", color: "#fff", borderRadius: 10, fontSize: 11, fontWeight: "bold" }}>
+                ManyChat
+              </span>
+            )}
+          </div>
           <p style={{ margin: "6px 0", color: "#666" }}>{model.email}</p>
           <p style={{ margin: "6px 0", color: "#666" }}>{model.instagram || "No Instagram"}</p>
           <p style={{ margin: 0, color: "#666" }}>Status: {model.status}</p>
@@ -1937,7 +1978,11 @@ const ModelPipeline = () => {
   add column if not exists scouting_notes text,
   add column if not exists internal_notes text,
   add column if not exists priority_level text default 'medium',
-  add column if not exists last_updated timestamptz default now();
+  add column if not exists last_updated timestamptz default now(),
+  add column if not exists source text;
+
+alter table public.bookings
+  add column if not exists source text;
 
 update public.models
 set
@@ -2120,6 +2165,11 @@ alter table public.models disable row level security;`;
                       <div style={{ minWidth: 0 }}>
                         <p style={{ margin: 0, fontWeight: 700 }}>{model.name}</p>
                         <p style={{ margin: "4px 0 0", color: "#666", fontSize: 13 }}>Status: {model.status || "pending"}</p>
+                        {model.source === "manychat" && (
+                          <span style={{ display: "inline-block", marginTop: 4, padding: "2px 8px", backgroundColor: "#7b2ff7", color: "white", borderRadius: 10, fontSize: 11, fontWeight: "bold" }}>
+                            ManyChat
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -2370,6 +2420,7 @@ const Integrations = () => {
   const [backendStatus, setBackendStatus] = React.useState({ loading: !!BACKEND_BASE_URL, connected: false });
   const [opsTasks, setOpsTasks] = React.useState([]);
   const [opsTasksSource, setOpsTasksSource] = React.useState("fallback");
+  const [manyChatStatus, setManyChatStatus] = React.useState({ loading: true, configured: false, widgetConfigured: false });
   const gmailMessages = [
     { id: 1, from: "client@brand.com", subject: "Campaign availability", time: "2h ago" },
     { id: 2, from: "team@meetserenity.com", subject: "Weekly operations sync", time: "5h ago" },
@@ -2437,6 +2488,14 @@ const Integrations = () => {
       await fetchZapierStatus();
       await fetchBackendHealth();
       await fetchOpsTasks(loadedBookings);
+
+      try {
+        const resp = await fetch("/api/manychat/status");
+        const json = await resp.json();
+        setManyChatStatus({ loading: false, ...json });
+      } catch (_err) {
+        setManyChatStatus({ loading: false, configured: false, widgetConfigured: false });
+      }
     };
 
     init();
@@ -2560,6 +2619,62 @@ const Integrations = () => {
         <p style={{ color: "#666", marginTop: 8 }}>
           Backend status: {backendStatus.loading ? "Checking..." : backendStatus.message || "Not configured"}
         </p>
+      </div>
+
+      <div style={{ border: "1px solid #7b2ff7", borderRadius: 8, padding: 14, marginTop: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <h2 style={{ margin: 0 }}>ManyChat</h2>
+          <span style={{ padding: "3px 10px", backgroundColor: "#7b2ff7", color: "#fff", borderRadius: 20, fontSize: 12, fontWeight: "bold" }}>
+            Lead Capture
+          </span>
+        </div>
+        <p style={{ color: "#666", marginBottom: 8 }}>
+          Incoming leads from Instagram DM flows and the website chat widget are automatically inserted into the model pipeline or bookings table.
+        </p>
+        <div style={{ background: "#f8f4ff", borderRadius: 6, padding: 12, marginBottom: 10 }}>
+          <p style={{ margin: "0 0 6px 0", fontWeight: 600, color: "#333" }}>Webhook endpoint</p>
+          <code style={{ display: "block", wordBreak: "break-all", color: "#5b21b6", fontSize: 13 }}>
+            {window.location.origin}/api/manychat/webhook
+          </code>
+        </div>
+        <p style={{ margin: "0 0 4px 0", color: "#444", fontWeight: 600 }}>Required env vars</p>
+        <ul style={{ margin: "0 0 10px 0", paddingLeft: 18, color: "#666", fontSize: 13 }}>
+          <li><code>MANYCHAT_WEBHOOK_SECRET</code> — paste into ManyChat Request header <code>x-manychat-secret</code></li>
+          <li><code>VITE_MANYCHAT_PAGE_ID</code> — your ManyChat Page ID for the chat widget</li>
+          <li><code>SUPABASE_SERVICE_ROLE_KEY</code> — service-role key (already required by pipeline endpoint)</li>
+        </ul>
+        <p style={{ margin: "0 0 4px 0", color: "#444", fontWeight: 600 }}>Expected POST body from ManyChat</p>
+        <pre style={{ background: "#f5f5f5", padding: 10, borderRadius: 6, fontSize: 12, overflowX: "auto", margin: 0 }}>{`{
+  "secret": "<MANYCHAT_WEBHOOK_SECRET>",
+  "name": "{{first_name}} {{last_name}}",
+  "email": "{{email}}",
+  "instagram": "{{instagram}}",
+  "interest": "model"   // or "client"
+}`}</pre>
+        <p style={{ margin: "12px 0 0", color: "#666", fontSize: 13 }}>
+          Leads captured via ManyChat appear with a purple <strong>ManyChat</strong> badge in Submissions and Model Pipeline.
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
+          <div style={{ background: "#f8f4ff", borderRadius: 6, padding: 10 }}>
+            <p style={{ margin: "0 0 4px 0", fontWeight: 600, fontSize: 13, color: "#333" }}>Webhook secret</p>
+            {manyChatStatus.loading
+              ? <p style={{ margin: 0, color: "#999", fontSize: 13 }}>Checking...</p>
+              : <p style={{ margin: 0, fontSize: 13, color: manyChatStatus.configured ? "#2e7d32" : "#b71c1c", fontWeight: 600 }}>
+                  {manyChatStatus.configured ? "✓ Configured" : "✗ Not set — add MANYCHAT_WEBHOOK_SECRET"}
+                </p>
+            }
+          </div>
+          <div style={{ background: "#f8f4ff", borderRadius: 6, padding: 10 }}>
+            <p style={{ margin: "0 0 4px 0", fontWeight: 600, fontSize: 13, color: "#333" }}>Chat widget</p>
+            {manyChatStatus.loading
+              ? <p style={{ margin: 0, color: "#999", fontSize: 13 }}>Checking...</p>
+              : <p style={{ margin: 0, fontSize: 13, color: manyChatStatus.widgetConfigured ? "#2e7d32" : "#b71c1c", fontWeight: 600 }}>
+                  {manyChatStatus.widgetConfigured ? "✓ Configured" : "✗ Not set — add VITE_MANYCHAT_PAGE_ID"}
+                </p>
+            }
+          </div>
+        </div>
       </div>
     </div>
   );
