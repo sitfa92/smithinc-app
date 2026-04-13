@@ -62,7 +62,10 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const client = new Client({ connectionString: CONNECTION_STRING });
+  const client = new Client({
+    connectionString: CONNECTION_STRING,
+    ssl: { rejectUnauthorized: false },
+  });
 
   try {
     await client.connect();
