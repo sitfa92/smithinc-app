@@ -15,6 +15,7 @@ import { calculateMetrics, MetricCard } from "./analyticsUtils";
 const useAuth = () => {
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
+  const ADMIN_EMAIL = "sitfa92@gmail.com";
 
   React.useEffect(() => {
     let mounted = true;
@@ -61,12 +62,15 @@ const useAuth = () => {
     }
   };
 
-  return { user, login, logout, loading };
+  const role = user?.email?.toLowerCase() === ADMIN_EMAIL ? "admin" : "user";
+  const isAdmin = role === "admin";
+
+  return { user, login, logout, loading, role, isAdmin };
 };
 
 /* NAV */
 const Nav = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, role } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
 
@@ -150,7 +154,7 @@ const Nav = () => {
 
       {/* Desktop Navigation */}
       <div style={desktopNavStyle}>
-        {user?.email && <span style={userEmailStyle}>{user.email}</span>}
+        {user?.email && <span style={userEmailStyle}>{user.email} ({role})</span>}
         <Link to="/" style={linkStyle}>
           Dashboard
         </Link>
@@ -192,7 +196,7 @@ const Nav = () => {
 
       {/* Mobile Navigation */}
       <div style={mobileMenuStyle}>
-        {user?.email && <span style={userEmailStyle}>{user.email}</span>}
+        {user?.email && <span style={userEmailStyle}>{user.email} ({role})</span>}
         <Link 
           to="/" 
           style={linkStyle} 
@@ -1385,12 +1389,13 @@ const Analytics = () => {
 
 /* DASHBOARD */
 const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, role } = useAuth();
 
   return (
     <div style={{ padding: 40 }}>
       <h1>Dashboard</h1>
       <p style={{ color: "#666", marginTop: 10 }}>Signed in as: {user?.email || "Unknown user"}</p>
+      <p style={{ color: "#666", marginTop: 6 }}>Role: {role}</p>
       <button
         onClick={async () => {
           try {
