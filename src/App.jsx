@@ -1828,7 +1828,7 @@ const Integrations = () => {
         }
       } catch (err) {
         setHbStatus({ loading: false, connected: false, configured: false });
-        setHbError(err.message || "Failed to load HoneyBook status");
+        setHbError("HoneyBook status unavailable right now.");
       }
     };
 
@@ -1880,33 +1880,21 @@ const Integrations = () => {
       <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 16 }}>
         <h2>HoneyBook</h2>
         {hbStatus.loading && <p style={{ color: "#666" }}>Checking HoneyBook connection...</p>}
-        {!hbStatus.loading && hbError && <p style={{ color: "#d32f2f" }}>{hbError}</p>}
-
-        {!hbStatus.loading && !hbStatus.configured && (
-          <div style={{ background: "#fff3e0", borderRadius: 6, padding: 10, marginBottom: 10 }}>
-            <p style={{ margin: 0, color: "#e65100", fontWeight: 600 }}>HoneyBook env vars are missing</p>
-            {hbStatus.missing?.length > 0 && (
-              <p style={{ margin: "6px 0", color: "#666" }}>Missing: {hbStatus.missing.join(", ")}</p>
-            )}
-          </div>
-        )}
-
-        {!hbStatus.loading && hbStatus.setupSql && hbStatus.dbReady === false && (
-          <div style={{ background: "#fff3e0", borderRadius: 6, padding: 10, marginBottom: 10 }}>
-            <p style={{ margin: "0 0 8px 0", color: "#e65100", fontWeight: 600 }}>Integration token table required</p>
-            <pre style={{ background: "#f5f5f5", padding: 10, borderRadius: 4, fontSize: 12, whiteSpace: "pre-wrap" }}>
-              {hbStatus.setupSql}
-            </pre>
-          </div>
-        )}
+        {!hbStatus.loading && hbError && <p style={{ color: "#666" }}>{hbError}</p>}
 
         {!hbStatus.loading && !hbStatus.connected && (
-          <a
-            href="/api/honeybook/auth-url"
-            style={{ display: "inline-block", padding: "8px 12px", background: "#111", color: "#fff", borderRadius: 4, textDecoration: "none" }}
-          >
-            Connect HoneyBook
-          </a>
+          <div style={{ background: "#f8f9fb", borderRadius: 6, padding: 12, marginBottom: 10 }}>
+            <p style={{ margin: "0 0 6px 0", color: "#333", fontWeight: 600 }}>Connection status: Not connected</p>
+            <p style={{ margin: 0, color: "#666" }}>
+              Continue managing clients in this dashboard for now. Connect HoneyBook when your API app is ready.
+            </p>
+            <a
+              href="/api/honeybook/auth-url"
+              style={{ display: "inline-block", marginTop: 10, padding: "8px 12px", background: "#111", color: "#fff", borderRadius: 4, textDecoration: "none" }}
+            >
+              Connect HoneyBook
+            </a>
+          </div>
         )}
 
         {!hbStatus.loading && hbStatus.connected && (
