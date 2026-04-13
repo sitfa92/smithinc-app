@@ -14,6 +14,18 @@ const SYNC_SECRET =
 
 const DEFAULT_TEST_EMAIL = "sitfa92@gmail.com";
 
+function getConnectionString() {
+  if (!CONNECTION_STRING) return "";
+
+  try {
+    const url = new URL(CONNECTION_STRING);
+    url.searchParams.set("sslmode", "no-verify");
+    return url.toString();
+  } catch (_err) {
+    return CONNECTION_STRING;
+  }
+}
+
 const ALERTS_SQL = `
 create extension if not exists pgcrypto;
 
@@ -66,17 +78,17 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const client = POSTGRES_HOST && POSTGRES_PASSWORD
+  const client = CONNECTION_STRING
     ? new Client({
+        connectionString: getConnectionString(),
+        ssl: { rejectUnauthorized: false },
+      })
+    : new Client({
         host: POSTGRES_HOST,
         database: POSTGRES_DATABASE,
         user: POSTGRES_USER,
         password: POSTGRES_PASSWORD,
         port: 5432,
-        ssl: { rejectUnauthorized: false },
-      })
-    : new Client({
-        connectionString: CONNECTION_STRING,
         ssl: { rejectUnauthorized: false },
       });
 
