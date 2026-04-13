@@ -1830,9 +1830,8 @@ alter table public.bookings disable row level security;`;
 /* INTEGRATIONS */
 const Integrations = () => {
   const [bookings, setBookings] = React.useState([]);
-  const [hbStatus, setHbStatus] = React.useState({ loading: true, connected: false, configured: false });
-  const [hbContacts, setHbContacts] = React.useState([]);
-  const [hbError, setHbError] = React.useState("");
+  const [zapierStatus, setZapierStatus] = React.useState({ loading: true, configured: false, events: [] });
+  const [zapierTestState, setZapierTestState] = React.useState({ loading: false, message: "" });
   const gmailMessages = [
     { id: 1, from: "client@brand.com", subject: "Campaign availability", time: "2h ago" },
     { id: 2, from: "team@meetserenity.com", subject: "Weekly operations sync", time: "5h ago" },
@@ -1845,35 +1844,42 @@ const Integrations = () => {
       setBookings(data || []);
     };
 
-    const fetchHoneyBookStatus = async () => {
+    const fetchZapierStatus = async () => {
       try {
-        const resp = await fetch("/api/honeybook/status");
+        const resp = await fetch("/api/zapier/status");
         const json = await resp.json();
-        setHbStatus({ loading: false, ...json });
-
-        if (json.connected) {
-          const contactsResp = await fetch("/api/honeybook/contacts?limit=10");
-          const contactsJson = await contactsResp.json();
-
-          if (!contactsResp.ok) {
-            throw new Error(contactsJson.error || "Failed to load HoneyBook contacts");
-          }
-
-          const list = Array.isArray(contactsJson)
-            ? contactsJson
-            : contactsJson.contacts || contactsJson.data || [];
-
-          setHbContacts(Array.isArray(list) ? list : []);
-        }
+        setZapierStatus({ loading: false, ...json });
       } catch (err) {
-        setHbStatus({ loading: false, connected: false, configured: false });
-        setHbError("HoneyBook status unavailable right now.");
+        setZapierStatus({ loading: false, configured: false, events: [] });
       }
     };
 
     fetchBookings();
-    fetchHoneyBookStatus();
+    fetchZapierStatus();
   }, []);
+
+  const sendZapierTest = async () => {
+    setZapierTestState({ loading: true, message: "Sending test event..." });
+    try {
+      const resp = await fetch("/api/zapier/forward", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "zapier.test",
+          payload: { source: "integrations-page", timestamp: new Date().toISOString() },
+        }),
+      });
+
+      const json = await resp.json();
+      if (!resp.ok || !json.ok) {
+        throw new Error(json.error || "Zapier test failed");
+      }
+
+      setZapierTestState({ loading: false, message: "Test event sent to Zapier." });
+    } catch (err) {
+      setZapierTestState({ loading: false, message: err.message || "Zapier test failed" });
+    }
+  };
 
   const upcoming = bookings.filter((b) => b.preferred_date).slice(0, 5);
   const zoomMeetings = bookings.filter((b) => b.zoom_link).slice(0, 5);
@@ -1917,34 +1923,34 @@ const Integrations = () => {
       </div>
 
       <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 16 }}>
-        <h2>HoneyBook</h2>
-        {hbStatus.loading && <p style={{ color: "#666" }}>Checking HoneyBook connection...</p>}
-        {!hbStatus.loading && hbError && <p style={{ color: "#666" }}>{hbError}</p>}
+        <h2>Zapier Automations</h2>
+        {zapierStatus.loading && <p style={{ color: "#666" }}>Checking Zapier configuration...</p>}
 
-        {!hbStatus.loading && !hbStatus.connected && (
+        {!zapierStatus.loading && !zapierStatus.configured && (
           <div style={{ background: "#f8f9fb", borderRadius: 6, padding: 12, marginBottom: 10 }}>
-            <p style={{ margin: "0 0 6px 0", color: "#333", fontWeight: 600 }}>Connection status: Not connected</p>
+            <p style={{ margin: "0 0 6px 0", color: "#333", fontWeight: 600 }}>Connection status: Not configured</p>
             <p style={{ margin: 0, color: "#666" }}>
-              Continue managing clients in this dashboard for now. Connect HoneyBook when your API app is ready.
+              Add ZAPIER_WEBHOOK_URL in Vercel to activate app automations.
             </p>
-            <a
-              href="/api/honeybook/auth-url"
-              style={{ display: "inline-block", marginTop: 10, padding: "8px 12px", background: "#111", color: "#fff", borderRadius: 4, textDecoration: "none" }}
-            >
-              Connect HoneyBook
-            </a>
           </div>
         )}
 
-        {!hbStatus.loading && hbStatus.connected && (
+        {!zapierStatus.loading && zapierStatus.configured && (
           <>
             <p style={{ color: "#2e7d32", marginBottom: 8 }}>Connected</p>
-            {hbContacts.length === 0 && <p style={{ color: "#666" }}>No contacts returned yet.</p>}
-            {hbContacts.map((contact, idx) => (
-              <p key={contact.id || contact.uuid || idx} style={{ margin: "5px 0", color: "#666" }}>
-                {contact.name || contact.full_name || contact.email || "Unnamed contact"}
-              </p>
-            ))}
+            <p style={{ color: "#666", marginBottom: 10 }}>
+              Active events: {(zapierStatus.events || []).join(", ")}
+            </p>
+            <button
+              onClick={sendZapierTest}
+              disabled={zapierTestState.loading}
+              style={{ padding: "8px 12px", border: "none", backgroundColor: "#333", color: "white", borderRadius: 4, cursor: zapierTestState.loading ? "not-allowed" : "pointer", opacity: zapierTestState.loading ? 0.6 : 1 }}
+            >
+              {zapierTestState.loading ? "Sending..." : "Send Test Event"}
+            </button>
+            {zapierTestState.message && (
+              <p style={{ color: "#666", marginTop: 10 }}>{zapierTestState.message}</p>
+            )}
           </>
         )}
       </div>
