@@ -864,6 +864,7 @@ const Submissions = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState({});
+  const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const [sourceFilter, setSourceFilter] = React.useState("all");
 
   React.useEffect(() => {
@@ -925,6 +926,66 @@ const Submissions = () => {
     }
   };
 
+  const deleteApplicant = async (modelId, modelName) => {
+    const confirmed = window.confirm(`Delete applicant ${modelName || ""}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    setActionLoading((prev) => ({ ...prev, [modelId]: true }));
+    try {
+      const resp = await fetch("/api/models/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modelId }),
+      });
+
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(json.error || "Failed to delete applicant");
+      }
+
+      setSubmissions((prev) => prev.filter((m) => m.id !== modelId));
+    } catch (err) {
+      alert(err.message || "Failed to delete applicant");
+    } finally {
+      setActionLoading((prev) => ({ ...prev, [modelId]: false }));
+    }
+  };
+
+  const deleteAllRejectedApplicants = async () => {
+    const rejectedCount = submissions.filter((m) => m.status === "rejected").length;
+    if (rejectedCount === 0) {
+      alert("No rejected applicants to delete.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete all ${rejectedCount} rejected applicants? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setBulkDeleteLoading(true);
+    try {
+      const resp = await fetch("/api/models/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deleteRejectedOnly: true }),
+      });
+
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(json.error || "Failed to delete rejected applicants");
+      }
+
+      const deletedCount = Number(json.deletedCount || 0);
+      setSubmissions((prev) => prev.filter((m) => m.status !== "rejected"));
+      alert(`Deleted ${deletedCount} rejected applicant${deletedCount === 1 ? "" : "s"}.`);
+    } catch (err) {
+      alert(err.message || "Failed to delete rejected applicants");
+    } finally {
+      setBulkDeleteLoading(false);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case "approved":
@@ -941,15 +1002,34 @@ const Submissions = () => {
     <div style={{ padding: "20px", maxWidth: "1200px", margin: "0 auto", boxSizing: "border-box" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
         <h1 style={{ fontSize: "clamp(24px, 5vw, 32px)", margin: 0 }}>Model Applications</h1>
-        <select
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value)}
-          style={{ padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14 }}
-        >
-          <option value="all">All Sources</option>
-          <option value="manychat">ManyChat only</option>
-          <option value="direct">Direct only</option>
-        </select>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            style={{ padding: "8px 12px", border: "1px solid #ccc", borderRadius: 4, fontSize: 14 }}
+          >
+            <option value="all">All Sources</option>
+            <option value="manychat">ManyChat only</option>
+            <option value="direct">Direct only</option>
+          </select>
+          <button
+            onClick={deleteAllRejectedApplicants}
+            disabled={bulkDeleteLoading}
+            style={{
+              padding: "8px 12px",
+              backgroundColor: "#b71c1c",
+              color: "white",
+              border: "none",
+              borderRadius: 4,
+              cursor: bulkDeleteLoading ? "not-allowed" : "pointer",
+              opacity: bulkDeleteLoading ? 0.7 : 1,
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {bulkDeleteLoading ? "Deleting..." : "Delete All Rejected"}
+          </button>
+        </div>
       </div>
       
       {loading && <p>Loading applications...</p>}
@@ -1109,6 +1189,28 @@ const Submissions = () => {
                     }}
                   >
                     {actionLoading[model.id] ? "..." : "✕ Reject"}
+                  </button>
+                </div>
+              )}
+
+              {model.status === "rejected" && (
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    onClick={() => deleteApplicant(model.id, model.name)}
+                    disabled={actionLoading[model.id]}
+                    style={{
+                      padding: "8px 12px",
+                      backgroundColor: "#b71c1c",
+                      color: "white",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: actionLoading[model.id] ? "not-allowed" : "pointer",
+                      opacity: actionLoading[model.id] ? 0.7 : 1,
+                      fontSize: 13,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {actionLoading[model.id] ? "Deleting..." : "Delete Applicant"}
                   </button>
                 </div>
               )}
