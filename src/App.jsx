@@ -15,12 +15,12 @@ import { calculateMetrics, MetricCard } from "./analyticsUtils";
 const useAuth = () => {
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
-  const ADMIN_EMAIL = "sitfa92@gmail.com";
-  const ALLOWED_EMAILS = new Set([
-    "sitfa92@gmail.com",
-    "marthajohn223355@gmail.com",
-    "chizzyboi72@gmail.com",
-  ]);
+  const ROLE_BY_EMAIL = {
+    "sitfa92@gmail.com": "admin",
+    "marthajohn223355@gmail.com": "va",
+    "chizzyboi72@gmail.com": "agent",
+  };
+  const ALLOWED_EMAILS = new Set(Object.keys(ROLE_BY_EMAIL));
 
   const isAllowedEmail = (email) =>
     ALLOWED_EMAILS.has((email || "").trim().toLowerCase());
@@ -86,7 +86,7 @@ const useAuth = () => {
     }
   };
 
-  const role = user?.email?.toLowerCase() === ADMIN_EMAIL ? "admin" : "user";
+  const role = user?.email ? ROLE_BY_EMAIL[user.email.toLowerCase()] || "user" : "user";
   const isAdmin = role === "admin";
 
   return { user, login, logout, loading, role, isAdmin };
@@ -170,6 +170,17 @@ const Nav = () => {
     color: "#333",
   };
 
+  const canAccess = (section) => {
+    if (role === "admin") return true;
+    if (role === "va") {
+      return ["dashboard", "bookings", "clients", "integrations"].includes(section);
+    }
+    if (role === "agent") {
+      return ["dashboard", "models", "submissions", "analytics"].includes(section);
+    }
+    return false;
+  };
+
   return (
     <nav style={navStyle}>
       <div style={{ fontWeight: "bold", fontSize: 18, whiteSpace: "nowrap" }}>
@@ -179,21 +190,41 @@ const Nav = () => {
       {/* Desktop Navigation */}
       <div style={desktopNavStyle}>
         {user?.email && <span style={userEmailStyle}>{user.email} ({role})</span>}
-        <Link to="/" style={linkStyle}>
-          Dashboard
-        </Link>
-        <Link to="/model-signup" style={linkStyle}>
-          Model Signup
-        </Link>
-        <Link to="/submissions" style={linkStyle}>
-          Submissions
-        </Link>
-        <Link to="/bookings" style={linkStyle}>
-          Bookings
-        </Link>
-        <Link to="/analytics" style={linkStyle}>
-          Analytics
-        </Link>
+        {canAccess("dashboard") && (
+          <Link to="/" style={linkStyle}>
+            Dashboard
+          </Link>
+        )}
+        {canAccess("models") && (
+          <Link to="/models" style={linkStyle}>
+            Models
+          </Link>
+        )}
+        {canAccess("submissions") && (
+          <Link to="/submissions" style={linkStyle}>
+            Submissions
+          </Link>
+        )}
+        {canAccess("bookings") && (
+          <Link to="/bookings" style={linkStyle}>
+            Bookings
+          </Link>
+        )}
+        {canAccess("clients") && (
+          <Link to="/clients" style={linkStyle}>
+            Clients
+          </Link>
+        )}
+        {canAccess("analytics") && (
+          <Link to="/analytics" style={linkStyle}>
+            Analytics
+          </Link>
+        )}
+        {canAccess("integrations") && (
+          <Link to="/integrations" style={linkStyle}>
+            Integrations
+          </Link>
+        )}
         <button
           onClick={async () => {
             try {
@@ -221,41 +252,69 @@ const Nav = () => {
       {/* Mobile Navigation */}
       <div style={mobileMenuStyle}>
         {user?.email && <span style={userEmailStyle}>{user.email} ({role})</span>}
-        <Link 
-          to="/" 
-          style={linkStyle} 
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          Dashboard
-        </Link>
-        <Link 
-          to="/model-signup" 
-          style={linkStyle} 
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          Model Signup
-        </Link>
-        <Link 
-          to="/submissions" 
-          style={linkStyle} 
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          Submissions
-        </Link>
-        <Link 
-          to="/bookings" 
-          style={linkStyle} 
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          Bookings
-        </Link>
-        <Link 
-          to="/analytics" 
-          style={linkStyle} 
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          Analytics
-        </Link>
+        {canAccess("dashboard") && (
+          <Link 
+            to="/" 
+            style={linkStyle} 
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Dashboard
+          </Link>
+        )}
+        {canAccess("models") && (
+          <Link 
+            to="/models" 
+            style={linkStyle} 
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Models
+          </Link>
+        )}
+        {canAccess("submissions") && (
+          <Link 
+            to="/submissions" 
+            style={linkStyle} 
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Submissions
+          </Link>
+        )}
+        {canAccess("bookings") && (
+          <Link 
+            to="/bookings" 
+            style={linkStyle} 
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Bookings
+          </Link>
+        )}
+        {canAccess("clients") && (
+          <Link 
+            to="/clients" 
+            style={linkStyle} 
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Clients
+          </Link>
+        )}
+        {canAccess("analytics") && (
+          <Link 
+            to="/analytics" 
+            style={linkStyle} 
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Analytics
+          </Link>
+        )}
+        {canAccess("integrations") && (
+          <Link 
+            to="/integrations" 
+            style={linkStyle} 
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Integrations
+          </Link>
+        )}
         <button
           onClick={async () => {
             try {
@@ -1078,6 +1137,7 @@ const AdminBookings = () => {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState({});
+  const [zoomDrafts, setZoomDrafts] = React.useState({});
 
   React.useEffect(() => {
     fetchBookings();
@@ -1128,6 +1188,27 @@ const AdminBookings = () => {
       alert(`Failed to update booking: ${err.message}`);
     } finally {
       setActionLoading((prev) => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
+  const saveZoomLink = async (bookingId) => {
+    const zoomLink = (zoomDrafts[bookingId] || "").trim();
+    if (!zoomLink) return;
+
+    try {
+      const { error: supabaseError } = await supabase
+        .from("bookings")
+        .update({ zoom_link: zoomLink })
+        .eq("id", bookingId);
+
+      if (supabaseError) throw supabaseError;
+
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, zoom_link: zoomLink } : b))
+      );
+      setZoomDrafts((prev) => ({ ...prev, [bookingId]: "" }));
+    } catch (err) {
+      alert(err.message || "Failed to save Zoom link. Ensure bookings table has zoom_link column.");
     }
   };
 
@@ -1210,6 +1291,28 @@ const AdminBookings = () => {
                       <strong>Message:</strong> {booking.message}
                     </p>
                   )}
+                  {booking.zoom_link && (
+                    <p style={{ margin: "10px 0 0 0", color: "#666", wordBreak: "break-word" }}>
+                      <strong>Zoom:</strong>{" "}
+                      <a href={booking.zoom_link} target="_blank" rel="noreferrer">{booking.zoom_link}</a>
+                    </p>
+                  )}
+                  <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input
+                      placeholder="Attach Zoom meeting link"
+                      value={zoomDrafts[booking.id] || ""}
+                      onChange={(e) =>
+                        setZoomDrafts((prev) => ({ ...prev, [booking.id]: e.target.value }))
+                      }
+                      style={{ flex: "1 1 260px", padding: 8, border: "1px solid #ccc", borderRadius: 4 }}
+                    />
+                    <button
+                      onClick={() => saveZoomLink(booking.id)}
+                      style={{ padding: "8px 12px", border: "none", backgroundColor: "#333", color: "white", borderRadius: 4 }}
+                    >
+                      Save Zoom Link
+                    </button>
+                  </div>
                   <p style={{ margin: "10px 0 0 0", color: "#999", fontSize: "0.9em" }}>
                     Received: {new Date(booking.created_at).toLocaleString()}
                   </p>
@@ -1411,15 +1514,306 @@ const Analytics = () => {
   );
 };
 
+/* MODELS */
+const Models = () => {
+  const [models, setModels] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("models")
+          .select("*")
+          .order("submitted_at", { ascending: false });
+        if (error) throw error;
+        setModels(data || []);
+      } catch (err) {
+        setError(err.message || "Failed to load models");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchModels();
+  }, []);
+
+  const approved = models.filter((m) => m.status === "approved").length;
+  const pending = models.filter((m) => m.status === "pending").length;
+
+  return (
+    <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
+      <h1>Talent Tracking</h1>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
+        <MetricCard label="Total Models" value={models.length} color="#333" />
+        <MetricCard label="Approved Talent" value={approved} color="#4caf50" />
+        <MetricCard label="Pending Review" value={pending} color="#ff9800" />
+      </div>
+      {loading && <p>Loading models...</p>}
+      {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
+      {!loading && models.map((model) => (
+        <div key={model.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 10 }}>
+          <strong>{model.name}</strong>
+          <p style={{ margin: "6px 0", color: "#666" }}>{model.email}</p>
+          <p style={{ margin: 0, color: "#666" }}>Status: {model.status}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/* CLIENTS */
+const Clients = () => {
+  const [clients, setClients] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const [form, setForm] = React.useState({
+    name: "",
+    project: "",
+    status: "lead",
+    invoice_status: "pending",
+  });
+
+  const fetchClients = async () => {
+    try {
+      setError("");
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (err) {
+      if (err.message?.includes("public.clients")) {
+        setError("Clients table is missing. Run setup SQL in Supabase for clients and users tables.");
+      } else {
+        setError(err.message || "Failed to load clients");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const saveClient = async (e) => {
+    e.preventDefault();
+    try {
+      const { error } = await supabase.from("clients").insert([
+        {
+          name: form.name.trim(),
+          project: form.project.trim(),
+          status: form.status,
+          invoice_status: form.invoice_status,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      if (error) throw error;
+      setForm({ name: "", project: "", status: "lead", invoice_status: "pending" });
+      fetchClients();
+    } catch (err) {
+      setError(err.message || "Failed to save client");
+    }
+  };
+
+  return (
+    <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto" }}>
+      <h1>Client Management</h1>
+      <form onSubmit={saveClient} style={{ display: "grid", gap: 10, marginBottom: 20 }}>
+        <input value={form.name} placeholder="Client name" onChange={(e) => setForm({ ...form, name: e.target.value })} required style={{ padding: 10 }} />
+        <input value={form.project} placeholder="Project" onChange={(e) => setForm({ ...form, project: e.target.value })} required style={{ padding: 10 }} />
+        <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} style={{ padding: 10 }}>
+          <option value="lead">Lead</option>
+          <option value="active">Active</option>
+          <option value="completed">Completed</option>
+        </select>
+        <select value={form.invoice_status} onChange={(e) => setForm({ ...form, invoice_status: e.target.value })} style={{ padding: 10 }}>
+          <option value="pending">Invoice Pending</option>
+          <option value="sent">Invoice Sent</option>
+          <option value="paid">Paid</option>
+        </select>
+        <button style={{ padding: 12, background: "#333", color: "#fff", border: "none", borderRadius: 4 }}>Save Client</button>
+      </form>
+
+      {loading && <p>Loading clients...</p>}
+      {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
+      {!loading && clients.map((client) => (
+        <div key={client.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+          <strong>{client.name}</strong>
+          <p style={{ margin: "6px 0", color: "#666" }}>{client.project}</p>
+          <p style={{ margin: 0, color: "#666" }}>Status: {client.status} | Invoice: {client.invoice_status}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/* INTEGRATIONS */
+const Integrations = () => {
+  const [bookings, setBookings] = React.useState([]);
+  const gmailMessages = [
+    { id: 1, from: "client@brand.com", subject: "Campaign availability", time: "2h ago" },
+    { id: 2, from: "team@meetserenity.com", subject: "Weekly operations sync", time: "5h ago" },
+    { id: 3, from: "photo@studio.com", subject: "Shoot schedule confirmation", time: "1d ago" },
+  ];
+
+  React.useEffect(() => {
+    const fetchBookings = async () => {
+      const { data } = await supabase.from("bookings").select("*").order("created_at", { ascending: false });
+      setBookings(data || []);
+    };
+    fetchBookings();
+  }, []);
+
+  const upcoming = bookings.filter((b) => b.preferred_date).slice(0, 5);
+  const zoomMeetings = bookings.filter((b) => b.zoom_link).slice(0, 5);
+  const calendlyUrl = "https://calendly.com/meetserenity";
+  const embedModelSignup = `${window.location.origin}/model-signup`;
+  const embedBooking = `${window.location.origin}/book`;
+
+  return (
+    <div style={{ padding: 20, maxWidth: 1100, margin: "0 auto" }}>
+      <h1>Integrations Hub</h1>
+
+      <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 16 }}>
+        <h2>Calendly</h2>
+        <p style={{ color: "#666" }}>Scheduling link: <a href={calendlyUrl} target="_blank" rel="noreferrer">{calendlyUrl}</a></p>
+        <p style={{ marginBottom: 6 }}><strong>Upcoming Appointments</strong></p>
+        {upcoming.length === 0 && <p style={{ color: "#666" }}>No upcoming appointments yet.</p>}
+        {upcoming.map((booking) => (
+          <p key={booking.id} style={{ margin: "4px 0", color: "#666" }}>
+            {booking.name} - {booking.preferred_date} ({booking.status})
+          </p>
+        ))}
+      </div>
+
+      <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 16 }}>
+        <h2>Gmail (API-ready mock)</h2>
+        {gmailMessages.map((msg) => (
+          <p key={msg.id} style={{ margin: "6px 0", color: "#666" }}>
+            <strong>{msg.from}</strong> - {msg.subject} <span style={{ color: "#999" }}>({msg.time})</span>
+          </p>
+        ))}
+      </div>
+
+      <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 16 }}>
+        <h2>Zoom Meetings</h2>
+        {zoomMeetings.length === 0 && <p style={{ color: "#666" }}>No Zoom links attached yet.</p>}
+        {zoomMeetings.map((meeting) => (
+          <p key={meeting.id} style={{ margin: "6px 0", color: "#666" }}>
+            {meeting.name}: <a href={meeting.zoom_link} target="_blank" rel="noreferrer">Join Meeting</a>
+          </p>
+        ))}
+      </div>
+
+      <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 16 }}>
+        <h2>HoneyBook (Structure Ready)</h2>
+        <p style={{ color: "#666" }}>
+          Client structure supports: client name, project, status, invoice status. API integration can be connected later.
+        </p>
+      </div>
+
+      <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14 }}>
+        <h2>Website Integration</h2>
+        <p style={{ color: "#666" }}>Embed-ready public pages:</p>
+        <p style={{ color: "#666" }}>Model Signup: {embedModelSignup}</p>
+        <p style={{ color: "#666" }}>Booking Form: {embedBooking}</p>
+      </div>
+    </div>
+  );
+};
+
 /* DASHBOARD */
 const Dashboard = () => {
   const { user, logout, role } = useAuth();
+  const [models, setModels] = React.useState([]);
+  const [bookings, setBookings] = React.useState([]);
+  const [clients, setClients] = React.useState([]);
+
+  React.useEffect(() => {
+    const fetchOverview = async () => {
+      const [modelsRes, bookingsRes, clientsRes] = await Promise.all([
+        supabase.from("models").select("*").order("submitted_at", { ascending: false }),
+        supabase.from("bookings").select("*").order("created_at", { ascending: false }),
+        supabase.from("clients").select("*").order("created_at", { ascending: false }),
+      ]);
+      setModels(modelsRes.data || []);
+      setBookings(bookingsRes.data || []);
+      setClients(clientsRes.data || []);
+    };
+
+    fetchOverview();
+  }, []);
+
+  const recentModels = models.slice(0, 5);
+  const upcomingBookings = bookings.filter((b) => b.preferred_date).slice(0, 5);
+  const nextPendingModel = models.find((m) => m.status === "pending");
+  const nextPendingBooking = bookings.find((b) => b.status === "pending");
 
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Dashboard</h1>
-      <p style={{ color: "#666", marginTop: 10 }}>Signed in as: {user?.email || "Unknown user"}</p>
-      <p style={{ color: "#666", marginTop: 6 }}>Role: {role}</p>
+    <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
+      <h1>Central Operations Dashboard</h1>
+      <p style={{ color: "#666", marginTop: 8 }}>Signed in as: {user?.email || "Unknown user"}</p>
+      <p style={{ color: "#666", marginTop: 4 }}>Role: {role}</p>
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 20 }}>
+        <MetricCard label="Models" value={models.length} color="#333" />
+        <MetricCard label="Bookings" value={bookings.length} color="#4caf50" />
+        <MetricCard label="Clients" value={clients.length} color="#2196f3" />
+      </div>
+
+      <div style={{ marginTop: 24, border: "1px solid #e0e0e0", borderRadius: 8, padding: 14 }}>
+        <h2>Quick Actions</h2>
+        {(role === "admin" || role === "agent") && nextPendingModel && (
+          <button
+            onClick={async () => {
+              await supabase.from("models").update({ status: "approved" }).eq("id", nextPendingModel.id);
+              window.location.reload();
+            }}
+            style={{ marginRight: 8, padding: "10px 14px" }}
+          >
+            Approve {nextPendingModel.name}
+          </button>
+        )}
+        {(role === "admin" || role === "va") && nextPendingBooking && (
+          <button
+            onClick={async () => {
+              await supabase.from("bookings").update({ status: "confirmed" }).eq("id", nextPendingBooking.id);
+              window.location.reload();
+            }}
+            style={{ padding: "10px 14px" }}
+          >
+            Confirm Booking ({nextPendingBooking.name})
+          </button>
+        )}
+      </div>
+
+      <div style={{ marginTop: 20, display: "grid", gap: 14 }}>
+        <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14 }}>
+          <h3>Upcoming Bookings</h3>
+          {upcomingBookings.length === 0 && <p style={{ color: "#666" }}>No upcoming bookings yet.</p>}
+          {upcomingBookings.map((booking) => (
+            <p key={booking.id} style={{ margin: "6px 0", color: "#666" }}>
+              {booking.name} - {booking.preferred_date} ({booking.status})
+            </p>
+          ))}
+        </div>
+
+        <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14 }}>
+          <h3>Recent Model Submissions</h3>
+          {recentModels.length === 0 && <p style={{ color: "#666" }}>No submissions yet.</p>}
+          {recentModels.map((model) => (
+            <p key={model.id} style={{ margin: "6px 0", color: "#666" }}>
+              {model.name} - {model.status}
+            </p>
+          ))}
+        </div>
+      </div>
+
       <button
         onClick={async () => {
           try {
@@ -1429,6 +1823,7 @@ const Dashboard = () => {
             alert(err.message || "Failed to logout");
           }
         }}
+        style={{ marginTop: 20 }}
       >
         Logout
       </button>
@@ -1437,8 +1832,27 @@ const Dashboard = () => {
 };
 
 /* PROTECTED */
+const canAccessRoute = (role, routeKey) => {
+  if (role === "admin") return true;
+  if (role === "va") {
+    return ["dashboard", "bookings", "clients", "integrations"].includes(routeKey);
+  }
+  if (role === "agent") {
+    return ["dashboard", "models", "submissions", "analytics"].includes(routeKey);
+  }
+  return false;
+};
+
+const RoleRoute = ({ routeKey, children }) => {
+  const { role } = useAuth();
+  if (!canAccessRoute(role, routeKey)) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+};
+
 const ProtectedApp = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, role } = useAuth();
 
   if (loading) {
     return (
@@ -1455,9 +1869,54 @@ const ProtectedApp = () => {
       <Nav />
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/submissions" element={<Submissions />} />
-        <Route path="/bookings" element={<AdminBookings />} />
-        <Route path="/analytics" element={<Analytics />} />
+        <Route
+          path="/models"
+          element={
+            <RoleRoute routeKey="models">
+              <Models />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/submissions"
+          element={
+            <RoleRoute routeKey="submissions">
+              <Submissions />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/bookings"
+          element={
+            <RoleRoute routeKey="bookings">
+              <AdminBookings />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/clients"
+          element={
+            <RoleRoute routeKey="clients">
+              <Clients />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            <RoleRoute routeKey="analytics">
+              <Analytics />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/integrations"
+          element={
+            <RoleRoute routeKey="integrations">
+              <Integrations />
+            </RoleRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
