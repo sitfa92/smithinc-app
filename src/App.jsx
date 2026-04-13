@@ -173,7 +173,7 @@ const Nav = () => {
   return (
     <nav style={navStyle}>
       <div style={{ fontWeight: "bold", fontSize: 18, whiteSpace: "nowrap" }}>
-        SmithInc
+        MEET SERENITY
       </div>
 
       {/* Desktop Navigation */}
