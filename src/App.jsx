@@ -1791,6 +1791,9 @@ alter table public.bookings disable row level security;`;
 /* INTEGRATIONS */
 const Integrations = () => {
   const [bookings, setBookings] = React.useState([]);
+  const [hbStatus, setHbStatus] = React.useState({ loading: true, connected: false, configured: false });
+  const [hbContacts, setHbContacts] = React.useState([]);
+  const [hbError, setHbError] = React.useState("");
   const gmailMessages = [
     { id: 1, from: "client@brand.com", subject: "Campaign availability", time: "2h ago" },
     { id: 2, from: "team@meetserenity.com", subject: "Weekly operations sync", time: "5h ago" },
@@ -1802,7 +1805,35 @@ const Integrations = () => {
       const { data } = await supabase.from("bookings").select("*").order("created_at", { ascending: false });
       setBookings(data || []);
     };
+
+    const fetchHoneyBookStatus = async () => {
+      try {
+        const resp = await fetch("/api/honeybook/status");
+        const json = await resp.json();
+        setHbStatus({ loading: false, ...json });
+
+        if (json.connected) {
+          const contactsResp = await fetch("/api/honeybook/contacts?limit=10");
+          const contactsJson = await contactsResp.json();
+
+          if (!contactsResp.ok) {
+            throw new Error(contactsJson.error || "Failed to load HoneyBook contacts");
+          }
+
+          const list = Array.isArray(contactsJson)
+            ? contactsJson
+            : contactsJson.contacts || contactsJson.data || [];
+
+          setHbContacts(Array.isArray(list) ? list : []);
+        }
+      } catch (err) {
+        setHbStatus({ loading: false, connected: false, configured: false });
+        setHbError(err.message || "Failed to load HoneyBook status");
+      }
+    };
+
     fetchBookings();
+    fetchHoneyBookStatus();
   }, []);
 
   const upcoming = bookings.filter((b) => b.preferred_date).slice(0, 5);
@@ -1847,10 +1878,48 @@ const Integrations = () => {
       </div>
 
       <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 16 }}>
-        <h2>HoneyBook (Structure Ready)</h2>
-        <p style={{ color: "#666" }}>
-          Client structure supports: client name, project, status, invoice status. API integration can be connected later.
-        </p>
+        <h2>HoneyBook</h2>
+        {hbStatus.loading && <p style={{ color: "#666" }}>Checking HoneyBook connection...</p>}
+        {!hbStatus.loading && hbError && <p style={{ color: "#d32f2f" }}>{hbError}</p>}
+
+        {!hbStatus.loading && !hbStatus.configured && (
+          <div style={{ background: "#fff3e0", borderRadius: 6, padding: 10, marginBottom: 10 }}>
+            <p style={{ margin: 0, color: "#e65100", fontWeight: 600 }}>HoneyBook env vars are missing</p>
+            {hbStatus.missing?.length > 0 && (
+              <p style={{ margin: "6px 0", color: "#666" }}>Missing: {hbStatus.missing.join(", ")}</p>
+            )}
+          </div>
+        )}
+
+        {!hbStatus.loading && hbStatus.setupSql && hbStatus.dbReady === false && (
+          <div style={{ background: "#fff3e0", borderRadius: 6, padding: 10, marginBottom: 10 }}>
+            <p style={{ margin: "0 0 8px 0", color: "#e65100", fontWeight: 600 }}>Integration token table required</p>
+            <pre style={{ background: "#f5f5f5", padding: 10, borderRadius: 4, fontSize: 12, whiteSpace: "pre-wrap" }}>
+              {hbStatus.setupSql}
+            </pre>
+          </div>
+        )}
+
+        {!hbStatus.loading && !hbStatus.connected && (
+          <a
+            href="/api/honeybook/auth-url"
+            style={{ display: "inline-block", padding: "8px 12px", background: "#111", color: "#fff", borderRadius: 4, textDecoration: "none" }}
+          >
+            Connect HoneyBook
+          </a>
+        )}
+
+        {!hbStatus.loading && hbStatus.connected && (
+          <>
+            <p style={{ color: "#2e7d32", marginBottom: 8 }}>Connected</p>
+            {hbContacts.length === 0 && <p style={{ color: "#666" }}>No contacts returned yet.</p>}
+            {hbContacts.map((contact, idx) => (
+              <p key={contact.id || contact.uuid || idx} style={{ margin: "5px 0", color: "#666" }}>
+                {contact.name || contact.full_name || contact.email || "Unnamed contact"}
+              </p>
+            ))}
+          </>
+        )}
       </div>
 
       <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14 }}>
