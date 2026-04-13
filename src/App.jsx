@@ -16,6 +16,14 @@ const useAuth = () => {
   const [user, setUser] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const ADMIN_EMAIL = "sitfa92@gmail.com";
+  const ALLOWED_EMAILS = new Set([
+    "sitfa92@gmail.com",
+    "marthajohn223355@gmail.com",
+    "chizzyboi72@gmail.com",
+  ]);
+
+  const isAllowedEmail = (email) =>
+    ALLOWED_EMAILS.has((email || "").trim().toLowerCase());
 
   React.useEffect(() => {
     let mounted = true;
@@ -28,7 +36,13 @@ const useAuth = () => {
         console.error("Session fetch error:", error);
       }
 
-      setUser(data?.session?.user ?? null);
+      const sessionUser = data?.session?.user ?? null;
+      if (sessionUser?.email && !isAllowedEmail(sessionUser.email)) {
+        await supabase.auth.signOut();
+        setUser(null);
+      } else {
+        setUser(sessionUser);
+      }
       setLoading(false);
     };
 
@@ -37,7 +51,13 @@ const useAuth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const sessionUser = session?.user ?? null;
+      if (sessionUser?.email && !isAllowedEmail(sessionUser.email)) {
+        supabase.auth.signOut();
+        setUser(null);
+      } else {
+        setUser(sessionUser);
+      }
       setLoading(false);
     });
 
@@ -48,6 +68,10 @@ const useAuth = () => {
   }, []);
 
   const login = async (email, password) => {
+    if (!isAllowedEmail(email)) {
+      throw new Error("This account is not authorized for this platform.");
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       throw error;
