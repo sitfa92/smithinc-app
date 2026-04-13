@@ -1636,13 +1636,33 @@ const Models = () => {
 const Clients = () => {
   const [clients, setClients] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [tableReady, setTableReady] = React.useState(true);
   const [error, setError] = React.useState("");
+  const [saveError, setSaveError] = React.useState("");
   const [form, setForm] = React.useState({
     name: "",
     project: "",
     status: "lead",
     invoice_status: "pending",
   });
+
+  const SETUP_SQL = `-- Run this in your Supabase SQL Editor:
+create table if not exists public.clients (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  project text,
+  status text default 'lead',
+  invoice_status text default 'pending',
+  created_at timestamptz default now()
+);
+
+-- Also add zoom_link to bookings if missing:
+alter table public.bookings add column if not exists zoom_link text;`;
+
+  const isTableMissingError = (err) =>
+    err?.code === "42P01" ||
+    err?.message?.toLowerCase().includes("does not exist") ||
+    err?.message?.toLowerCase().includes("relation");
 
   const fetchClients = async () => {
     try {
@@ -1653,10 +1673,11 @@ const Clients = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      setTableReady(true);
       setClients(data || []);
     } catch (err) {
-      if (err.message?.includes("public.clients")) {
-        setError("Clients table is missing. Run setup SQL in Supabase for clients and users tables.");
+      if (isTableMissingError(err)) {
+        setTableReady(false);
       } else {
         setError(err.message || "Failed to load clients");
       }
@@ -1671,50 +1692,88 @@ const Clients = () => {
 
   const saveClient = async (e) => {
     e.preventDefault();
+    setSaveError("");
     try {
-      const { error } = await supabase.from("clients").insert([
-        {
-          name: form.name.trim(),
-          project: form.project.trim(),
-          status: form.status,
-          invoice_status: form.invoice_status,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      const { error } = await supabase.from("clients").insert([{
+        name: form.name.trim(),
+        project: form.project.trim(),
+        status: form.status,
+        invoice_status: form.invoice_status,
+        created_at: new Date().toISOString(),
+      }]);
       if (error) throw error;
       setForm({ name: "", project: "", status: "lead", invoice_status: "pending" });
       fetchClients();
     } catch (err) {
-      setError(err.message || "Failed to save client");
+      setSaveError(err.message || "Failed to save client");
     }
   };
+
+  const statusColor = { lead: "#ff9800", active: "#4caf50", completed: "#2196f3" };
+  const invoiceColor = { pending: "#ff9800", sent: "#2196f3", paid: "#4caf50" };
 
   return (
     <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto" }}>
       <h1>Client Management</h1>
-      <form onSubmit={saveClient} style={{ display: "grid", gap: 10, marginBottom: 20 }}>
-        <input value={form.name} placeholder="Client name" onChange={(e) => setForm({ ...form, name: e.target.value })} required style={{ padding: 10 }} />
-        <input value={form.project} placeholder="Project" onChange={(e) => setForm({ ...form, project: e.target.value })} required style={{ padding: 10 }} />
-        <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} style={{ padding: 10 }}>
-          <option value="lead">Lead</option>
-          <option value="active">Active</option>
-          <option value="completed">Completed</option>
-        </select>
-        <select value={form.invoice_status} onChange={(e) => setForm({ ...form, invoice_status: e.target.value })} style={{ padding: 10 }}>
-          <option value="pending">Invoice Pending</option>
-          <option value="sent">Invoice Sent</option>
-          <option value="paid">Paid</option>
-        </select>
-        <button style={{ padding: 12, background: "#333", color: "#fff", border: "none", borderRadius: 4 }}>Save Client</button>
-      </form>
+
+      {/* Setup banner */}
+      {!tableReady && (
+        <div style={{ background: "#fff3e0", border: "1px solid #ff9800", borderRadius: 8, padding: 16, marginBottom: 20 }}>
+          <strong style={{ color: "#e65100" }}>Database setup required</strong>
+          <p style={{ margin: "8px 0", color: "#555" }}>The clients table doesn't exist yet. Copy and run this SQL in your
+            {" "}<a href="https://supabase.com/dashboard/project/jjmmakbnjzzxbuflucck/sql" target="_blank" rel="noreferrer">Supabase SQL Editor</a>:
+          </p>
+          <pre style={{ background: "#f5f5f5", padding: 12, borderRadius: 6, fontSize: 12, overflowX: "auto", whiteSpace: "pre-wrap" }}>{SETUP_SQL}</pre>
+          <button
+            onClick={() => { navigator.clipboard.writeText(SETUP_SQL); }}
+            style={{ marginTop: 8, padding: "8px 14px", background: "#333", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}
+          >Copy SQL</button>
+        </div>
+      )}
+
+      {/* Add client form — only shown when table exists */}
+      {tableReady && (
+        <form onSubmit={saveClient} style={{ display: "grid", gap: 10, marginBottom: 24 }}>
+          <input value={form.name} placeholder="Client name" onChange={(e) => setForm({ ...form, name: e.target.value })} required
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
+          <input value={form.project} placeholder="Project" onChange={(e) => setForm({ ...form, project: e.target.value })} required
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
+          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
+            <option value="lead">Lead</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+          </select>
+          <select value={form.invoice_status} onChange={(e) => setForm({ ...form, invoice_status: e.target.value })}
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
+            <option value="pending">Invoice Pending</option>
+            <option value="sent">Invoice Sent</option>
+            <option value="paid">Paid</option>
+          </select>
+          {saveError && <p style={{ color: "#d32f2f", margin: 0 }}>{saveError}</p>}
+          <button style={{ padding: 12, background: "#333", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>Save Client</button>
+        </form>
+      )}
 
       {loading && <p>Loading clients...</p>}
       {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
+
+      {!loading && tableReady && clients.length === 0 && (
+        <p style={{ color: "#999" }}>No clients yet. Add one above.</p>
+      )}
+
       {!loading && clients.map((client) => (
-        <div key={client.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12, marginBottom: 10 }}>
-          <strong>{client.name}</strong>
+        <div key={client.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 16, marginBottom: 10 }}>
+          <strong style={{ fontSize: 16 }}>{client.name}</strong>
           <p style={{ margin: "6px 0", color: "#666" }}>{client.project}</p>
-          <p style={{ margin: 0, color: "#666" }}>Status: {client.status} | Invoice: {client.invoice_status}</p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            <span style={{ padding: "4px 10px", borderRadius: 20, background: statusColor[client.status] || "#999", color: "#fff", fontSize: 12, fontWeight: 600 }}>
+              {client.status}
+            </span>
+            <span style={{ padding: "4px 10px", borderRadius: 20, background: invoiceColor[client.invoice_status] || "#999", color: "#fff", fontSize: 12, fontWeight: 600 }}>
+              {client.invoice_status}
+            </span>
+          </div>
         </div>
       ))}
     </div>
@@ -1904,8 +1963,39 @@ const Dashboard = () => {
 const Team = () => {
   const [members, setMembers] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [tableReady, setTableReady] = React.useState(true);
   const [error, setError] = React.useState("");
   const [form, setForm] = React.useState({ email: "", role: "user", is_active: true });
+
+  const SETUP_SQL = `-- Run this in your Supabase SQL Editor:
+create table if not exists public.users (
+  id uuid primary key default gen_random_uuid(),
+  email text unique not null,
+  role text not null default 'user',
+  is_active boolean not null default true,
+  created_at timestamptz default now()
+);
+
+-- Seed your three team members:
+insert into public.users (email, role, is_active) values
+  ('sitfa92@gmail.com', 'admin', true),
+  ('marthajohn223355@gmail.com', 'va', true),
+  ('chizzyboi72@gmail.com', 'agent', true)
+on conflict (email) do nothing;`;
+
+  const isTableMissingError = (err) =>
+    err?.code === "42P01" ||
+    err?.message?.toLowerCase().includes("does not exist") ||
+    err?.message?.toLowerCase().includes("relation");
+
+  // Fallback members derived from static defaults when table is missing.
+  const DEFAULT_MEMBERS = Object.entries(DEFAULT_ROLE_BY_EMAIL).map(([email, role]) => ({
+    id: email,
+    email,
+    role,
+    is_active: true,
+    created_at: null,
+  }));
 
   const fetchMembers = async () => {
     try {
@@ -1916,9 +2006,15 @@ const Team = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      setTableReady(true);
       setMembers(data || []);
     } catch (err) {
-      setError("Users table missing. Run SQL to create users table for role management.");
+      if (isTableMissingError(err)) {
+        setTableReady(false);
+        setMembers(DEFAULT_MEMBERS);
+      } else {
+        setError(err.message || "Failed to load team");
+      }
     } finally {
       setLoading(false);
     }
@@ -1931,14 +2027,12 @@ const Team = () => {
   const addMember = async (e) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.from("users").insert([
-        {
-          email: form.email.trim().toLowerCase(),
-          role: form.role,
-          is_active: form.is_active,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      const { error } = await supabase.from("users").insert([{
+        email: form.email.trim().toLowerCase(),
+        role: form.role,
+        is_active: form.is_active,
+        created_at: new Date().toISOString(),
+      }]);
       if (error) throw error;
       setForm({ email: "", role: "user", is_active: true });
       fetchMembers();
@@ -1967,67 +2061,86 @@ const Team = () => {
     }
   };
 
+  const roleLabel = { admin: "Admin", va: "Virtual Assistant", agent: "Agent", user: "User" };
+
   return (
     <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto" }}>
       <h1>Team Management</h1>
       <p style={{ color: "#666" }}>Manage allowed users and assign role access.</p>
 
-      <form onSubmit={addMember} style={{ display: "grid", gap: 10, marginTop: 14, marginBottom: 20 }}>
-        <input
-          value={form.email}
-          placeholder="team@meetserenity.com"
-          type="email"
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          required
-          style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}
-        />
-        <select
-          value={form.role}
-          onChange={(e) => setForm({ ...form, role: e.target.value })}
-          style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}
-        >
-          <option value="admin">Admin</option>
-          <option value="va">Virtual Assistant</option>
-          <option value="agent">Agent</option>
-          <option value="user">User</option>
-        </select>
-        <label style={{ color: "#666" }}>
-          <input
-            type="checkbox"
-            checked={form.is_active}
-            onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-            style={{ marginRight: 8 }}
-          />
-          Active account
-        </label>
-        <button style={{ width: 160, padding: 10, background: "#333", color: "#fff", border: "none", borderRadius: 4 }}>
-          Add Team Member
-        </button>
-      </form>
+      {/* Setup banner */}
+      {!tableReady && (
+        <div style={{ background: "#fff3e0", border: "1px solid #ff9800", borderRadius: 8, padding: 16, marginBottom: 20 }}>
+          <strong style={{ color: "#e65100" }}>Database setup required</strong>
+          <p style={{ margin: "8px 0", color: "#555" }}>The users table doesn't exist yet. Copy and run this SQL in your
+            {" "}<a href="https://supabase.com/dashboard/project/jjmmakbnjzzxbuflucck/sql" target="_blank" rel="noreferrer">Supabase SQL Editor</a>.
+            Until then, your team is shown from the built-in defaults (read-only).
+          </p>
+          <pre style={{ background: "#f5f5f5", padding: 12, borderRadius: 6, fontSize: 12, overflowX: "auto", whiteSpace: "pre-wrap" }}>{SETUP_SQL}</pre>
+          <button
+            onClick={() => { navigator.clipboard.writeText(SETUP_SQL); }}
+            style={{ marginTop: 8, padding: "8px 14px", background: "#333", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}
+          >Copy SQL</button>
+        </div>
+      )}
+
+      {/* Add member form — only when table exists */}
+      {tableReady && (
+        <form onSubmit={addMember} style={{ display: "grid", gap: 10, marginTop: 14, marginBottom: 20 }}>
+          <input value={form.email} placeholder="team@meetserenity.com" type="email"
+            onChange={(e) => setForm({ ...form, email: e.target.value })} required
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
+          <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
+            <option value="admin">Admin</option>
+            <option value="va">Virtual Assistant</option>
+            <option value="agent">Agent</option>
+            <option value="user">User</option>
+          </select>
+          <label style={{ color: "#666" }}>
+            <input type="checkbox" checked={form.is_active}
+              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+              style={{ marginRight: 8 }} />
+            Active account
+          </label>
+          <button style={{ width: 160, padding: 10, background: "#333", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>
+            Add Team Member
+          </button>
+        </form>
+      )}
 
       {loading && <p>Loading team...</p>}
       {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
 
       {!loading && members.map((member) => (
         <div key={member.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12, marginBottom: 10 }}>
-          <p style={{ margin: 0, fontWeight: 600 }}>{member.email}</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <p style={{ margin: 0, fontWeight: 600, flex: 1 }}>{member.email}</p>
+            <span style={{
+              padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+              background: member.is_active ? "#e8f5e9" : "#ffebee",
+              color: member.is_active ? "#388e3c" : "#c62828",
+            }}>{member.is_active ? "Active" : "Inactive"}</span>
+          </div>
           <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-            <select
-              value={member.role || "user"}
-              onChange={(e) => updateRole(member.id, e.target.value)}
-              style={{ padding: 8, border: "1px solid #ccc", borderRadius: 4 }}
-            >
-              <option value="admin">Admin</option>
-              <option value="va">Virtual Assistant</option>
-              <option value="agent">Agent</option>
-              <option value="user">User</option>
-            </select>
-            <button
-              onClick={() => toggleActive(member.id, !!member.is_active)}
-              style={{ padding: "8px 10px", border: "none", borderRadius: 4, background: member.is_active ? "#f44336" : "#4caf50", color: "white" }}
-            >
-              {member.is_active ? "Deactivate" : "Activate"}
-            </button>
+            {tableReady ? (
+              <>
+                <select value={member.role || "user"} onChange={(e) => updateRole(member.id, e.target.value)}
+                  style={{ padding: 8, border: "1px solid #ccc", borderRadius: 4 }}>
+                  <option value="admin">Admin</option>
+                  <option value="va">Virtual Assistant</option>
+                  <option value="agent">Agent</option>
+                  <option value="user">User</option>
+                </select>
+                <button onClick={() => toggleActive(member.id, !!member.is_active)}
+                  style={{ padding: "8px 10px", border: "none", borderRadius: 4, cursor: "pointer",
+                    background: member.is_active ? "#f44336" : "#4caf50", color: "white" }}>
+                  {member.is_active ? "Deactivate" : "Activate"}
+                </button>
+              </>
+            ) : (
+              <span style={{ color: "#999", fontSize: 13 }}>Role: {roleLabel[member.role] || member.role} (read-only until table is created)</span>
+            )}
           </div>
         </div>
       ))}
