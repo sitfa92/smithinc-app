@@ -123,6 +123,9 @@ const runAuthenticatedCurrentDataSync = async () => {
   return json;
 };
 
+const buildPrefilledLoginLink = (email) =>
+  `${window.location.origin}/login?email=${encodeURIComponent((email || "").trim().toLowerCase())}`;
+
 // Allowlist is always derived from the defaults — keeps stale closures safe.
 const STATIC_ALLOWED_EMAILS = new Set(Object.keys(DEFAULT_ROLE_BY_EMAIL));
 const isStaticallyAllowed = (email) =>
@@ -551,6 +554,14 @@ const Login = () => {
     if (user) navigate("/", { replace: true });
   }, [user, navigate]);
 
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const prefilledEmail = params.get("email") || "";
+    if (prefilledEmail) {
+      setEmail(prefilledEmail.trim().toLowerCase());
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -568,7 +579,7 @@ const Login = () => {
 
   return (
     <div style={{ padding: "20px", maxWidth: "400px", margin: "50px auto" }}>
-      <h1 style={{ textAlign: "center", marginBottom: 30 }}>Admin Login</h1>
+      <h1 style={{ textAlign: "center", marginBottom: 30 }}>Team Login</h1>
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 20 }}>
           <input 
@@ -2570,7 +2581,7 @@ const Integrations = () => {
   const [opsTasks, setOpsTasks] = React.useState([]);
   const [opsTasksSource, setOpsTasksSource] = React.useState("fallback");
   const [manyChatStatus, setManyChatStatus] = React.useState({ loading: true, configured: false, widgetConfigured: false });
-  const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false });
+  const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false, syncedAt: "" });
   const gmailMessages = [
     { id: 1, from: "client@brand.com", subject: "Campaign availability", time: "2h ago" },
     { id: 2, from: "team@meetserenity.com", subject: "Weekly operations sync", time: "5h ago" },
@@ -2683,12 +2694,14 @@ const Integrations = () => {
       setCurrentDataSyncState({
         loading: false,
         error: false,
+        syncedAt: json.synced_at || "",
         message: `Sync complete. Models: ${json.models_count}, bookings: ${json.bookings_count}, clients: ${json.clients_count}, leads: ${json.leads_count}, enrollments: ${json.enrollments_count}, tasks synced: ${json.tasks_synced}.`,
       });
     } catch (err) {
       setCurrentDataSyncState({
         loading: false,
         error: true,
+        syncedAt: "",
         message: err.message || "Sync failed",
       });
     }
@@ -2783,9 +2796,16 @@ const Integrations = () => {
             {currentDataSyncState.loading ? "Syncing..." : "Run Current Data Sync"}
           </button>
           {currentDataSyncState.message && (
-            <p style={{ color: currentDataSyncState.error ? "#b71c1c" : "#666", marginTop: 10 }}>
-              {currentDataSyncState.message}
-            </p>
+            <div style={{ marginTop: 10 }}>
+              <p style={{ color: currentDataSyncState.error ? "#b71c1c" : "#666", margin: 0 }}>
+                {currentDataSyncState.message}
+              </p>
+              {!!currentDataSyncState.syncedAt && (
+                <p style={{ color: "#666", margin: "6px 0 0", fontSize: 13 }}>
+                  Last sync: {new Date(currentDataSyncState.syncedAt).toLocaleString()}
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -2886,7 +2906,7 @@ const Dashboard = () => {
   const [tasksTableReady, setTasksTableReady] = React.useState(true);
   const [eventsTableReady, setEventsTableReady] = React.useState(true);
   const [syncingTasks, setSyncingTasks] = React.useState(false);
-  const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false });
+  const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false, syncedAt: "" });
   const [savingEvent, setSavingEvent] = React.useState(false);
   const [eventForm, setEventForm] = React.useState({
     title: "",
@@ -3196,12 +3216,14 @@ alter table public.calendar_events disable row level security;`;
       setCurrentDataSyncState({
         loading: false,
         error: false,
+        syncedAt: json.synced_at || "",
         message: `Sync complete. Models: ${json.models_count}, bookings: ${json.bookings_count}, clients: ${json.clients_count}, leads: ${json.leads_count}, enrollments: ${json.enrollments_count}, tasks synced: ${json.tasks_synced}.`,
       });
     } catch (err) {
       setCurrentDataSyncState({
         loading: false,
         error: true,
+        syncedAt: "",
         message: err.message || "Sync failed",
       });
     }
@@ -3265,6 +3287,11 @@ alter table public.calendar_events disable row level security;`;
       <h1>Central Operations Dashboard</h1>
       <p style={{ color: "#666", marginTop: 8 }}>Signed in as: {user?.email || "Unknown user"}</p>
       <p style={{ color: "#666", marginTop: 4 }}>Role: {role}</p>
+      {!!currentDataSyncState.syncedAt && (
+        <p style={{ color: "#2e7d32", marginTop: 4, fontSize: 13 }}>
+          Last current-data sync: {new Date(currentDataSyncState.syncedAt).toLocaleString()}
+        </p>
+      )}
       {loading && <p style={{ color: "#666" }}>Loading dashboard data...</p>}
       {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
 
@@ -3305,9 +3332,16 @@ alter table public.calendar_events disable row level security;`;
               {currentDataSyncState.loading ? "Syncing Current Data..." : "Run Current Data Sync"}
             </button>
             {currentDataSyncState.message && (
-              <p style={{ color: currentDataSyncState.error ? "#d32f2f" : "#666", margin: "8px 0 0" }}>
-                {currentDataSyncState.message}
-              </p>
+              <div style={{ marginTop: 8 }}>
+                <p style={{ color: currentDataSyncState.error ? "#d32f2f" : "#666", margin: 0 }}>
+                  {currentDataSyncState.message}
+                </p>
+                {!!currentDataSyncState.syncedAt && (
+                  <p style={{ color: "#666", margin: "6px 0 0", fontSize: 13 }}>
+                    Last sync: {new Date(currentDataSyncState.syncedAt).toLocaleString()}
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -3594,6 +3628,13 @@ on conflict (email) do nothing;`;
   };
 
   const roleLabel = { admin: "Admin", va: "Virtual Assistant", agent: "Agent", user: "User" };
+  const nonAdminLoginLinks = members
+    .filter((member) => member.is_active !== false && (member.role || "user") !== "admin")
+    .map((member) => ({
+      email: (member.email || "").trim().toLowerCase(),
+      role: roleLabel[member.role] || member.role || "User",
+      loginUrl: buildPrefilledLoginLink(member.email),
+    }));
 
   return (
     <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto" }}>
@@ -3640,6 +3681,26 @@ on conflict (email) do nothing;`;
           </button>
         </form>
       )}
+
+      <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 20 }}>
+        <h2 style={{ marginTop: 0 }}>Non-Admin Login Links</h2>
+        <p style={{ color: "#666", marginTop: 0 }}>
+          Share these links with your VA and agent users. Each link opens the team login screen with their email prefilled.
+        </p>
+        {nonAdminLoginLinks.length === 0 && <p style={{ color: "#666" }}>No active non-admin users found.</p>}
+        {nonAdminLoginLinks.map((item) => (
+          <div key={item.email} style={{ border: "1px solid #eee", borderRadius: 6, padding: 10, marginBottom: 8 }}>
+            <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>{item.role}: {item.email}</p>
+            <p style={{ margin: "0 0 8px 0", color: "#666", wordBreak: "break-all" }}>{item.loginUrl}</p>
+            <button
+              onClick={() => navigator.clipboard.writeText(item.loginUrl)}
+              style={{ padding: "8px 10px", border: "none", borderRadius: 4, cursor: "pointer", background: "#333", color: "white" }}
+            >
+              Copy Login Link
+            </button>
+          </div>
+        ))}
+      </div>
 
       {loading && <p>Loading team...</p>}
       {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
