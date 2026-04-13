@@ -18,6 +18,18 @@ const DEFAULT_ROLE_BY_EMAIL = {
   "chizzyboi72@gmail.com": "agent",
 };
 
+const sendZapierEvent = async (eventType, payload) => {
+  try {
+    await fetch("/api/zapier/forward", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eventType, payload }),
+    });
+  } catch (_err) {
+    // Intentionally ignored to keep core user flows uninterrupted.
+  }
+};
+
 // Allowlist is always derived from the defaults — keeps stale closures safe.
 const STATIC_ALLOWED_EMAILS = new Set(Object.keys(DEFAULT_ROLE_BY_EMAIL));
 const isStaticallyAllowed = (email) =>
@@ -999,6 +1011,15 @@ const PublicBooking = () => {
         preferred_date: form.preferred_date,
       });
 
+      sendZapierEvent("booking.created", {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        company: form.company.trim(),
+        service_type: form.service_type,
+        preferred_date: form.preferred_date,
+        message: form.message.trim(),
+      });
+
       setSuccess(true);
       setForm({
         name: "",
@@ -1710,6 +1731,14 @@ alter table public.bookings disable row level security;`;
         created_at: new Date().toISOString(),
       }]);
       if (error) throw error;
+
+      sendZapierEvent("client.created", {
+        name: form.name.trim(),
+        project: form.project.trim(),
+        status: form.status,
+        invoice_status: form.invoice_status,
+      });
+
       setForm({ name: "", project: "", status: "lead", invoice_status: "pending" });
       fetchClients();
     } catch (err) {
