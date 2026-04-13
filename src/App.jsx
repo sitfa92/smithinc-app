@@ -2410,20 +2410,42 @@ const Clients = () => {
   const [saveError, setSaveError] = React.useState("");
   const [form, setForm] = React.useState({
     name: "",
-    project: "",
+    email: "",
+    service_type: "General",
+    client_value: "",
     status: "lead",
-    invoice_status: "pending",
+    contract_signed: false,
+    invoice_paid: false,
   });
 
   const SETUP_SQL = `-- Run this in your Supabase SQL Editor:
 create table if not exists public.clients (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  email text,
   project text,
+  honeybook_id text default '',
+  service_type text default 'general',
+  client_value numeric default 0,
   status text default 'lead',
   invoice_status text default 'pending',
-  created_at timestamptz default now()
+  contract_signed boolean default false,
+  invoice_paid boolean default false,
+  source text default 'manual',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
 );
+
+alter table public.clients add column if not exists email text;
+alter table public.clients add column if not exists project text;
+alter table public.clients add column if not exists honeybook_id text default '';
+alter table public.clients add column if not exists service_type text default 'general';
+alter table public.clients add column if not exists client_value numeric default 0;
+alter table public.clients add column if not exists invoice_status text default 'pending';
+alter table public.clients add column if not exists contract_signed boolean default false;
+alter table public.clients add column if not exists invoice_paid boolean default false;
+alter table public.clients add column if not exists source text default 'manual';
+alter table public.clients add column if not exists updated_at timestamptz default now();
 
 -- Disable RLS so the app can read/write (internal admin tool):
 alter table public.clients disable row level security;
@@ -2441,6 +2463,24 @@ alter table public.bookings disable row level security;`;
     err?.message?.toLowerCase().includes("policy") ||
     err?.message?.toLowerCase().includes("rls");
 
+  const isDuplicateClientError = (err) =>
+    err?.code === "23505" ||
+    err?.message?.toLowerCase().includes("duplicate") ||
+    err?.message?.toLowerCase().includes("unique");
+
+  const normalizeClient = (client) => {
+    const invoiceStatus = client.invoice_status || (client.invoice_paid ? "paid" : "pending");
+    return {
+      ...client,
+      email: client.email || "",
+      service_type: client.service_type || client.project || "General",
+      client_value: client.client_value ?? 0,
+      invoice_status: invoiceStatus,
+      project: client.project || client.service_type || "",
+      source: client.source || "manual",
+    };
+  };
+
   const fetchClients = async () => {
     try {
       setError("");
@@ -2451,7 +2491,7 @@ alter table public.bookings disable row level security;`;
 
       if (error) throw error;
       setTableReady(true);
-      setClients(data || []);
+      setClients((data || []).map(normalizeClient));
     } catch (err) {
       if (isTableMissingError(err)) {
         setTableReady(false);
@@ -2471,36 +2511,71 @@ alter table public.bookings disable row level security;`;
     e.preventDefault();
     setSaveError("");
     try {
-      const { error } = await supabase.from("clients").insert([{
+      const clientPayload = {
         name: form.name.trim(),
-        project: form.project.trim(),
+        email: form.email.trim().toLowerCase(),
+        project: form.service_type.trim(),
+        service_type: form.service_type.trim(),
+        client_value: Number(form.client_value || 0),
         status: form.status,
-        invoice_status: form.invoice_status,
+        invoice_status: form.invoice_paid ? "paid" : form.contract_signed ? "sent" : "pending",
+        contract_signed: form.contract_signed,
+        invoice_paid: form.invoice_paid,
+        source: "manual",
         created_at: new Date().toISOString(),
-      }]);
+        updated_at: new Date().toISOString(),
+      };
+
+      let { error } = await supabase.from("clients").insert([clientPayload]);
+      if (error && isMissingColumnError(error)) {
+        const fallbackPayload = {
+          name: form.name.trim(),
+          project: form.service_type.trim(),
+          status: form.status,
+          invoice_status: form.invoice_paid ? "paid" : form.contract_signed ? "sent" : "pending",
+          created_at: new Date().toISOString(),
+        };
+        const fallback = await supabase.from("clients").insert([fallbackPayload]);
+        error = fallback.error;
+      }
       if (error) throw error;
 
       sendZapierEvent("client.created", {
         name: form.name.trim(),
-        project: form.project.trim(),
+        email: form.email.trim().toLowerCase(),
+        service_type: form.service_type.trim(),
+        client_value: Number(form.client_value || 0),
         status: form.status,
-        invoice_status: form.invoice_status,
+        invoice_paid: form.invoice_paid,
+        contract_signed: form.contract_signed,
       });
 
       sendBackendWebhook("new_client", {
         name: form.name.trim(),
-        email: "",
+        email: form.email.trim().toLowerCase(),
         stage: form.status,
       });
 
-      setForm({ name: "", project: "", status: "lead", invoice_status: "pending" });
+      setForm({
+        name: "",
+        email: "",
+        service_type: "General",
+        client_value: "",
+        status: "lead",
+        contract_signed: false,
+        invoice_paid: false,
+      });
       fetchClients();
     } catch (err) {
-      setSaveError(err.message || "Failed to save client");
+      if (isDuplicateClientError(err)) {
+        setSaveError("A client with that email already exists.");
+      } else {
+        setSaveError(err.message || "Failed to save client");
+      }
     }
   };
 
-  const statusColor = { lead: "#ff9800", active: "#4caf50", completed: "#2196f3" };
+  const statusColor = { lead: "#ff9800", active: "#4caf50", completed: "#2196f3", inactive: "#9e9e9e", churned: "#d32f2f" };
   const invoiceColor = { pending: "#ff9800", sent: "#2196f3", paid: "#4caf50" };
 
   return (
@@ -2527,20 +2602,33 @@ alter table public.bookings disable row level security;`;
         <form onSubmit={saveClient} style={{ display: "grid", gap: 10, marginBottom: 24 }}>
           <input value={form.name} placeholder="Client name" onChange={(e) => setForm({ ...form, name: e.target.value })} required
             style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
-          <input value={form.project} placeholder="Project" onChange={(e) => setForm({ ...form, project: e.target.value })} required
+          <input value={form.email} placeholder="Client email" type="email" onChange={(e) => setForm({ ...form, email: e.target.value })}
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
+          <input value={form.service_type} placeholder="Service / project" onChange={(e) => setForm({ ...form, service_type: e.target.value })} required
+            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
+          <input value={form.client_value} placeholder="Client value (optional)" type="number" min="0" step="0.01"
+            onChange={(e) => setForm({ ...form, client_value: e.target.value })}
             style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
             style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
             <option value="lead">Lead</option>
             <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="churned">Churned</option>
             <option value="completed">Completed</option>
           </select>
-          <select value={form.invoice_status} onChange={(e) => setForm({ ...form, invoice_status: e.target.value })}
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
-            <option value="pending">Invoice Pending</option>
-            <option value="sent">Invoice Sent</option>
-            <option value="paid">Paid</option>
-          </select>
+          <label style={{ color: "#666" }}>
+            <input type="checkbox" checked={form.contract_signed}
+              onChange={(e) => setForm({ ...form, contract_signed: e.target.checked })}
+              style={{ marginRight: 8 }} />
+            Contract signed
+          </label>
+          <label style={{ color: "#666" }}>
+            <input type="checkbox" checked={form.invoice_paid}
+              onChange={(e) => setForm({ ...form, invoice_paid: e.target.checked })}
+              style={{ marginRight: 8 }} />
+            Invoice paid
+          </label>
           {saveError && <p style={{ color: "#d32f2f", margin: 0 }}>{saveError}</p>}
           <button style={{ padding: 12, background: "#333", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>Save Client</button>
         </form>
@@ -2556,7 +2644,11 @@ alter table public.bookings disable row level security;`;
       {!loading && clients.map((client) => (
         <div key={client.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 16, marginBottom: 10 }}>
           <strong style={{ fontSize: 16 }}>{client.name}</strong>
-          <p style={{ margin: "6px 0", color: "#666" }}>{client.project}</p>
+          <p style={{ margin: "6px 0", color: "#666" }}>{client.service_type || client.project || "General"}</p>
+          {client.email && <p style={{ margin: "6px 0", color: "#666" }}>{client.email}</p>}
+          {Number(client.client_value || 0) > 0 && (
+            <p style={{ margin: "6px 0", color: "#666" }}>Value: ${Number(client.client_value).toLocaleString()}</p>
+          )}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
             <span style={{ padding: "4px 10px", borderRadius: 20, background: statusColor[client.status] || "#999", color: "#fff", fontSize: 12, fontWeight: 600 }}>
               {client.status}
@@ -2564,6 +2656,16 @@ alter table public.bookings disable row level security;`;
             <span style={{ padding: "4px 10px", borderRadius: 20, background: invoiceColor[client.invoice_status] || "#999", color: "#fff", fontSize: 12, fontWeight: 600 }}>
               {client.invoice_status}
             </span>
+            {client.contract_signed && (
+              <span style={{ padding: "4px 10px", borderRadius: 20, background: "#6a1b9a", color: "#fff", fontSize: 12, fontWeight: 600 }}>
+                Contract Signed
+              </span>
+            )}
+            {client.source && (
+              <span style={{ padding: "4px 10px", borderRadius: 20, background: "#455a64", color: "#fff", fontSize: 12, fontWeight: 600 }}>
+                {client.source}
+              </span>
+            )}
           </div>
         </div>
       ))}
