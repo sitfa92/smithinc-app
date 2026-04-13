@@ -278,6 +278,7 @@ const Nav = () => {
   const { user, logout, role } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
+  const [unreadAlertCount, setUnreadAlertCount] = React.useState(0);
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -290,6 +291,52 @@ const Nav = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    const fetchUnreadAlerts = async () => {
+      if (!user?.email) {
+        if (mounted) setUnreadAlertCount(0);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("alerts")
+          .select("id, audience_role, audience_email, status")
+          .neq("status", "read")
+          .order("created_at", { ascending: false })
+          .limit(100);
+
+        if (error) throw error;
+
+        const email = (user.email || "").toLowerCase();
+        const visible = (data || []).filter((item) => {
+          if (role === "admin") return true;
+          return (item.audience_email || "").toLowerCase() === email || item.audience_role === role;
+        });
+
+        if (mounted) setUnreadAlertCount(visible.length);
+      } catch (_err) {
+        if (mounted) setUnreadAlertCount(0);
+      }
+    };
+
+    fetchUnreadAlerts();
+
+    const alertsChannel = supabase
+      .channel(`nav-alerts-${(user?.email || "guest").toLowerCase()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "alerts" }, () => {
+        fetchUnreadAlerts();
+      })
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(alertsChannel);
+    };
+  }, [user?.email, role]);
 
   const navStyle = {
     padding: "15px 20px",
@@ -365,6 +412,38 @@ const Nav = () => {
     return false;
   };
 
+  const bellLink = (
+    <Link
+      to="/"
+      style={{ ...linkStyle, position: "relative", paddingRight: 16 }}
+      onClick={() => setMobileMenuOpen(false)}
+      aria-label={`Alerts${unreadAlertCount ? ` (${unreadAlertCount} unread)` : ""}`}
+    >
+      <span style={{ fontSize: 16 }}>🔔</span>
+      {unreadAlertCount > 0 && (
+        <span
+          style={{
+            position: "absolute",
+            top: 2,
+            right: 2,
+            minWidth: 18,
+            height: 18,
+            padding: "0 5px",
+            borderRadius: 999,
+            background: "#d32f2f",
+            color: "#fff",
+            fontSize: 11,
+            lineHeight: "18px",
+            textAlign: "center",
+            fontWeight: 700,
+          }}
+        >
+          {unreadAlertCount > 99 ? "99+" : unreadAlertCount}
+        </span>
+      )}
+    </Link>
+  );
+
   return (
     <nav style={navStyle}>
       <Link
@@ -428,6 +507,7 @@ const Nav = () => {
             Team
           </Link>
         )}
+        {user?.email && bellLink}
         <button
           onClick={async () => {
             try {
@@ -545,6 +625,7 @@ const Nav = () => {
             Team
           </Link>
         )}
+        {user?.email && bellLink}
         <button
           onClick={async () => {
             try {
