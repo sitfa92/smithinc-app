@@ -25,13 +25,6 @@ export const uploadImage = async (file, folder = "models") => {
   }
 
   try {
-    // Create unique filename
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
-    const extension = file.name.split(".").pop();
-    const fileName = `${timestamp}-${random}.${extension}`;
-    const filePath = `${folder}/${fileName}`;
-
     const signResp = await fetch("/api/storage/sign-upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

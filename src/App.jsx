@@ -131,7 +131,7 @@ const useProvideAuth = () => {
           // Defaults ALWAYS win — DB cannot override hardcoded admin/va/agent.
           setRoleByEmail({ ...mapped, ...DEFAULT_ROLE_BY_EMAIL });
         }
-      } catch (err) {
+      } catch (_err) {
         // Fall back to default hardcoded roles when users table is not ready.
         if (mounted) {
           setRoleByEmail(DEFAULT_ROLE_BY_EMAIL);
@@ -663,14 +663,12 @@ const ModelSignup = () => {
       };
 
       // Insert model with image URL and pending status
-      let { data, error: supabaseError } = await supabase
+      let { error: supabaseError } = await supabase
         .from("models")
-        .insert([pipelineSubmission])
-        .select();
+        .insert([pipelineSubmission]);
 
       if (supabaseError && isMissingColumnError(supabaseError)) {
-        const retry = await supabase.from("models").insert([baseSubmission]).select();
-        data = retry.data;
+        const retry = await supabase.from("models").insert([baseSubmission]);
         supabaseError = retry.error;
       }
 
@@ -2410,7 +2408,7 @@ const Integrations = () => {
         const resp = await fetch("/api/zapier/status");
         const json = await resp.json();
         setZapierStatus({ loading: false, ...json });
-      } catch (err) {
+      } catch (_err) {
         setZapierStatus({ loading: false, configured: false, events: [] });
       }
     };
