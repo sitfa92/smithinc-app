@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
+import "../App.css";
 
 export default function Login() {
   const { login, user } = useAuth();
@@ -16,17 +17,14 @@ export default function Login() {
 
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const prefilledEmail = params.get("email") || "";
-    if (prefilledEmail) {
-      setEmail(prefilledEmail.trim().toLowerCase());
-    }
+    const pre = params.get("email") || "";
+    if (pre) setEmail(pre.trim().toLowerCase());
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       await login(email.trim(), password);
     } catch (err) {
@@ -36,54 +34,64 @@ export default function Login() {
     }
   };
 
+  const inp = {
+    width:"100%", padding:"13px 16px", fontSize:14, color:"#111",
+    background:"#fff", border:"1px solid #e8e4dc", borderRadius:8,
+    outline:"none", fontFamily:"'Inter',sans-serif", boxSizing:"border-box",
+    transition:"border-color 0.2s",
+  };
+
   return (
-    <div style={{ padding: "40px 20px", maxWidth: 400, margin: "0 auto" }}>
-      <h1>Login</h1>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 15 }}>
-          <input
-            type="email"
-            value={email}
-            placeholder="Email"
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-            required
-            style={{ width: "100%", padding: 12, boxSizing: "border-box", fontSize: 16, border: "1px solid #ccc", borderRadius: 4 }}
-          />
-        </div>
-        <div style={{ marginBottom: 20 }}>
-          <input
-            type="password"
-            value={password}
-            placeholder="Password"
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-            required
-            style={{ width: "100%", padding: 12, boxSizing: "border-box", fontSize: 16, border: "1px solid #ccc", borderRadius: 4 }}
-          />
-        </div>
-        {error && (
-          <div style={{ color: "#d32f2f", marginBottom: 15, padding: 10, backgroundColor: "#ffebee", borderRadius: 4 }}>
-            {error}
+    <div className="lx-auth-screen">
+      <div className="lx-auth-panel">
+        <div className="lx-auth-brand">Meet Serenity</div>
+
+        <h1 className="lx-auth-title">Welcome back</h1>
+        <p className="lx-auth-sub">Sign in to your account</p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="lx-field">
+            <label className="lx-label">Email</label>
+            <input
+              type="email" value={email} placeholder="you@example.com"
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading} required
+              style={inp}
+              onFocus={(e) => { e.target.style.borderColor="#111"; e.target.style.boxShadow="0 0 0 3px rgba(17,17,17,0.05)"; }}
+              onBlur={(e)  => { e.target.style.borderColor="#e8e4dc"; e.target.style.boxShadow="none"; }}
+            />
           </div>
-        )}
-        <button
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: 12,
-            backgroundColor: loading ? "#ccc" : "#333",
-            color: "white",
-            border: "none",
-            borderRadius: 4,
-            fontSize: 16,
-            fontWeight: "bold",
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
+          <div className="lx-field">
+            <label className="lx-label">Password</label>
+            <input
+              type="password" value={password} placeholder="••••••••"
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading} required
+              style={inp}
+              onFocus={(e) => { e.target.style.borderColor="#111"; e.target.style.boxShadow="0 0 0 3px rgba(17,17,17,0.05)"; }}
+              onBlur={(e)  => { e.target.style.borderColor="#e8e4dc"; e.target.style.boxShadow="none"; }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ background:"#fef2f2", border:"1px solid rgba(155,28,28,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#9b1c1c", fontSize:13 }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            disabled={loading}
+            className={`lx-btn lx-btn-primary lx-btn-full${loading ? " lx-btn-disabled" : ""}`}
+            style={{ marginTop: 8, padding: "14px 22px", fontSize: 12 }}
+          >
+            {loading ? "Signing in…" : "Sign In"}
+          </button>
+        </form>
+
+        <p style={{ textAlign:"center", color:"#bbb", fontSize:12, marginTop:28, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+          Team access only
+        </p>
+      </div>
     </div>
   );
 }

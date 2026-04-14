@@ -145,136 +145,93 @@ alter table public.models disable row level security;`;
     return acc;
   }, {});
 
+  const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2" };
+  const sel = { padding:"10px 12px", border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:13, background:C.white, color:C.slate, outline:"none", fontFamily:"'Inter',sans-serif", appearance:"none", cursor:"pointer" };
+  const ta = { padding:"10px 12px", border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:13, background:C.white, color:C.slate, outline:"none", fontFamily:"'Inter',sans-serif", width:"100%", resize:"vertical", minHeight:64, boxSizing:"border-box" };
+  const priorityBadge = { high:[C.errBg,C.err], medium:[C.warnBg,C.warn], low:[C.ivory,C.dust] };
+
   return (
-    <div style={{ padding: 20, maxWidth: 1300, margin: "0 auto" }}>
-      <h1>Model Pipeline</h1>
-      <p style={{ color: "#666", marginTop: 0 }}>
-        Structured tracking from first submission to agency signing.
-      </p>
+    <div style={{ padding:"32px 24px", maxWidth:1300, margin:"0 auto" }}>
+      <h1 style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:"clamp(26px,4vw,38px)", fontWeight:500, color:C.ink, letterSpacing:"-0.02em", margin:"0 0 4px" }}>
+        Model Pipeline
+      </h1>
+      <p style={{ color:C.dust, marginBottom:20, fontSize:13 }}>Structured tracking from first submission to agency signing.</p>
 
       {!pipelineSchemaReady && (
-        <div style={{ background: "#fff3e0", border: "1px solid #ff9800", borderRadius: 8, padding: 16, marginBottom: 18 }}>
-          <strong style={{ color: "#e65100" }}>Pipeline fields need one-time database setup</strong>
-          <p style={{ margin: "8px 0", color: "#555" }}>
+        <div style={{ background:C.warnBg, border:`1px solid rgba(146,86,10,0.2)`, borderRadius:12, padding:"18px 22px", marginBottom:24 }}>
+          <p style={{ margin:"0 0 6px", fontWeight:600, color:C.warn, fontSize:14 }}>Pipeline fields need one-time database setup</p>
+          <p style={{ margin:"0 0 10px", color:C.slate, fontSize:13 }}>
             Run this SQL in the{" "}
-            <a href="https://supabase.com/dashboard/project/jjmmakbnjzzxbuflucck/sql" target="_blank" rel="noreferrer">
-              Supabase SQL Editor
-            </a>.
+            <a href="https://supabase.com/dashboard/project/jjmmakbnjzzxbuflucck/sql" target="_blank" rel="noreferrer" style={{ color:C.ink }}>Supabase SQL Editor</a>.
           </p>
-          <pre style={{ background: "#f5f5f5", padding: 12, borderRadius: 6, fontSize: 12, overflowX: "auto", whiteSpace: "pre-wrap" }}>{PIPELINE_SETUP_SQL}</pre>
-          <button
-            onClick={() => navigator.clipboard.writeText(PIPELINE_SETUP_SQL)}
-            style={{ marginTop: 8, padding: "8px 14px", background: "#333", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}
-          >
-            Copy SQL
-          </button>
+          <pre style={{ background:C.ivory, border:`1px solid ${C.smoke}`, padding:"12px 14px", borderRadius:8, fontSize:11, overflowX:"auto", whiteSpace:"pre-wrap", color:C.slate, maxHeight:180, overflow:"auto" }}>{PIPELINE_SETUP_SQL}</pre>
+          <button onClick={()=>navigator.clipboard.writeText(PIPELINE_SETUP_SQL)} style={{ marginTop:10, padding:"9px 16px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>Copy SQL</button>
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 16 }}>
-        <select value={filters.stage} onChange={(e) => setFilters((prev) => ({ ...prev, stage: e.target.value }))} style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
-          <option value="all">All Stages</option>
-          {PIPELINE_STAGES.map((stage) => (
-            <option key={stage} value={stage}>{PIPELINE_STAGE_LABELS[stage]}</option>
-          ))}
-        </select>
-        <select value={filters.priority} onChange={(e) => setFilters((prev) => ({ ...prev, priority: e.target.value }))} style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
-          <option value="all">All Priority</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
-        <select value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))} style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
-          <option value="all">All Status</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
-        <select value={filters.sortBy} onChange={(e) => setFilters((prev) => ({ ...prev, sortBy: e.target.value }))} style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
-          <option value="recent">Most Recently Updated</option>
-          <option value="priority">Priority Level</option>
-        </select>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:10, marginBottom:20 }}>
+        {[
+          { val:filters.stage, opts:[["all","All Stages"],...PIPELINE_STAGES.map(s=>[s,PIPELINE_STAGE_LABELS[s]])], cb:(v)=>setFilters(p=>({...p,stage:v})) },
+          { val:filters.priority, opts:[["all","All Priority"],["high","High"],["medium","Medium"],["low","Low"]], cb:(v)=>setFilters(p=>({...p,priority:v})) },
+          { val:filters.status, opts:[["all","All Status"],["pending","Pending"],["approved","Approved"],["rejected","Rejected"]], cb:(v)=>setFilters(p=>({...p,status:v})) },
+          { val:filters.sortBy, opts:[["recent","Most Recent"],["priority","Priority"]], cb:(v)=>setFilters(p=>({...p,sortBy:v})) },
+        ].map((f,i) => (
+          <select key={i} value={f.val} onChange={(e)=>f.cb(e.target.value)} style={sel}>
+            {f.opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+          </select>
+        ))}
       </div>
 
-      {loading && <p>Loading pipeline...</p>}
-      {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
+      {loading && <p style={{ color:C.dust }}>Loading pipeline…</p>}
+      {error && <p style={{ color:C.err, fontSize:13 }}>{error}</p>}
 
       {!loading && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
-          {visibleStages.map((stage) => (
-            <div key={stage} style={{ border: "1px solid #e0e0e0", borderRadius: 10, padding: 12, background: "#fafafa" }}>
-              <h3 style={{ marginTop: 0 }}>{PIPELINE_STAGE_LABELS[stage]} ({grouped[stage]?.length || 0})</h3>
-
-              {(grouped[stage] || []).map((model) => {
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:16 }}>
+          {visibleStages.map(stage => (
+            <div key={stage} style={{ background:C.ivory, border:`1px solid ${C.smoke}`, borderRadius:12, padding:14 }}>
+              <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:17, fontWeight:500, color:C.ink, margin:"0 0 12px", letterSpacing:"-0.01em" }}>
+                {PIPELINE_STAGE_LABELS[stage]}{" "}
+                <span style={{ fontSize:13, color:C.dust, fontFamily:"'Inter',sans-serif", fontWeight:400 }}>({grouped[stage]?.length || 0})</span>
+              </p>
+              {(grouped[stage] || []).map(model => {
                 const notesPreview = model.scouting_notes || model.internal_notes || "No notes yet";
                 const isBusy = !!actionLoading[model.id];
-
+                const [pbg,pclr] = priorityBadge[model.priority_level] || [C.ivory,C.dust];
                 return (
-                  <div key={model.id} style={{ border: "1px solid #ececec", borderRadius: 8, padding: 10, marginBottom: 10, background: "#fff" }}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      {model.image_url ? (
-                        <img src={model.image_url} alt={model.name} style={{ width: 54, height: 54, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-                      ) : (
-                        <div style={{ width: 54, height: 54, borderRadius: 8, background: "#efefef", flexShrink: 0 }} />
-                      )}
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ margin: 0, fontWeight: 700 }}>{model.name}</p>
-                        <p style={{ margin: "4px 0 0", color: "#666", fontSize: 13 }}>Status: {model.status || "pending"}</p>
-                        {model.source === "manychat" && (
-                          <span style={{ display: "inline-block", marginTop: 4, padding: "2px 8px", backgroundColor: "#7b2ff7", color: "white", borderRadius: 10, fontSize: 11, fontWeight: "bold" }}>
-                            ManyChat
-                          </span>
-                        )}
+                  <div key={model.id} style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:10, padding:12, marginBottom:10 }}>
+                    <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:8 }}>
+                      {model.image_url
+                        ? <img src={model.image_url} alt={model.name} style={{ width:48, height:48, borderRadius:8, objectFit:"cover", flexShrink:0 }} />
+                        : <div style={{ width:48, height:48, borderRadius:8, background:C.ivory, flexShrink:0 }} />
+                      }
+                      <div style={{ minWidth:0 }}>
+                        <p style={{ margin:0, fontWeight:600, fontSize:14, color:C.ink }}>{model.name}</p>
+                        <p style={{ margin:"2px 0 0", color:C.dust, fontSize:12 }}>{model.status || "pending"}</p>
+                        {model.source === "manychat" && <span style={{ display:"inline-block", marginTop:3, padding:"2px 8px", background:"rgba(123,47,247,0.1)", color:"#7b2ff7", borderRadius:99, fontSize:10, fontWeight:700, textTransform:"uppercase" }}>ManyChat</span>}
                       </div>
                     </div>
 
-                    <p style={{ margin: "8px 0", color: "#666", fontSize: 13 }}>Priority: <strong>{model.priority_level}</strong></p>
-                    <p style={{ margin: "8px 0", color: "#555", fontSize: 13 }}>
-                      {String(notesPreview).slice(0, 120)}{String(notesPreview).length > 120 ? "..." : ""}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+                      <span style={{ padding:"3px 9px", borderRadius:99, background:pbg, color:pclr, fontSize:10, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>{model.priority_level}</span>
+                    </div>
+                    <p style={{ margin:"0 0 10px", color:C.slate, fontSize:12, lineHeight:1.5 }}>
+                      {String(notesPreview).slice(0,100)}{String(notesPreview).length > 100 ? "…" : ""}
                     </p>
 
                     {canEditPipeline && pipelineSchemaReady && (
-                      <div style={{ display: "grid", gap: 8 }}>
-                        <select value={model.pipeline_stage} onChange={(e) => updateModelPipeline(model.id, { pipeline_stage: e.target.value })} disabled={isBusy}
-                          style={{ padding: 8, border: "1px solid #ccc", borderRadius: 4 }}>
-                          {PIPELINE_STAGES.map((item) => (
-                            <option key={item} value={item}>{PIPELINE_STAGE_LABELS[item]}</option>
-                          ))}
+                      <div style={{ display:"grid", gap:8 }}>
+                        <select value={model.pipeline_stage} onChange={(e)=>updateModelPipeline(model.id,{pipeline_stage:e.target.value})} disabled={isBusy} style={sel}>
+                          {PIPELINE_STAGES.map(item=><option key={item} value={item}>{PIPELINE_STAGE_LABELS[item]}</option>)}
                         </select>
-
-                        <select value={model.priority_level} onChange={(e) => updateModelPipeline(model.id, { priority_level: e.target.value })} disabled={isBusy}
-                          style={{ padding: 8, border: "1px solid #ccc", borderRadius: 4 }}>
+                        <select value={model.priority_level} onChange={(e)=>updateModelPipeline(model.id,{priority_level:e.target.value})} disabled={isBusy} style={sel}>
                           <option value="high">High Priority</option>
                           <option value="medium">Medium Priority</option>
                           <option value="low">Low Priority</option>
                         </select>
-
-                        <textarea
-                          value={model.scouting_notes || ""}
-                          placeholder="Scouting notes"
-                          onChange={(e) => setModels((prev) => prev.map((m) => (m.id === model.id ? { ...m, scouting_notes: e.target.value } : m)))}
-                          onBlur={() => updateModelPipeline(model.id, { scouting_notes: model.scouting_notes || "" })}
-                          disabled={isBusy}
-                          style={{ minHeight: 70, padding: 8, border: "1px solid #ccc", borderRadius: 4, resize: "vertical" }}
-                        />
-
-                        <textarea
-                          value={model.internal_notes || ""}
-                          placeholder="Internal notes"
-                          onChange={(e) => setModels((prev) => prev.map((m) => (m.id === model.id ? { ...m, internal_notes: e.target.value } : m)))}
-                          onBlur={() => updateModelPipeline(model.id, { internal_notes: model.internal_notes || "" })}
-                          disabled={isBusy}
-                          style={{ minHeight: 70, padding: 8, border: "1px solid #ccc", borderRadius: 4, resize: "vertical" }}
-                        />
-
-                        <input
-                          value={model.agency_name || ""}
-                          placeholder="Agency name (for signed talent)"
-                          onChange={(e) => setModels((prev) => prev.map((m) => (m.id === model.id ? { ...m, agency_name: e.target.value } : m)))}
-                          onBlur={() => updateModelPipeline(model.id, { agency_name: model.agency_name || "" })}
-                          disabled={isBusy}
-                          style={{ padding: 8, border: "1px solid #ccc", borderRadius: 4 }}
-                        />
+                        <textarea value={model.scouting_notes||""} placeholder="Scouting notes…" onChange={(e)=>setModels(p=>p.map(m=>m.id===model.id?{...m,scouting_notes:e.target.value}:m))} onBlur={()=>updateModelPipeline(model.id,{scouting_notes:model.scouting_notes||""})} disabled={isBusy} style={ta} />
+                        <textarea value={model.internal_notes||""} placeholder="Internal notes…" onChange={(e)=>setModels(p=>p.map(m=>m.id===model.id?{...m,internal_notes:e.target.value}:m))} onBlur={()=>updateModelPipeline(model.id,{internal_notes:model.internal_notes||""})} disabled={isBusy} style={ta} />
+                        <input value={model.agency_name||""} placeholder="Agency name (for signed talent)" onChange={(e)=>setModels(p=>p.map(m=>m.id===model.id?{...m,agency_name:e.target.value}:m))} onBlur={()=>updateModelPipeline(model.id,{agency_name:model.agency_name||""})} disabled={isBusy}
+                          style={{ ...sel, width:"100%", boxSizing:"border-box" }} />
                       </div>
                     )}
                   </div>

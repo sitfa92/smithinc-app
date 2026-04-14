@@ -8,13 +8,16 @@ import {
   sendInternalTeamEmailAlert,
   sendBackendWebhook,
 } from "../utils";
+import "../App.css";
+
+const inp = {
+  width:"100%", padding:"12px 14px", fontSize:14, color:"#111",
+  background:"#fff", border:"1px solid #e8e4dc", borderRadius:8,
+  outline:"none", fontFamily:"'Inter',sans-serif", boxSizing:"border-box",
+};
 
 export default function ModelSignup() {
-  const [form, setForm] = React.useState({
-    name: "",
-    email: "",
-    instagram: "",
-  });
+  const [form, setForm] = React.useState({ name:"", email:"", instagram:"" });
   const [image, setImage] = React.useState(null);
   const [imagePreview, setImagePreview] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -26,202 +29,104 @@ export default function ModelSignup() {
     if (file) {
       setImage(file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
+      reader.onloadend = () => setImagePreview(reader.result);
       reader.readAsDataURL(file);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-    setLoading(true);
-
+    setError(""); setLoading(true);
     try {
-      if (!form.name.trim() || !form.email.trim()) {
-        throw new Error("Name and email are required");
-      }
-
-      if (!image) {
-        throw new Error("Please upload a profile image");
-      }
+      if (!form.name.trim() || !form.email.trim()) throw new Error("Name and email are required");
+      if (!image) throw new Error("Please upload a profile image");
 
       let imageUrl = "";
-      try {
-        imageUrl = await uploadImage(image);
-      } catch (uploadErr) {
-        throw new Error(`Image upload failed: ${uploadErr.message}`);
-      }
+      try { imageUrl = await uploadImage(image); }
+      catch (uploadErr) { throw new Error(`Image upload failed: ${uploadErr.message}`); }
 
-      const baseSubmission = {
-        name: form.name.trim(),
-        email: form.email.trim(),
-        instagram: form.instagram.trim(),
-        image_url: imageUrl,
-        status: "pending",
-        submitted_at: new Date().toISOString(),
-      };
+      const base = { name:form.name.trim(), email:form.email.trim(), instagram:form.instagram.trim(), image_url:imageUrl, status:"pending", submitted_at:new Date().toISOString() };
+      const payload = { ...base, pipeline_stage:"submitted", priority_level:"medium", scouting_notes:"", internal_notes:"", agency_name:"", last_updated:new Date().toISOString() };
 
-      const pipelineSubmission = {
-        ...baseSubmission,
-        pipeline_stage: "submitted",
-        priority_level: "medium",
-        scouting_notes: "",
-        internal_notes: "",
-        agency_name: "",
-        last_updated: new Date().toISOString(),
-      };
-
-      let { error: supabaseError } = await supabase
-        .from("models")
-        .insert([pipelineSubmission]);
-
+      let { error: supabaseError } = await supabase.from("models").insert([payload]);
       if (supabaseError && isMissingColumnError(supabaseError)) {
-        const retry = await supabase.from("models").insert([baseSubmission]);
+        const retry = await supabase.from("models").insert([base]);
         supabaseError = retry.error;
       }
-
       if (supabaseError) throw supabaseError;
 
-      sendModelSubmissionEmail({
-        name: form.name.trim(),
-        email: form.email.trim(),
-        instagram: form.instagram.trim(),
-      });
-
+      sendModelSubmissionEmail({ name:form.name.trim(), email:form.email.trim(), instagram:form.instagram.trim() });
       createInAppAlerts([
-        {
-          title: "New model submission",
-          message: `${form.name.trim()} submitted a new application.`,
-          audience_role: "admin",
-          source_type: "model",
-          source_id: form.email.trim().toLowerCase(),
-        },
-        {
-          title: "Model review needed",
-          message: `${form.name.trim()} is ready for review in submissions.`,
-          audience_role: "agent",
-          source_type: "model",
-          source_id: form.email.trim().toLowerCase(),
-        },
+        { title:"New model submission", message:`${form.name.trim()} submitted a new application.`, audience_role:"admin", source_type:"model", source_id:form.email.trim().toLowerCase() },
+        { title:"Model review needed", message:`${form.name.trim()} is ready for review in submissions.`, audience_role:"agent", source_type:"model", source_id:form.email.trim().toLowerCase() },
       ]);
-
-      sendInternalTeamEmailAlert({
-        subject: `New model submission: ${form.name.trim()}`,
-        message: `${form.name.trim()} submitted a model application.\nEmail: ${form.email.trim()}\nInstagram: ${form.instagram.trim() || "N/A"}`,
-        roles: ["admin", "agent"],
-        submissionEmail: form.email.trim(),
-      });
-
-      sendBackendWebhook("model_signup", {
-        name: form.name.trim(),
-        instagram: form.instagram.trim(),
-        height: "",
-        status: "pending",
-      });
+      sendInternalTeamEmailAlert({ subject:`New model submission: ${form.name.trim()}`, message:`${form.name.trim()} submitted a model application.\nEmail: ${form.email.trim()}\nInstagram: ${form.instagram.trim()||"N/A"}`, roles:["admin","agent"], submissionEmail:form.email.trim() });
+      sendBackendWebhook("model_signup", { name:form.name.trim(), instagram:form.instagram.trim(), height:"", status:"pending" });
 
       setSuccess(true);
-      setForm({ name: "", email: "", instagram: "" });
-      setImage(null);
-      setImagePreview("");
+      setForm({ name:"", email:"", instagram:"" });
+      setImage(null); setImagePreview("");
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       setError(err.message || "Failed to submit. Please try again.");
-      console.error("Submission error:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  if (success) {
+    return (
+      <div className="lx-auth-screen">
+        <div className="lx-auth-panel" style={{ textAlign:"center" }}>
+          <div style={{ fontSize:48, marginBottom:16 }}>✦</div>
+          <h1 className="lx-auth-title">Application Received</h1>
+          <p style={{ color:"#888", fontSize:14, lineHeight:1.7, marginTop:8 }}>
+            Thank you for applying to Meet Serenity.<br/>We'll review your submission and be in touch.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: "20px", maxWidth: "600px", margin: "0 auto", boxSizing: "border-box" }}>
-      <h1 style={{ fontSize: "clamp(24px, 5vw, 32px)" }}>Model Signup</h1>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>Full Name *</label>
-          <input
-            value={form.name}
-            placeholder="Your full name"
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            disabled={loading}
-            style={{ width: "100%", padding: "12px", boxSizing: "border-box", fontSize: "16px", border: "1px solid #ccc", borderRadius: "4px" }}
-          />
-        </div>
+    <div className="lx-auth-screen" style={{ alignItems:"flex-start", paddingTop:48 }}>
+      <div className="lx-auth-panel wide" style={{ padding:"48px 44px" }}>
+        <div className="lx-auth-brand">Meet Serenity</div>
+        <h1 className="lx-auth-title">Model Application</h1>
+        <p className="lx-auth-sub">Join our talent roster. We'll be in touch after reviewing your submission.</p>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>Email *</label>
-          <input
-            value={form.email}
-            placeholder="your@email.com"
-            type="email"
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            disabled={loading}
-            style={{ width: "100%", padding: "12px", boxSizing: "border-box", fontSize: "16px", border: "1px solid #ccc", borderRadius: "4px" }}
-          />
-        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="lx-field">
+            <label className="lx-label">Full Name *</label>
+            <input value={form.name} placeholder="Your full name" onChange={(e)=>setForm({...form,name:e.target.value})} disabled={loading} style={inp} />
+          </div>
+          <div className="lx-field">
+            <label className="lx-label">Email *</label>
+            <input value={form.email} placeholder="your@email.com" type="email" onChange={(e)=>setForm({...form,email:e.target.value})} disabled={loading} style={inp} />
+          </div>
+          <div className="lx-field">
+            <label className="lx-label">Instagram Handle</label>
+            <input value={form.instagram} placeholder="@yourprofile" onChange={(e)=>setForm({...form,instagram:e.target.value})} disabled={loading} style={inp} />
+          </div>
+          <div className="lx-field">
+            <label className="lx-label">Profile Image * (JPG, PNG — max 5 MB)</label>
+            <input type="file" accept="image/*" onChange={handleImageChange} disabled={loading}
+              style={{ ...inp, padding:"10px 14px", cursor:"pointer" }} />
+            {imagePreview && (
+              <div style={{ marginTop:16, textAlign:"center" }}>
+                <img src={imagePreview} alt="Preview"
+                  style={{ maxWidth:"100%", maxHeight:280, borderRadius:12, objectFit:"cover", border:"1px solid #e8e4dc" }} />
+              </div>
+            )}
+          </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>Instagram</label>
-          <input
-            value={form.instagram}
-            placeholder="@yourprofile"
-            onChange={(e) => setForm({ ...form, instagram: e.target.value })}
-            disabled={loading}
-            style={{ width: "100%", padding: "12px", boxSizing: "border-box", fontSize: "16px", border: "1px solid #ccc", borderRadius: "4px" }}
-          />
-        </div>
+          {error && <div style={{ background:"#fef2f2", border:"1px solid rgba(155,28,28,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#9b1c1c", fontSize:13 }}>{error}</div>}
 
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", marginBottom: 8, fontWeight: "bold" }}>
-            Profile Image * (JPG, PNG, GIF, WebP - Max 5MB)
-          </label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            disabled={loading}
-            style={{ width: "100%", padding: "12px", boxSizing: "border-box", fontSize: "16px", border: "1px solid #ccc", borderRadius: "4px" }}
-          />
-          {imagePreview && (
-            <div style={{ marginTop: 15, textAlign: "center" }}>
-              <img
-                src={imagePreview}
-                alt="Preview"
-                style={{ maxWidth: "100%", maxHeight: "300px", borderRadius: 8 }}
-              />
-            </div>
-          )}
-        </div>
-
-        <button
-          disabled={loading}
-          style={{
-            width: "100%",
-            padding: "12px",
-            backgroundColor: loading ? "#ccc" : "#333",
-            color: "white",
-            border: "none",
-            borderRadius: 4,
-            fontSize: 16,
-            fontWeight: "bold",
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading ? "Uploading..." : "Submit Application"}
-        </button>
-      </form>
-
-      {error && (
-        <div style={{ color: "#d32f2f", marginTop: 20, padding: 15, backgroundColor: "#ffebee", borderRadius: 4 }}>
-          {error}
-        </div>
-      )}
-      {success && (
-        <div style={{ color: "#388e3c", marginTop: 20, padding: 15, backgroundColor: "#e8f5e9", borderRadius: 4 }}>
-          ✓ Application submitted successfully! We'll review it soon.
-        </div>
-      )}
+          <button disabled={loading} className={`lx-btn lx-btn-primary lx-btn-full${loading?" lx-btn-disabled":""}`} style={{ marginTop:4, padding:"14px 22px", fontSize:12 }}>
+            {loading ? "Submitting…" : "Submit Application"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

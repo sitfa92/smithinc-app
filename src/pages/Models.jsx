@@ -104,56 +104,70 @@ export default function Models() {
   const approved = models.filter((m) => m.status === "approved").length;
   const pending = models.filter((m) => m.status === "pending").length;
 
+  const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2" };
+  const card = { background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:"16px 18px", marginBottom:12, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" };
+  const inp = { padding:"11px 13px", fontSize:13, color:C.ink, background:C.white, border:`1px solid ${C.smoke}`, borderRadius:8, outline:"none", fontFamily:"'Inter',sans-serif", width:"100%", boxSizing:"border-box" };
+  const statusStyle = { pending:[C.warnBg,C.warn], approved:[C.okBg,C.ok], rejected:[C.errBg,C.err] };
+
   return (
-    <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
-      <h1>Talent Tracking</h1>
+    <div style={{ padding:"32px 24px", maxWidth:1200, margin:"0 auto" }}>
+      <h1 style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:"clamp(26px,4vw,38px)", fontWeight:500, color:C.ink, letterSpacing:"-0.02em", margin:"0 0 4px" }}>
+        Talent Tracking
+      </h1>
+      <p style={{ color:C.dust, fontSize:13, marginBottom:28 }}>Manage your model roster and track submission status.</p>
 
       {canAddModels && (
-        <form onSubmit={saveModel} style={{ display: "grid", gap: 10, marginBottom: 20 }}>
-          <input value={form.name} placeholder="Model name" onChange={(e) => setForm({ ...form, name: e.target.value })} required
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
-          <input value={form.email} placeholder="Model email" type="email" onChange={(e) => setForm({ ...form, email: e.target.value })} required
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
-          <input value={form.instagram} placeholder="Instagram" onChange={(e) => setForm({ ...form, instagram: e.target.value })}
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
-          <input value={form.height} placeholder="Height (optional)" onChange={(e) => setForm({ ...form, height: e.target.value })}
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-          {saveError && <p style={{ color: "#d32f2f", margin: 0 }}>{saveError}</p>}
-          <button disabled={saveLoading}
-            style={{ padding: 10, border: "none", borderRadius: 4, background: saveLoading ? "#999" : "#333", color: "#fff", cursor: saveLoading ? "not-allowed" : "pointer" }}>
-            {saveLoading ? "Saving..." : "Add Model Manually"}
-          </button>
-        </form>
+        <div style={{ ...card, marginBottom:24, padding:"22px 22px" }}>
+          <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:18, fontWeight:500, color:C.ink, margin:"0 0 14px" }}>Add Model Manually</p>
+          <form onSubmit={saveModel} style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <input value={form.name} placeholder="Model name" onChange={(e)=>setForm({...form,name:e.target.value})} required style={inp} />
+            <input value={form.email} placeholder="Model email" type="email" onChange={(e)=>setForm({...form,email:e.target.value})} required style={inp} />
+            <input value={form.instagram} placeholder="Instagram" onChange={(e)=>setForm({...form,instagram:e.target.value})} style={inp} />
+            <input value={form.height} placeholder="Height (optional)" onChange={(e)=>setForm({...form,height:e.target.value})} style={inp} />
+            <select value={form.status} onChange={(e)=>setForm({...form,status:e.target.value})} style={{ ...inp, appearance:"none", gridColumn:"1/-1" }}>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            {saveError && <p style={{ color:C.err, margin:0, gridColumn:"1/-1", fontSize:13 }}>{saveError}</p>}
+            <button disabled={saveLoading} style={{ gridColumn:"1/-1", padding:"12px 20px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", cursor:saveLoading?"not-allowed":"pointer", opacity:saveLoading?0.55:1, fontFamily:"'Inter',sans-serif" }}>
+              {saveLoading ? "Saving…" : "Add Model"}
+            </button>
+          </form>
+        </div>
       )}
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
-        <MetricCard label="Total Models" value={models.length} color="#333" />
-        <MetricCard label="Approved Talent" value={approved} color="#4caf50" />
-        <MetricCard label="Pending Review" value={pending} color="#ff9800" />
-      </div>
-      {loading && <p>Loading models...</p>}
-      {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
-      {!loading && models.map((model) => (
-        <div key={model.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <strong>{model.name}</strong>
-            {model.source === "manychat" && (
-              <span style={{ padding: "2px 8px", backgroundColor: "#7b2ff7", color: "#fff", borderRadius: 10, fontSize: 11, fontWeight: "bold" }}>
-                ManyChat
-              </span>
-            )}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:24 }}>
+        {[{label:"Total Models",value:models.length},{label:"Approved Talent",value:approved},{label:"Pending Review",value:pending}].map(m=>(
+          <div key={m.label} style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:18, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+            <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust }}>{m.label}</p>
+            <p style={{ margin:0, fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:32, fontWeight:500, color:C.ink, lineHeight:1 }}>{m.value}</p>
           </div>
-          <p style={{ margin: "6px 0", color: "#666" }}>{model.email}</p>
-          <p style={{ margin: "6px 0", color: "#666" }}>{model.instagram || "No Instagram"}</p>
-          <p style={{ margin: 0, color: "#666" }}>Status: {model.status}</p>
-        </div>
-      ))}
+        ))}
+      </div>
+
+      {loading && <p style={{ color:C.dust }}>Loading models…</p>}
+      {error && <p style={{ color:C.err }}>{error}</p>}
+      {!loading && models.map(model => {
+        const [bg,clr] = statusStyle[model.status] || [C.ivory,C.slate];
+        return (
+          <div key={model.id} style={card}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
+              <div>
+                <p style={{ margin:"0 0 4px", fontSize:15, fontWeight:600, color:C.ink }}>{model.name}</p>
+                <p style={{ margin:"0 0 2px", fontSize:13, color:C.dust }}>{model.email}</p>
+                <p style={{ margin:0, fontSize:13, color:C.dust }}>{model.instagram || "No Instagram"}</p>
+              </div>
+              <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                {model.source === "manychat" && (
+                  <span style={{ padding:"3px 10px", background:"rgba(123,47,247,0.1)", color:"#7b2ff7", borderRadius:99, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase" }}>ManyChat</span>
+                )}
+                <span style={{ padding:"3px 10px", background:bg, color:clr, borderRadius:99, fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>{model.status}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

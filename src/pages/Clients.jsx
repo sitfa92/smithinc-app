@@ -183,91 +183,76 @@ alter table public.bookings disable row level security;`;
     }
   };
 
-  const statusColor = { lead: "#ff9800", active: "#4caf50", completed: "#2196f3", inactive: "#9e9e9e", churned: "#d32f2f" };
-  const invoiceColor = { pending: "#ff9800", sent: "#2196f3", paid: "#4caf50" };
+  const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2", info:"#1e3a5f", infoBg:"#eff6ff", purple:"#6a1b9a", purpleBg:"rgba(106,27,154,0.10)" };
+  const inp = { padding:"11px 13px", fontSize:13, color:C.ink, background:C.white, border:`1px solid ${C.smoke}`, borderRadius:8, outline:"none", fontFamily:"'Inter',sans-serif", width:"100%", boxSizing:"border-box" };
+  const statusBadge = (st) => { const m={lead:[C.warnBg,C.warn],active:[C.okBg,C.ok],completed:[C.infoBg,C.info],inactive:[C.ivory,C.dust],churned:[C.errBg,C.err]}; const [bg,clr]=m[st]||[C.ivory,C.slate]; return {display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",background:bg,color:clr}; };
+  const invoiceBadge = (st) => { const m={pending:[C.warnBg,C.warn],sent:[C.infoBg,C.info],paid:[C.okBg,C.ok]}; const [bg,clr]=m[st]||[C.ivory,C.slate]; return {display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",background:bg,color:clr}; };
 
   return (
-    <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto" }}>
-      <h1>Client Management</h1>
+    <div style={{ padding:"32px 24px", maxWidth:1000, margin:"0 auto" }}>
+      <h1 style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:"clamp(26px,4vw,38px)", fontWeight:500, color:C.ink, letterSpacing:"-0.02em", margin:"0 0 4px" }}>Client Management</h1>
+      <p style={{ color:C.dust, fontSize:13, marginBottom:24 }}>Track your client roster, contracts, and invoices.</p>
 
       {!tableReady && (
-        <div style={{ background: "#fff3e0", border: "1px solid #ff9800", borderRadius: 8, padding: 16, marginBottom: 20 }}>
-          <strong style={{ color: "#e65100" }}>Database setup required</strong>
-          <p style={{ margin: "8px 0", color: "#555" }}>The clients table doesn't exist yet. Copy and run this SQL in your
-            {" "}<a href="https://supabase.com/dashboard/project/jjmmakbnjzzxbuflucck/sql" target="_blank" rel="noreferrer">Supabase SQL Editor</a>:
+        <div style={{ background:C.warnBg, border:`1px solid rgba(146,86,10,0.2)`, borderRadius:12, padding:"18px 22px", marginBottom:24 }}>
+          <p style={{ margin:"0 0 6px", fontWeight:600, color:C.warn, fontSize:14 }}>Database setup required</p>
+          <p style={{ margin:"0 0 10px", color:C.slate, fontSize:13 }}>
+            The clients table doesn't exist yet. Copy and run this SQL in your{" "}
+            <a href="https://supabase.com/dashboard/project/jjmmakbnjzzxbuflucck/sql" target="_blank" rel="noreferrer" style={{ color:C.ink }}>Supabase SQL Editor</a>:
           </p>
-          <pre style={{ background: "#f5f5f5", padding: 12, borderRadius: 6, fontSize: 12, overflowX: "auto", whiteSpace: "pre-wrap" }}>{SETUP_SQL}</pre>
-          <button onClick={() => { navigator.clipboard.writeText(SETUP_SQL); }}
-            style={{ marginTop: 8, padding: "8px 14px", background: "#333", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>
-            Copy SQL
-          </button>
+          <pre style={{ background:C.ivory, border:`1px solid ${C.smoke}`, padding:"12px 14px", borderRadius:8, fontSize:11, overflowX:"auto", whiteSpace:"pre-wrap", color:C.slate }}>{SETUP_SQL}</pre>
+          <button onClick={()=>navigator.clipboard.writeText(SETUP_SQL)} style={{ marginTop:10, padding:"9px 16px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>Copy SQL</button>
         </div>
       )}
 
       {tableReady && (
-        <form onSubmit={saveClient} style={{ display: "grid", gap: 10, marginBottom: 24 }}>
-          <input value={form.name} placeholder="Client name" onChange={(e) => setForm({ ...form, name: e.target.value })} required
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
-          <input value={form.email} placeholder="Client email" type="email" onChange={(e) => setForm({ ...form, email: e.target.value })}
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
-          <input value={form.service_type} placeholder="Service / project" onChange={(e) => setForm({ ...form, service_type: e.target.value })} required
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
-          <input value={form.client_value} placeholder="Client value (optional)" type="number" min="0" step="0.01"
-            onChange={(e) => setForm({ ...form, client_value: e.target.value })}
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
-            <option value="lead">Lead</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="churned">Churned</option>
-            <option value="completed">Completed</option>
-          </select>
-          <label style={{ color: "#666" }}>
-            <input type="checkbox" checked={form.contract_signed} onChange={(e) => setForm({ ...form, contract_signed: e.target.checked })} style={{ marginRight: 8 }} />
-            Contract signed
-          </label>
-          <label style={{ color: "#666" }}>
-            <input type="checkbox" checked={form.invoice_paid} onChange={(e) => setForm({ ...form, invoice_paid: e.target.checked })} style={{ marginRight: 8 }} />
-            Invoice paid
-          </label>
-          {saveError && <p style={{ color: "#d32f2f", margin: 0 }}>{saveError}</p>}
-          <button style={{ padding: 12, background: "#333", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>Save Client</button>
-        </form>
+        <div style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:"22px 22px", marginBottom:24, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+          <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:18, fontWeight:500, color:C.ink, margin:"0 0 14px" }}>Add Client</p>
+          <form onSubmit={saveClient} style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <input value={form.name} placeholder="Client name" onChange={(e)=>setForm({...form,name:e.target.value})} required style={inp} />
+            <input value={form.email} placeholder="Client email" type="email" onChange={(e)=>setForm({...form,email:e.target.value})} style={inp} />
+            <input value={form.service_type} placeholder="Service / project" onChange={(e)=>setForm({...form,service_type:e.target.value})} required style={inp} />
+            <input value={form.client_value} placeholder="Client value (optional)" type="number" min="0" step="0.01" onChange={(e)=>setForm({...form,client_value:e.target.value})} style={inp} />
+            <select value={form.status} onChange={(e)=>setForm({...form,status:e.target.value})} style={{ ...inp, appearance:"none", cursor:"pointer" }}>
+              <option value="lead">Lead</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="churned">Churned</option>
+              <option value="completed">Completed</option>
+            </select>
+            <div style={{ display:"flex", flexDirection:"column", gap:8, justifyContent:"center" }}>
+              <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, color:C.slate, cursor:"pointer" }}>
+                <input type="checkbox" checked={form.contract_signed} onChange={(e)=>setForm({...form,contract_signed:e.target.checked})} /> Contract signed
+              </label>
+              <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, color:C.slate, cursor:"pointer" }}>
+                <input type="checkbox" checked={form.invoice_paid} onChange={(e)=>setForm({...form,invoice_paid:e.target.checked})} /> Invoice paid
+              </label>
+            </div>
+            {saveError && <p style={{ color:C.err, margin:0, gridColumn:"1/-1", fontSize:13 }}>{saveError}</p>}
+            <button style={{ gridColumn:"1/-1", padding:"12px 20px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>Save Client</button>
+          </form>
+        </div>
       )}
 
-      {loading && <p>Loading clients...</p>}
-      {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
+      {loading && <p style={{ color:C.dust }}>Loading clients…</p>}
+      {error && <p style={{ color:C.err, fontSize:13 }}>{error}</p>}
+      {!loading && tableReady && clients.length === 0 && <p style={{ color:C.dust }}>No clients yet. Add one above.</p>}
 
-      {!loading && tableReady && clients.length === 0 && (
-        <p style={{ color: "#999" }}>No clients yet. Add one above.</p>
-      )}
-
-      {!loading && clients.map((client) => (
-        <div key={client.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 16, marginBottom: 10 }}>
-          <strong style={{ fontSize: 16 }}>{client.name}</strong>
-          <p style={{ margin: "6px 0", color: "#666" }}>{client.service_type || client.project || "General"}</p>
-          {client.email && <p style={{ margin: "6px 0", color: "#666" }}>{client.email}</p>}
-          {Number(client.client_value || 0) > 0 && (
-            <p style={{ margin: "6px 0", color: "#666" }}>Value: ${Number(client.client_value).toLocaleString()}</p>
-          )}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-            <span style={{ padding: "4px 10px", borderRadius: 20, background: statusColor[client.status] || "#999", color: "#fff", fontSize: 12, fontWeight: 600 }}>
-              {client.status}
-            </span>
-            <span style={{ padding: "4px 10px", borderRadius: 20, background: invoiceColor[client.invoice_status] || "#999", color: "#fff", fontSize: 12, fontWeight: 600 }}>
-              {client.invoice_status}
-            </span>
-            {client.contract_signed && (
-              <span style={{ padding: "4px 10px", borderRadius: 20, background: "#6a1b9a", color: "#fff", fontSize: 12, fontWeight: 600 }}>
-                Contract Signed
-              </span>
-            )}
-            {client.source && (
-              <span style={{ padding: "4px 10px", borderRadius: 20, background: "#455a64", color: "#fff", fontSize: 12, fontWeight: 600 }}>
-                {client.source}
-              </span>
-            )}
+      {!loading && clients.map(client => (
+        <div key={client.id} style={{ border:`1px solid ${C.smoke}`, borderRadius:12, padding:"16px 18px", marginBottom:12, background:C.white, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
+            <div>
+              <p style={{ margin:"0 0 3px", fontSize:15, fontWeight:600, color:C.ink }}>{client.name}</p>
+              <p style={{ margin:"0 0 2px", fontSize:13, color:C.dust }}>{client.service_type || client.project || "General"}</p>
+              {client.email && <p style={{ margin:"0 0 2px", fontSize:13, color:C.dust }}>{client.email}</p>}
+              {Number(client.client_value || 0) > 0 && <p style={{ margin:"0 0 2px", fontSize:13, color:C.slate }}>Value: ${Number(client.client_value).toLocaleString()}</p>}
+            </div>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center" }}>
+              <span style={statusBadge(client.status)}>{client.status}</span>
+              <span style={invoiceBadge(client.invoice_status)}>{client.invoice_status}</span>
+              {client.contract_signed && <span style={{ ...statusBadge("active"), background:C.purpleBg, color:C.purple }}>Contract ✓</span>}
+              {client.source && <span style={{ padding:"3px 10px", borderRadius:99, background:C.ivory, color:C.dust, fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>{client.source}</span>}
+            </div>
           </div>
         </div>
       ))}

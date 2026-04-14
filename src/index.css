@@ -1,111 +1,137 @@
+/* =========================================================
+   LUXURY DESIGN SYSTEM — MEET SERENITY
+   ========================================================= */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* — Color tokens — */
+  --ink:       #111111;
+  --charcoal:  #1c1c1c;
+  --slate:     #4a4a4a;
+  --dust:      #888888;
+  --smoke:     #e8e4dc;
+  --ivory:     #faf8f4;
+  --canvas:    #f5f2ec;
+  --white:     #ffffff;
+  --gold:      #c9a84c;
+  --gold-lt:   rgba(201,168,76,0.10);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* — Semantic colors — */
+  --c-success:      #1a6636;
+  --c-success-bg:   #edf7ee;
+  --c-success-br:   rgba(26,102,54,0.18);
+  --c-warning:      #92560a;
+  --c-warning-bg:   #fef8ec;
+  --c-warning-br:   rgba(146,86,10,0.20);
+  --c-error:        #9b1c1c;
+  --c-error-bg:     #fef2f2;
+  --c-error-br:     rgba(155,28,28,0.20);
+  --c-info:         #1e3a5f;
+  --c-info-bg:      #eff6ff;
+  --c-info-br:      rgba(30,58,95,0.15);
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* — Typography — */
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --font-sans:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:    ui-monospace, 'JetBrains Mono', Consolas, monospace;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  /* — Spacing — */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 20px;
+
+  /* — Elevation — */
+  --shadow-xs: 0 1px 3px rgba(17,17,17,0.05);
+  --shadow-sm: 0 2px 10px rgba(17,17,17,0.07);
+  --shadow-md: 0 6px 24px rgba(17,17,17,0.10);
+  --shadow-lg: 0 16px 60px rgba(17,17,17,0.14);
+
+  /* — Motion — */
+  --ease:       cubic-bezier(0.4, 0, 0.2, 1);
+  --transition: all 0.22s var(--ease);
+
+  font-size: 15px;
+  line-height: 1.6;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
+/* ─── Reset ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 
 body {
-  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--slate);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+  min-height: 100svh;
 }
 
 #root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
+  width: 100%;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  box-sizing: border-box;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
+/* ─── Typography ───────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
   font-weight: 500;
-  color: var(--text-h);
+  color: var(--ink);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+h1 { font-size: clamp(26px, 4vw, 40px); margin-bottom: 10px; }
+h2 { font-size: clamp(18px, 3vw, 26px); margin-bottom: 8px; }
+h3 { font-size: clamp(15px, 2.5vw, 20px); margin-bottom: 6px; }
+p  { margin: 0; }
+a  { color: var(--ink); text-decoration: none; transition: var(--transition); }
+
+/* ─── Form elements ────────────────────────────────────── */
+input, select, textarea, button {
+  font-family: var(--font-sans);
+}
+input::placeholder { color: var(--dust); }
+textarea::placeholder { color: var(--dust); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ─── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--ivory); }
+::-webkit-scrollbar-thumb { background: var(--smoke); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--dust); }
+
+/* ─── Selection ─────────────────────────────────────────── */
+::selection { background: var(--gold-lt); color: var(--ink); }
+
+/* ─── Page-entry animation ──────────────────────────────── */
+@keyframes lx-fadein {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes lx-slidedown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes lx-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+/* code blocks */
+code, pre {
+  font-family: var(--font-mono);
+  font-size: 12px;
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+pre {
+  background: var(--ivory);
+  border: 1px solid var(--smoke);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  line-height: 1.7;
+  color: var(--slate);
 }

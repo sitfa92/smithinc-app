@@ -119,103 +119,85 @@ on conflict (email) do nothing;`;
       loginUrl: buildPrefilledLoginLink(member.email),
     }));
 
+  const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2", info:"#1e3a5f", infoBg:"#eff6ff" };
+  const inp = { padding:"11px 13px", fontSize:13, color:C.ink, background:C.white, border:`1px solid ${C.smoke}`, borderRadius:8, outline:"none", fontFamily:"'Inter',sans-serif", width:"100%", boxSizing:"border-box" };
+
   return (
-    <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto" }}>
-      <h1>Team Management</h1>
-      <p style={{ color: "#666" }}>Manage allowed users and assign role access.</p>
+    <div style={{ padding:"32px 24px", maxWidth:1000, margin:"0 auto" }}>
+      <h1 style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:"clamp(26px,4vw,38px)", fontWeight:500, color:C.ink, letterSpacing:"-0.02em", margin:"0 0 4px" }}>Team Management</h1>
+      <p style={{ color:C.dust, fontSize:13, marginBottom:24 }}>Manage allowed users and assign role access.</p>
 
       {!tableReady && (
-        <div style={{ background: "#fff3e0", border: "1px solid #ff9800", borderRadius: 8, padding: 16, marginBottom: 20 }}>
-          <strong style={{ color: "#e65100" }}>Database setup required</strong>
-          <p style={{ margin: "8px 0", color: "#555" }}>The users table doesn't exist yet. Copy and run this SQL in your{" "}
-            <a href="https://supabase.com/dashboard/project/jjmmakbnjzzxbuflucck/sql" target="_blank" rel="noreferrer">Supabase SQL Editor</a>.
+        <div style={{ background:C.warnBg, border:`1px solid rgba(146,86,10,0.2)`, borderRadius:12, padding:"18px 22px", marginBottom:24 }}>
+          <p style={{ margin:"0 0 6px", fontWeight:600, color:C.warn, fontSize:14 }}>Database setup required</p>
+          <p style={{ margin:"0 0 10px", color:C.slate, fontSize:13 }}>
+            The users table doesn't exist yet. Copy and run this SQL in your{" "}
+            <a href="https://supabase.com/dashboard/project/jjmmakbnjzzxbuflucck/sql" target="_blank" rel="noreferrer" style={{ color:C.ink }}>Supabase SQL Editor</a>.
             Until then, your team is shown from the built-in defaults (read-only).
           </p>
-          <pre style={{ background: "#f5f5f5", padding: 12, borderRadius: 6, fontSize: 12, overflowX: "auto", whiteSpace: "pre-wrap" }}>{SETUP_SQL}</pre>
-          <button onClick={() => { navigator.clipboard.writeText(SETUP_SQL); }}
-            style={{ marginTop: 8, padding: "8px 14px", background: "#333", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>
-            Copy SQL
-          </button>
+          <pre style={{ background:C.ivory, border:`1px solid ${C.smoke}`, padding:"12px 14px", borderRadius:8, fontSize:11, overflowX:"auto", whiteSpace:"pre-wrap", color:C.slate }}>{SETUP_SQL}</pre>
+          <button onClick={()=>navigator.clipboard.writeText(SETUP_SQL)} style={{ marginTop:10, padding:"9px 16px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>Copy SQL</button>
         </div>
       )}
 
       {tableReady && (
-        <form onSubmit={addMember} style={{ display: "grid", gap: 10, marginTop: 14, marginBottom: 20 }}>
-          <input value={form.email} placeholder="team@meetserenity.com" type="email"
-            onChange={(e) => setForm({ ...form, email: e.target.value })} required
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }} />
-          <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}
-            style={{ padding: 10, border: "1px solid #ccc", borderRadius: 4 }}>
-            <option value="admin">Admin</option>
-            <option value="va">Virtual Assistant</option>
-            <option value="agent">Agent</option>
-            <option value="user">User</option>
-          </select>
-          <label style={{ color: "#666" }}>
-            <input type="checkbox" checked={form.is_active}
-              onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-              style={{ marginRight: 8 }} />
-            Active account
-          </label>
-          <button style={{ width: 160, padding: 10, background: "#333", color: "#fff", border: "none", borderRadius: 4, cursor: "pointer" }}>
-            Add Team Member
-          </button>
-        </form>
+        <div style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:"22px 22px", marginBottom:24, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+          <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:18, fontWeight:500, color:C.ink, margin:"0 0 14px" }}>Add Team Member</p>
+          <form onSubmit={addMember} style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+            <input value={form.email} placeholder="team@meetserenity.com" type="email" onChange={(e)=>setForm({...form,email:e.target.value})} required style={{ ...inp, gridColumn:"1/-1" }} />
+            <select value={form.role} onChange={(e)=>setForm({...form,role:e.target.value})} style={{ ...inp, appearance:"none", cursor:"pointer" }}>
+              <option value="admin">Admin</option>
+              <option value="va">Virtual Assistant</option>
+              <option value="agent">Agent</option>
+              <option value="user">User</option>
+            </select>
+            <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, color:C.slate, cursor:"pointer" }}>
+              <input type="checkbox" checked={form.is_active} onChange={(e)=>setForm({...form,is_active:e.target.checked})} /> Active account
+            </label>
+            <button style={{ gridColumn:"1/-1", padding:"12px 20px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>Add Team Member</button>
+          </form>
+        </div>
       )}
 
-      <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 14, marginBottom: 20 }}>
-        <h2 style={{ marginTop: 0 }}>Non-Admin Login Links</h2>
-        <p style={{ color: "#666", marginTop: 0 }}>
-          Share these links with your VA and agent users. Each link opens the team login screen with their email prefilled.
-        </p>
-        {nonAdminLoginLinks.length === 0 && <p style={{ color: "#666" }}>No active non-admin users found.</p>}
-        {nonAdminLoginLinks.map((item) => (
-          <div key={item.email} style={{ border: "1px solid #eee", borderRadius: 6, padding: 10, marginBottom: 8 }}>
-            <p style={{ margin: "0 0 4px 0", fontWeight: 600 }}>{item.role}: {item.email}</p>
-            <p style={{ margin: "0 0 8px 0", color: "#666", wordBreak: "break-all" }}>{item.loginUrl}</p>
-            <button
-              onClick={() => navigator.clipboard.writeText(item.loginUrl)}
-              style={{ padding: "8px 10px", border: "none", borderRadius: 4, cursor: "pointer", background: "#333", color: "white" }}
-            >
-              Copy Login Link
-            </button>
+      <div style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:"22px 22px", marginBottom:24, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+        <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:18, fontWeight:500, color:C.ink, margin:"0 0 4px" }}>Non-Admin Login Links</p>
+        <p style={{ color:C.dust, fontSize:13, marginBottom:14 }}>Share these links with your VA and agent users. Each link opens the team login with their email prefilled.</p>
+        {nonAdminLoginLinks.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No active non-admin users found.</p>}
+        {nonAdminLoginLinks.map(item => (
+          <div key={item.email} style={{ border:`1px solid ${C.smoke}`, borderRadius:8, padding:"12px 14px", marginBottom:8 }}>
+            <p style={{ margin:"0 0 3px", fontWeight:600, fontSize:13, color:C.ink }}>{item.role}: {item.email}</p>
+            <p style={{ margin:"0 0 8px", color:C.dust, fontSize:12, wordBreak:"break-all" }}>{item.loginUrl}</p>
+            <button onClick={()=>navigator.clipboard.writeText(item.loginUrl)} style={{ padding:"8px 14px", background:C.ink, color:C.white, border:"none", borderRadius:6, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>Copy Link</button>
           </div>
         ))}
       </div>
 
-      {loading && <p>Loading team...</p>}
-      {error && <p style={{ color: "#d32f2f" }}>{error}</p>}
+      {loading && <p style={{ color:C.dust }}>Loading team…</p>}
+      {error && <p style={{ color:C.err, fontSize:13 }}>{error}</p>}
 
-      {!loading && members.map((member) => (
-        <div key={member.id} style={{ border: "1px solid #e0e0e0", borderRadius: 8, padding: 12, marginBottom: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <p style={{ margin: 0, fontWeight: 600, flex: 1 }}>{member.email}</p>
-            <span style={{
-              padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
-              background: member.is_active ? "#e8f5e9" : "#ffebee",
-              color: member.is_active ? "#388e3c" : "#c62828",
-            }}>
+      {!loading && members.map(member => (
+        <div key={member.id} style={{ border:`1px solid ${C.smoke}`, borderRadius:12, padding:"14px 18px", marginBottom:10, background:C.white, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", justifyContent:"space-between" }}>
+            <p style={{ margin:0, fontWeight:600, color:C.ink, fontSize:14 }}>{member.email}</p>
+            <span style={{ padding:"3px 10px", borderRadius:99, fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", background:member.is_active ? C.okBg : C.errBg, color:member.is_active ? C.ok : C.err }}>
               {member.is_active ? "Active" : "Inactive"}
             </span>
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+          <div style={{ display:"flex", gap:8, marginTop:10, flexWrap:"wrap" }}>
             {tableReady ? (
               <>
-                <select value={member.role || "user"} onChange={(e) => updateRole(member.id, e.target.value)}
-                  style={{ padding: 8, border: "1px solid #ccc", borderRadius: 4 }}>
+                <select value={member.role || "user"} onChange={(e)=>updateRole(member.id, e.target.value)} style={{ padding:"8px 12px", border:`1px solid ${C.smoke}`, borderRadius:6, fontSize:13, fontFamily:"'Inter',sans-serif", background:C.ivory, color:C.ink }}>
                   <option value="admin">Admin</option>
                   <option value="va">Virtual Assistant</option>
                   <option value="agent">Agent</option>
                   <option value="user">User</option>
                 </select>
-                <button onClick={() => toggleActive(member.id, !!member.is_active)}
-                  style={{ padding: "8px 10px", border: "none", borderRadius: 4, cursor: "pointer",
-                    background: member.is_active ? "#f44336" : "#4caf50", color: "white" }}>
+                <button onClick={()=>toggleActive(member.id, !!member.is_active)} style={{ padding:"8px 14px", border:"none", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", fontFamily:"'Inter',sans-serif", background:member.is_active ? C.errBg : C.okBg, color:member.is_active ? C.err : C.ok }}>
                   {member.is_active ? "Deactivate" : "Activate"}
                 </button>
               </>
             ) : (
-              <span style={{ color: "#999", fontSize: 13 }}>Role: {roleLabel[member.role] || member.role} (read-only until table is created)</span>
+              <span style={{ color:C.dust, fontSize:13 }}>Role: {roleLabel[member.role] || member.role} (read-only until table is created)</span>
             )}
           </div>
         </div>
