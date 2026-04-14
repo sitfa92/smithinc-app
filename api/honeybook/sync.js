@@ -58,8 +58,8 @@ function mapStage(hbStage) {
 // Build a normalized client payload from whatever HoneyBook sends
 function buildClientPayload(body, defaultStatus = "lead") {
   const {
-    // Contact / project core fields
-    contact_name, client_name, name,
+    // Contact / project core fields — HoneyBook often sends first_name + last_name separately
+    contact_name, client_name, name, first_name, last_name,
     contact_email, client_email, email,
     company_name, company,
     project_name, project_type, service_type, service,
@@ -74,7 +74,9 @@ function buildClientPayload(body, defaultStatus = "lead") {
     created_at,
   } = body;
 
-  const resolvedName = contact_name || client_name || name || "";
+  const resolvedName =
+    contact_name || client_name || name ||
+    ((first_name || last_name) ? `${first_name || ""} ${last_name || ""}`.trim() : "");
   const resolvedEmail = normalize(contact_email || client_email || email || "");
   const resolvedCompany = company_name || company || "";
   const resolvedService = project_name || project_type || service_type || service || "HoneyBook Project";
