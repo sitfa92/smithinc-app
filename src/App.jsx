@@ -2009,7 +2009,7 @@ const AdminBookings = () => {
                         cursor: actionLoading[booking.id] ? "not-allowed" : "pointer",
                         opacity: actionLoading[booking.id] ? 0.6 : 1,
                         fontSize: "0.9em",
-                        fontWeight: 5,
+                        fontWeight: 500,
                       }}
                     >
                       {actionLoading[booking.id] ? "..." : "✓ Completed"}
