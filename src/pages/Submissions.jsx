@@ -230,7 +230,7 @@ export default function Submissions() {
                   </button>
                 </div>
               )}
-              {model.status === "rejected" && (
+              {(model.status === "rejected" || model.status === "approved") && (
                 <button onClick={()=>deleteApplicant(model.id,model.name)} disabled={actionLoading[model.id]}
                   style={btnS(C.errBg,C.err,{ border:`1px solid rgba(155,28,28,0.2)`, opacity:actionLoading[model.id]?0.55:1, cursor:actionLoading[model.id]?"not-allowed":"pointer" })}>
                   {actionLoading[model.id] ? "Deleting…" : "Delete Applicant"}
