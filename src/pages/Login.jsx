@@ -10,6 +10,9 @@ export default function Login() {
   const [password, setPassword] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [attempts, setAttempts] = React.useState(0);
+  const [cooldownUntil, setCooldownUntil] = React.useState(0);
+  const [cooldownSecs, setCooldownSecs] = React.useState(0);
 
   React.useEffect(() => {
     if (user) navigate("/", { replace: true });
@@ -21,14 +24,37 @@ export default function Login() {
     if (pre) setEmail(pre.trim().toLowerCase());
   }, []);
 
+  React.useEffect(() => {
+    if (cooldownUntil <= Date.now()) return;
+    const tick = () => {
+      const remaining = Math.ceil((cooldownUntil - Date.now()) / 1000);
+      if (remaining <= 0) { setCooldownSecs(0); setAttempts(0); }
+      else setCooldownSecs(remaining);
+    };
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [cooldownUntil]);
+
+  const isInCooldown = cooldownUntil > Date.now() && cooldownSecs > 0;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isInCooldown) return;
     setLoading(true);
     setError("");
     try {
       await login(email.trim(), password);
     } catch (err) {
-      setError(err.message || "Invalid login");
+      const next = attempts + 1;
+      setAttempts(next);
+      if (next >= 5) {
+        const until = Date.now() + 30_000;
+        setCooldownUntil(until);
+        setError("Too many failed attempts. Please wait 30 seconds.");
+      } else {
+        setError(err.message || "Invalid credentials. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -73,18 +99,23 @@ export default function Login() {
             />
           </div>
 
-          {error && (
+          {isInCooldown && (
             <div style={{ background:"#fef2f2", border:"1px solid rgba(155,28,28,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#9b1c1c", fontSize:13 }}>
-              {error}
+              Too many failed attempts. Try again in <strong>{cooldownSecs}s</strong>.
+            </div>
+          )}
+          {!isInCooldown && error && (
+            <div style={{ background:"#fef2f2", border:"1px solid rgba(155,28,28,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#9b1c1c", fontSize:13 }}>
+              {error}{attempts > 1 && attempts < 5 && <span style={{ opacity:0.7 }}> ({5 - attempts} attempt{5 - attempts !== 1 ? "s" : ""} remaining)</span>}
             </div>
           )}
 
           <button
-            disabled={loading}
-            className={`lx-btn lx-btn-primary lx-btn-full${loading ? " lx-btn-disabled" : ""}`}
+            disabled={loading || isInCooldown}
+            className={`lx-btn lx-btn-primary lx-btn-full${(loading || isInCooldown) ? " lx-btn-disabled" : ""}`}
             style={{ marginTop: 8, padding: "14px 22px", fontSize: 12 }}
           >
-            {loading ? "Signing in…" : "Sign In"}
+            {isInCooldown ? `Wait ${cooldownSecs}s…` : loading ? "Signing in…" : "Sign In"}
           </button>
         </form>
 

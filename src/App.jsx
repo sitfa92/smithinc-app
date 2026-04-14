@@ -9,6 +9,7 @@ import WorkflowDashboard from "./components/WorkflowDashboard";
 const Login = React.lazy(() => import("./pages/Login"));
 const ModelSignup = React.lazy(() => import("./pages/ModelSignup"));
 const PublicBooking = React.lazy(() => import("./pages/PublicBooking"));
+const Portfolio = React.lazy(() => import("./pages/Portfolio"));
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const Models = React.lazy(() => import("./pages/Models"));
 const ModelPipeline = React.lazy(() => import("./pages/ModelPipeline"));
@@ -18,6 +19,7 @@ const Clients = React.lazy(() => import("./pages/Clients"));
 const Analytics = React.lazy(() => import("./pages/Analytics"));
 const Integrations = React.lazy(() => import("./pages/Integrations"));
 const Team = React.lazy(() => import("./pages/Team"));
+const Notifications = React.lazy(() => import("./pages/Notifications"));
 
 const PageFallback = () => (
   <div style={{ padding: 40, textAlign: "center" }}>
@@ -108,14 +110,8 @@ const ProtectedApp = () => {
               </RoleRoute>
             }
           />
-          <Route
-            path="/team"
-            element={
-              <RoleRoute routeKey="team">
-                <Team />
-              </RoleRoute>
-            }
-          />
+          <Route path="/team" element={<RoleRoute routeKey="team"><Team /></RoleRoute>} />
+          <Route path="/notifications" element={<Notifications />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </React.Suspense>
@@ -132,6 +128,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/model-signup" element={<ModelSignup />} />
             <Route path="/book" element={<PublicBooking />} />
+            <Route path="/talent/:id" element={<Portfolio />} />
             <Route path="/*" element={<ProtectedApp />} />
           </Routes>
         </React.Suspense>

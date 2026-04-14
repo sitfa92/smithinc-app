@@ -460,6 +460,28 @@ alter table public.alerts disable row level security;`;
   const inp2 = { padding:"11px 13px", fontSize:13, color:C.ink, background:C.white, border:`1px solid ${C.smoke}`, borderRadius:8, outline:"none", fontFamily:"'Inter',sans-serif", width:"100%", boxSizing:"border-box" };
   const btn = (bg=C.ink,clr=C.white,extra={}) => ({ padding:"10px 18px", background:bg, color:clr, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif", ...extra });
 
+  const SvgBar = ({ data = [], height = 110 }) => {
+    const max = Math.max(...data.map(d => d.v), 1);
+    const W = 320, padX = 10, gap = 10;
+    const barW = (W - padX * 2 - gap * (data.length - 1)) / Math.max(data.length, 1);
+    return (
+      <svg width="100%" viewBox={`0 0 ${W} ${height + 36}`} style={{ display:"block", overflow:"visible" }}>
+        {data.map((d, i) => {
+          const bh = Math.max(4, (d.v / max) * height);
+          const x = padX + i * (barW + gap);
+          const y = height - bh;
+          return (
+            <g key={d.label}>
+              <rect x={x} y={y} width={barW} height={bh} rx={4} fill={d.color || C.ink} opacity={0.88} />
+              <text x={x + barW / 2} y={height + 15} textAnchor="middle" fontSize={9} fill={C.dust} fontFamily="Inter,sans-serif" letterSpacing="0.04em">{d.label}</text>
+              <text x={x + barW / 2} y={Math.max(y - 5, 8)} textAnchor="middle" fontSize={12} fontWeight="600" fill={C.ink} fontFamily="Inter,sans-serif">{d.v}</text>
+            </g>
+          );
+        })}
+      </svg>
+    );
+  };
+
   return (
     <div style={{ padding:"32px 24px", maxWidth:1200, margin:"0 auto" }}>
       {/* Header */}
@@ -497,6 +519,38 @@ alter table public.alerts disable row level security;`;
           </div>
         ))}
       </div>
+
+      {/* Charts */}
+      {!loading && (models.length > 0 || bookings.length > 0 || clients.length > 0) && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:16, marginBottom:28 }}>
+          <div style={{ ...card, marginBottom:0 }}>
+            <h3 style={{ ...cardH, marginBottom:16 }}>Booking Pipeline</h3>
+            <SvgBar data={[
+              { label:"Pending",   v:bookings.filter(b=>b.status==="pending").length,   color:C.warn },
+              { label:"Confirmed", v:bookings.filter(b=>b.status==="confirmed").length, color:C.info },
+              { label:"Completed", v:bookings.filter(b=>b.status==="completed").length, color:C.ok },
+              { label:"Cancelled", v:bookings.filter(b=>b.status==="cancelled").length, color:C.err },
+            ]} />
+          </div>
+          <div style={{ ...card, marginBottom:0 }}>
+            <h3 style={{ ...cardH, marginBottom:16 }}>Model Funnel</h3>
+            <SvgBar data={[
+              { label:"Pending",  v:models.filter(m=>m.status==="pending").length,  color:C.warn },
+              { label:"Approved", v:models.filter(m=>m.status==="approved").length, color:C.ok },
+              { label:"Rejected", v:models.filter(m=>m.status==="rejected").length, color:C.err },
+            ]} />
+          </div>
+          <div style={{ ...card, marginBottom:0 }}>
+            <h3 style={{ ...cardH, marginBottom:16 }}>Client Pipeline</h3>
+            <SvgBar data={[
+              { label:"Lead",      v:clients.filter(c=>c.status==="lead").length,      color:C.warn },
+              { label:"Active",    v:clients.filter(c=>c.status==="active").length,    color:C.ok },
+              { label:"Completed", v:clients.filter(c=>c.status==="completed").length, color:C.info },
+              { label:"Inactive",  v:clients.filter(c=>c.status==="inactive").length,  color:"#b0aaa0" },
+            ]} />
+          </div>
+        </div>
+      )}
 
       {/* Setup Banner */}
       {(!tasksTableReady || !eventsTableReady || !alertsTableReady) && (

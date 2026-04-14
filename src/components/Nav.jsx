@@ -143,7 +143,7 @@ export default function Nav() {
 
   const bellLink = (
     <Link
-      to="/"
+      to="/notifications"
       style={{ ...linkStyle, position: "relative", paddingRight: 16 }}
       onClick={() => setMobileMenuOpen(false)}
       aria-label={`Alerts${unreadAlertCount ? ` (${unreadAlertCount} unread)` : ""}`}
