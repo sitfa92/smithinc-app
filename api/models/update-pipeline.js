@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "No valid fields to update" });
   }
 
-  const { error } = await admin!
+  const { error } = await admin
     .from("models")
     .update(cleaned)
     .eq("id", modelId);

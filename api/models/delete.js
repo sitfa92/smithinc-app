@@ -44,7 +44,7 @@ export default async function handler(req, res) {
 
   try {
     if (modelId) {
-      const { data, error } = await admin!
+      const { data, error } = await admin
         .from("models")
         .delete()
         .eq("id", modelId)
