@@ -3214,6 +3214,85 @@ const Integrations = () => {
           </div>
         </div>
       </div>
+
+      {/* HoneyBook */}
+      <div style={{ border: "1px solid #f4a261", borderRadius: 8, padding: 14, marginTop: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <h2 style={{ margin: 0 }}>HoneyBook</h2>
+          <span style={{ padding: "3px 10px", backgroundColor: "#e76f51", color: "#fff", borderRadius: 20, fontSize: 12, fontWeight: "bold" }}>
+            CRM Sync
+          </span>
+        </div>
+        <p style={{ color: "#666", marginBottom: 8 }}>
+          Connect HoneyBook via Zapier to automatically sync contacts, projects, invoices, contracts, and payments into your Clients table.
+        </p>
+
+        <div style={{ background: "#fff8f4", borderRadius: 6, padding: 12, marginBottom: 12 }}>
+          <p style={{ margin: "0 0 6px 0", fontWeight: 600, color: "#333" }}>Webhook endpoint (paste into Zapier → Webhooks POST)</p>
+          <code style={{ display: "block", wordBreak: "break-all", color: "#c0392b", fontSize: 13 }}>
+            {window.location.origin}/api/honeybook/sync
+          </code>
+        </div>
+
+        <p style={{ margin: "0 0 6px 0", color: "#444", fontWeight: 600 }}>Setup steps (one Zap per trigger)</p>
+        <ol style={{ margin: "0 0 12px 0", paddingLeft: 18, color: "#555", fontSize: 13, lineHeight: 1.7 }}>
+          <li>In Zapier: Trigger = <strong>HoneyBook</strong> (choose an event below)</li>
+          <li>Action = <strong>Webhooks by Zapier → POST</strong></li>
+          <li>URL = the endpoint above</li>
+          <li>Payload type = <strong>JSON</strong></li>
+          <li>Add Data: map HoneyBook fields to the body keys listed below</li>
+          <li>Add Header: <code>x-honeybook-secret</code> = your <code>HONEYBOOK_WEBHOOK_SECRET</code> value</li>
+        </ol>
+
+        <p style={{ margin: "0 0 6px 0", color: "#444", fontWeight: 600 }}>Supported HoneyBook triggers → event_type value to send</p>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 12 }}>
+            <thead>
+              <tr style={{ background: "#fef3e9" }}>
+                <th style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid #f4a261" }}>HoneyBook trigger</th>
+                <th style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid #f4a261" }}>event_type value</th>
+                <th style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid #f4a261" }}>What it does in the app</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ["New Contact", "honeybook.contact.created", "Creates client record with status = lead"],
+                ["New Project", "honeybook.project.created", "Creates client (active) + booking if date present"],
+                ["Project Stage Changed", "honeybook.project.stage_changed", "Updates client status (lead / active / completed)"],
+                ["Invoice Sent", "honeybook.invoice.sent", "Sets invoice_status = sent"],
+                ["Invoice Paid", "honeybook.invoice.paid", "Sets invoice_status = paid, updates client value"],
+                ["Contract Signed", "honeybook.contract.signed", "Sets contract_signed = true"],
+                ["Payment Received", "honeybook.payment.received", "Updates client value with payment amount"],
+              ].map(([trigger, type, effect]) => (
+                <tr key={type} style={{ borderBottom: "1px solid #f9e8da" }}>
+                  <td style={{ padding: "6px 10px", color: "#333" }}>{trigger}</td>
+                  <td style={{ padding: "6px 10px" }}><code style={{ fontSize: 12 }}>{type}</code></td>
+                  <td style={{ padding: "6px 10px", color: "#555" }}>{effect}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p style={{ margin: "0 0 6px 0", color: "#444", fontWeight: 600 }}>Required JSON body fields (map from HoneyBook in Zapier)</p>
+        <pre style={{ background: "#f5f5f5", padding: 10, borderRadius: 6, fontSize: 12, overflowX: "auto", margin: "0 0 12px 0" }}>{`{
+  "event_type": "honeybook.project.created",   // required — see table above
+  "name": "{{contact_name}}",                  // client full name
+  "email": "{{contact_email}}",                // client email (used for matching)
+  "company_name": "{{company}}",               // optional
+  "project_name": "{{project_name}}",          // service / project type
+  "project_value": "{{project_value}}",        // numeric, e.g. 1500
+  "pipeline_stage": "{{stage}}",               // e.g. "booked", "inquiry"
+  "honeybook_id": "{{project_id}}",            // HoneyBook internal ID
+  "preferred_date": "{{event_date}}"           // ISO date, for booking creation
+}`}</pre>
+
+        <p style={{ margin: "0 0 4px 0", color: "#444", fontWeight: 600 }}>Required env vars</p>
+        <ul style={{ margin: 0, paddingLeft: 18, color: "#666", fontSize: 13 }}>
+          <li><code>HONEYBOOK_WEBHOOK_SECRET</code> — any string you choose; paste it into the Zapier header</li>
+          <li><code>SUPABASE_SERVICE_ROLE_KEY</code> — already required by other endpoints</li>
+        </ul>
+      </div>
     </div>
   );
 };
