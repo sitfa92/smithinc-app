@@ -56,21 +56,21 @@ function mapStage(hbStage) {
 }
 
 // Build a normalized client payload from whatever HoneyBook sends
+// Column reference: id, name, email, project, honeybook_id, service_type,
+//   client_value, status, invoice_status, contract_signed, invoice_paid, source,
+//   created_at, updated_at  — NO company column
 function buildClientPayload(body, defaultStatus = "lead") {
   const {
-    // Contact / project core fields — HoneyBook often sends first_name + last_name separately
     contact_name, client_name, name, first_name, last_name,
     contact_email, client_email, email,
     company_name, company,
     project_name, project_type, service_type, service,
     project_value, total_value, invoice_total, amount,
     pipeline_stage, stage, project_stage,
-    // Invoice / contract flags
     invoice_status,
     contract_signed,
-    // HoneyBook internal IDs
+    invoice_paid,
     honeybook_id, project_id, contact_id,
-    // Timestamps
     created_at,
   } = body;
 
@@ -78,8 +78,13 @@ function buildClientPayload(body, defaultStatus = "lead") {
     contact_name || client_name || name ||
     ((first_name || last_name) ? `${first_name || ""} ${last_name || ""}`.trim() : "");
   const resolvedEmail = normalize(contact_email || client_email || email || "");
-  const resolvedCompany = company_name || company || "";
-  const resolvedService = project_name || project_type || service_type || service || "HoneyBook Project";
+
+  // Fold company into project/service_type since there is no company column
+  const companyHint = company_name || company || "";
+  const resolvedService =
+    project_name || project_type || service_type || service ||
+    (companyHint ? `HoneyBook – ${companyHint}` : "HoneyBook Project");
+
   const resolvedValue = Number(project_value || total_value || invoice_total || amount || 0);
   const resolvedStage = pipeline_stage || stage || project_stage || "";
   const resolvedHbId = honeybook_id || project_id || contact_id || "";
@@ -89,7 +94,6 @@ function buildClientPayload(body, defaultStatus = "lead") {
   return {
     name: resolvedName,
     email: resolvedEmail || undefined,
-    company: resolvedCompany || undefined,
     project: resolvedService,
     service_type: resolvedService,
     client_value: resolvedValue || undefined,
@@ -99,6 +103,8 @@ function buildClientPayload(body, defaultStatus = "lead") {
     invoice_status: invoice_status || undefined,
     contract_signed:
       contract_signed === true || contract_signed === "true" || undefined,
+    invoice_paid:
+      invoice_paid === true || invoice_paid === "true" || undefined,
     updated_at: new Date().toISOString(),
     created_at: created_at || new Date().toISOString(),
   };
