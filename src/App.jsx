@@ -1254,7 +1254,8 @@ const Submissions = () => {
           if (sourceFilter === "direct") return m.source !== "manychat";
           return true;
         })
-        .map(((isMobile) => (model) => {
+        .map((model) => {
+        const isMobile = window.innerWidth <= 768;
         return (
           <div
             key={model.id}
@@ -1425,7 +1426,7 @@ const Submissions = () => {
             </div>
           </div>
         );
-      }))(window.innerWidth <= 768)}
+      })}
     </div>
   );
 };
@@ -1877,7 +1878,8 @@ const AdminBookings = () => {
       )}
 
       {!loading &&
-        bookings.map(((isMobile) => (booking) => {
+        bookings.map((booking) => {
+          const isMobile = window.innerWidth <= 768;
           return (
             <div
               key={booking.id}
@@ -2017,7 +2019,7 @@ const AdminBookings = () => {
               </div>
             </div>
           );
-        }))(window.innerWidth <= 768)}
+        })}
     </div>
   );
 };
