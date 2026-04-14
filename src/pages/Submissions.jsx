@@ -10,6 +10,7 @@ export default function Submissions() {
   const [actionLoading, setActionLoading] = React.useState({});
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const [sourceFilter, setSourceFilter] = React.useState("all");
+  const [statusFilter, setStatusFilter] = React.useState("active");
 
   React.useEffect(() => {
     fetchSubmissions();
@@ -173,6 +174,14 @@ export default function Submissions() {
           <p style={{ color:C.dust, fontSize:13, margin:0 }}>Review and manage incoming talent submissions.</p>
         </div>
         <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
+          <select value={statusFilter} onChange={(e)=>setStatusFilter(e.target.value)}
+            style={{ padding:"9px 12px", border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:13, background:C.white, color:C.slate, outline:"none", fontFamily:"'Inter',sans-serif", appearance:"none", cursor:"pointer" }}>
+            <option value="active">Hide Rejected</option>
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending only</option>
+            <option value="approved">Approved only</option>
+            <option value="rejected">Rejected only</option>
+          </select>
           <select value={sourceFilter} onChange={(e)=>setSourceFilter(e.target.value)}
             style={{ padding:"9px 12px", border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:13, background:C.white, color:C.slate, outline:"none", fontFamily:"'Inter',sans-serif", appearance:"none", cursor:"pointer" }}>
             <option value="all">All Sources</option>
@@ -192,6 +201,8 @@ export default function Submissions() {
 
       {!loading && submissions
         .filter(m => {
+          if (statusFilter === "active") { if (m.status === "rejected") return false; }
+          else if (statusFilter !== "all") { if (m.status !== statusFilter) return false; }
           if (sourceFilter === "manychat") return m.source === "manychat";
           if (sourceFilter === "direct") return m.source !== "manychat";
           return true;
