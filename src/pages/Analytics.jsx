@@ -35,13 +35,6 @@ export default function Analytics() {
 
   const metrics = calculateMetrics(models, bookings);
 
-  const metricsGridStyle = {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "15px",
-    justifyContent: "center",
-  };
-
   const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2", info:"#1e3a5f", infoBg:"#eff6ff" };
   const statCard = (label, value, extra={}) => (
     <div style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:20, boxShadow:"0 1px 4px rgba(17,17,17,0.04)", ...extra }}>

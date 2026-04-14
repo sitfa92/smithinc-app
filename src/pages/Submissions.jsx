@@ -149,15 +149,6 @@ export default function Submissions() {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "approved": return "#4caf50";
-      case "rejected": return "#f44336";
-      case "pending":
-      default: return "#ff9800";
-    }
-  };
-
   const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", canvas:"#f5f2ec", white:"#ffffff", err:"#9b1c1c", warn:"#92560a", ok:"#1a6636", okBg:"#edf7ee", warnBg:"#fef8ec", errBg:"#fef2f2" };
   const btnS = (bg,clr,extra={}) => ({ padding:"9px 16px", background:bg, color:clr, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif", ...extra });
   const badge = (st) => {

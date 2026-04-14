@@ -1,6 +1,5 @@
 import React from "react";
 import { supabase } from "../supabase";
-import { useAuth } from "../auth";
 import { DEFAULT_ROLE_BY_EMAIL, buildPrefilledLoginLink } from "../utils";
 
 export default function Team() {

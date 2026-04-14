@@ -117,15 +117,6 @@ export default function AdminBookings() {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "confirmed": return "#4caf50";
-      case "completed": return "#2196f3";
-      case "pending":
-      default: return "#ff9800";
-    }
-  };
-
   const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2", info:"#1e3a5f", infoBg:"#eff6ff" };
   const btnS = (bg,fg,extra={}) => ({ padding:"9px 14px", background:bg, color:fg, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif", transition:"opacity 0.2s", ...extra });
   const statusBadge = (st) => {

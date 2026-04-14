@@ -395,9 +395,6 @@ alter table public.alerts disable row level security;`;
     return assigned === userEmail || task.role === role;
   });
 
-  const taskStatusColor = { pending: "#ff9800", in_progress: "#2196f3", done: "#4caf50" };
-  const alertLevelColor = { info: "#455a64", success: "#2e7d32", warning: "#ef6c00", error: "#c62828" };
-
   const taskSummary = {
     pending: opsTasks.filter((t) => t.status === "pending").length,
     done: opsTasks.filter((t) => t.status === "done").length,
