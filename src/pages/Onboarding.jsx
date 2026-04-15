@@ -6,7 +6,7 @@ const OPTIONS = [
   {
     id: "become-model",
     title: "Become a model",
-    summary: "Apply to join the talent roster and start getting reviewed.",
+    summary: "Apply to join our model development program and start your career.",
     detail: "You’ll be guided straight into a model application with the right next steps for new talent.",
     href: "/model-signup?intent=become-model",
     cta: "Start model application",
