@@ -27,6 +27,14 @@ const shell = (bodyContent) => `<!DOCTYPE html>
 </body>
 </html>`;
 
+const formatDateTime = (value) => {
+  if (!value) return "To be announced";
+  const dt = new Date(value);
+  return Number.isNaN(dt.getTime())
+    ? String(value)
+    : dt.toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" });
+};
+
 // ─── Templates ────────────────────────────────────────────────────────────────
 const templates = {
   "model-submission": ({ name = "there", instagram = "" }) => ({
@@ -72,6 +80,25 @@ const templates = {
         : `Hi ${name},\n\nThank you for applying. We've decided not to move forward at this time.\n\n— The Smith Inc Team`,
     };
   },
+
+  "model-event": ({ name = "there", eventTitle = "Upcoming event", eventType = "event", eventAt = "", notes = "" }) => ({
+    subject: `New event invitation — ${eventTitle}`,
+    html: shell(`
+      <h2 style="margin:0 0 20px;font-size:20px;color:#111;">You're invited</h2>
+      <p style="margin:0 0 12px;color:#444;line-height:1.7;">Hi <strong>${name}</strong>,</p>
+      <p style="margin:0 0 16px;color:#444;line-height:1.7;">
+        You have a new ${eventType || "event"} scheduled with Smith Inc.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border:1px solid #eee;border-radius:6px;overflow:hidden;">
+        <tr><td style="padding:10px 16px;background:#fafafa;border-bottom:1px solid #eee;font-size:13px;color:#888;">Event</td><td style="padding:10px 16px;background:#fafafa;border-bottom:1px solid #eee;font-size:13px;color:#111;">${eventTitle}</td></tr>
+        <tr><td style="padding:10px 16px;background:#fff;border-bottom:1px solid #eee;font-size:13px;color:#888;">Type</td><td style="padding:10px 16px;background:#fff;border-bottom:1px solid #eee;font-size:13px;color:#111;">${eventType || "Event"}</td></tr>
+        <tr><td style="padding:10px 16px;background:#fafafa;font-size:13px;color:#888;">Date & time</td><td style="padding:10px 16px;background:#fafafa;font-size:13px;color:#111;">${formatDateTime(eventAt)}</td></tr>
+      </table>
+      ${notes ? `<p style="margin:0 0 18px;color:#444;line-height:1.7;"><strong>Details:</strong><br>${String(notes).replace(/\n/g, "<br>")}</p>` : ""}
+      <p style="margin:0;color:#444;line-height:1.7;">Please keep this on your calendar and reach out if you have any questions.<br><strong>The Smith Inc Team</strong></p>
+    `),
+    text: `Hi ${name},\n\nYou have a new ${eventType || "event"} scheduled with Smith Inc.\nEvent: ${eventTitle}\nDate & time: ${formatDateTime(eventAt)}${notes ? `\nDetails: ${notes}` : ""}\n\n— The Smith Inc Team`,
+  }),
 
   "booking-confirmation": ({ name = "there", company = "", serviceType = "", preferredDate = "" }) => ({
     subject: "Booking request received — Smith Inc",

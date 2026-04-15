@@ -33,6 +33,16 @@ export const sendModelStatusUpdateEmail = (model, status, digitalsLink = "") =>
     digitalsLink,
   });
 
+export const sendModelEventEmail = (model, event) =>
+  sendEmail("model-event", {
+    name: model.name,
+    email: model.email,
+    eventTitle: event.title,
+    eventType: event.event_type,
+    eventAt: event.event_at,
+    notes: event.notes,
+  });
+
 export const sendBookingConfirmationEmail = (booking) =>
   sendEmail("booking-confirmation", {
     name: booking.name,

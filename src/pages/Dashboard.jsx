@@ -2,6 +2,7 @@ import React from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { DEFAULT_ROLE_BY_EMAIL, runAuthenticatedCurrentDataSync } from "../utils";
+import { sendModelEventEmail } from "../emailService";
 import { MetricCard } from "../analyticsUtils";
 
 export default function Dashboard() {
@@ -22,11 +23,14 @@ export default function Dashboard() {
   const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false, syncedAt: "" });
   const [savingEvent, setSavingEvent] = React.useState(false);
   const [updatingAlertId, setUpdatingAlertId] = React.useState("");
+  const [eventNotice, setEventNotice] = React.useState("");
   const [eventForm, setEventForm] = React.useState({
     title: "",
     event_at: "",
     event_type: "internal",
     notes: "",
+    notify_target: "none",
+    target_model_id: "",
   });
 
   const DASHBOARD_SETUP_SQL = `-- Run this in your Supabase SQL Editor:
@@ -234,7 +238,7 @@ alter table public.alerts disable row level security;`;
       setLoading(true);
 
       const [modelsRes, bookingsRes, clientsRes] = await Promise.all([
-        supabase.from("models").select("id, name, status, submitted_at, created_at").order("submitted_at", { ascending: false }),
+        supabase.from("models").select("id, name, email, status, submitted_at, created_at").order("submitted_at", { ascending: false }),
         supabase.from("bookings").select("id, name, status, preferred_date, created_at").order("created_at", { ascending: false }),
         supabase.from("clients").select("id, name, status, created_at").order("created_at", { ascending: false }),
       ]);
@@ -315,6 +319,7 @@ alter table public.alerts disable row level security;`;
     }
 
     setSavingEvent(true);
+    setEventNotice("");
     try {
       const payload = {
         title: eventForm.title.trim(),
@@ -326,7 +331,30 @@ alter table public.alerts disable row level security;`;
       const { error: insertError } = await supabase.from("calendar_events").insert([payload]);
       if (insertError) throw insertError;
 
-      setEventForm({ title: "", event_at: "", event_type: "internal", notes: "" });
+      let recipients = [];
+      if (eventForm.notify_target === "approved") {
+        recipients = approvedMailableModels;
+      } else if (eventForm.notify_target === "specific") {
+        recipients = approvedMailableModels.filter((m) => String(m.id) === String(eventForm.target_model_id));
+      }
+
+      let sentCount = 0;
+      if (recipients.length > 0) {
+        const emailResults = await Promise.all(
+          recipients.map((model) => sendModelEventEmail(model, payload))
+        );
+        sentCount = emailResults.filter(Boolean).length;
+      }
+
+      if (eventForm.notify_target === "none") {
+        setEventNotice("Event saved to your calendar.");
+      } else if (recipients.length === 0) {
+        setEventNotice("Event saved, but no approved models were selected for email.");
+      } else {
+        setEventNotice(`Event saved and emailed to ${sentCount} of ${recipients.length} model${recipients.length === 1 ? "" : "s"}.`);
+      }
+
+      setEventForm({ title: "", event_at: "", event_type: "internal", notes: "", notify_target: "none", target_model_id: "" });
       await fetchOpsAndEvents();
     } catch (err) {
       alert(err.message || "Failed to save calendar event");
@@ -411,6 +439,9 @@ alter table public.alerts disable row level security;`;
   });
 
   const recentModels = models.slice(0, 5);
+  const approvedMailableModels = models.filter(
+    (m) => (m.status || "").toLowerCase() === "approved" && (m.email || "").trim()
+  );
   const upcomingBookings = bookings.filter((b) => b.preferred_date).slice(0, 5);
   const nextPendingModel = models.find((m) => m.status === "pending");
   const nextPendingBooking = bookings.find((b) => b.status === "pending");
@@ -666,12 +697,30 @@ alter table public.alerts disable row level security;`;
                 <option value="meeting">Meeting</option>
                 <option value="deadline">Deadline</option>
               </select>
-              <input placeholder="Notes (optional)" value={eventForm.notes} onChange={(e)=>setEventForm(p=>({...p,notes:e.target.value}))} style={{...inp2,gridColumn:"1/-1"}} />
+              <select value={eventForm.notify_target} onChange={(e)=>setEventForm(p=>({...p,notify_target:e.target.value, target_model_id:e.target.value === "specific" ? p.target_model_id : ""}))} style={{ ...inp2, appearance:"none" }}>
+                <option value="none">Save to calendar only</option>
+                <option value="approved">Email all approved models</option>
+                <option value="specific">Email one approved model</option>
+              </select>
+              {eventForm.notify_target === "specific" ? (
+                <select value={eventForm.target_model_id} onChange={(e)=>setEventForm(p=>({...p,target_model_id:e.target.value}))} style={{ ...inp2, appearance:"none" }}>
+                  <option value="">Select model</option>
+                  {approvedMailableModels.map((model) => (
+                    <option key={model.id} value={model.id}>{model.name} · {model.email}</option>
+                  ))}
+                </select>
+              ) : (
+                <div style={{ color:C.dust, fontSize:12, alignSelf:"center" }}>
+                  {approvedMailableModels.length} approved model{approvedMailableModels.length === 1 ? "" : "s"} available for event emails.
+                </div>
+              )}
+              <input placeholder="Notes, location, or link (optional)" value={eventForm.notes} onChange={(e)=>setEventForm(p=>({...p,notes:e.target.value}))} style={{...inp2,gridColumn:"1/-1"}} />
               <button type="submit" disabled={savingEvent} style={btn(C.ink,C.white,{gridColumn:"1/-1",opacity:savingEvent?0.55:1,cursor:savingEvent?"not-allowed":"pointer"})}>
                 {savingEvent ? "Saving…" : "Add Event"}
               </button>
             </form>
           )}
+          {eventNotice && <p style={{ color:C.ok, fontSize:13, marginTop:-4, marginBottom:12 }}>{eventNotice}</p>}
           {mergedCalendar.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No upcoming events yet.</p>}
           {mergedCalendar.map(ev => (
             <div key={ev.id} style={{ display:"flex", gap:12, alignItems:"baseline", marginBottom:8, paddingBottom:8, borderBottom:`1px solid ${C.smoke}` }}>
