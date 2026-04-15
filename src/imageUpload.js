@@ -24,44 +24,39 @@ export const uploadImage = async (file, folder = "models") => {
     throw new Error("File too large. Maximum size is 5MB.");
   }
 
-  try {
-    const signResp = await fetch("/api/storage/sign-upload", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fileName: file.name,
-        contentType: file.type,
-        folder,
-      }),
-    });
+  const signResp = await fetch("/api/storage/sign-upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      fileName: file.name,
+      contentType: file.type,
+      folder,
+    }),
+  });
 
-    if (!signResp.ok) {
-      const errData = await signResp.json().catch(() => ({}));
-      throw new Error(errData.error || "Failed to prepare image upload");
-    }
-
-    const signed = await signResp.json();
-    if (!signed?.bucket || !signed?.path || !signed?.token) {
-      throw new Error("Upload signature response was incomplete");
-    }
-
-    const { error: uploadError } = await supabase.storage
-      .from(signed.bucket)
-      .uploadToSignedUrl(signed.path, signed.token, file);
-
-    if (uploadError) {
-      throw uploadError;
-    }
-
-    const { data: publicData } = supabase.storage
-      .from(signed.bucket)
-      .getPublicUrl(signed.path);
-
-    return publicData.publicUrl;
-  } catch (error) {
-    console.error("Image upload error:", error);
-    throw error;
+  if (!signResp.ok) {
+    const errData = await signResp.json().catch(() => ({}));
+    throw new Error(errData.error || "Failed to prepare image upload");
   }
+
+  const signed = await signResp.json();
+  if (!signed?.bucket || !signed?.path || !signed?.token) {
+    throw new Error("Upload signature response was incomplete");
+  }
+
+  const { error: uploadError } = await supabase.storage
+    .from(signed.bucket)
+    .uploadToSignedUrl(signed.path, signed.token, file);
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data: publicData } = supabase.storage
+    .from(signed.bucket)
+    .getPublicUrl(signed.path);
+
+  return publicData.publicUrl;
 };
 
 /**

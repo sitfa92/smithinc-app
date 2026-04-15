@@ -255,9 +255,9 @@ alter table public.alerts disable row level security;`;
       setLoading(true);
 
       const [modelsRes, bookingsRes, clientsRes] = await Promise.all([
-        supabase.from("models").select("*").order("submitted_at", { ascending: false }),
-        supabase.from("bookings").select("*").order("created_at", { ascending: false }),
-        supabase.from("clients").select("*").order("created_at", { ascending: false }),
+        supabase.from("models").select("id, name, status, submitted_at, created_at").order("submitted_at", { ascending: false }),
+        supabase.from("bookings").select("id, name, status, preferred_date, created_at").order("created_at", { ascending: false }),
+        supabase.from("clients").select("id, name, status, created_at").order("created_at", { ascending: false }),
       ]);
 
       if (modelsRes.error) throw modelsRes.error;

@@ -14,7 +14,7 @@ import App from './App.jsx'
   script.src = '//widget.manychat.com/' + encodeURIComponent(pageId) + '.js'
   script.async = true
   script.defer = true
-  script.onerror = () => console.warn('ManyChat widget failed to load.')
+  script.onerror = () => {};
   document.head.appendChild(script)
 })()
 

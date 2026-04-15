@@ -21,14 +21,13 @@ export default function Submissions() {
       setError("");
       const { data, error: supabaseError } = await supabase
         .from("models")
-        .select("*")
+        .select("id, name, email, instagram, status, source, image_url, submitted_at")
         .order("submitted_at", { ascending: false });
 
       if (supabaseError) throw supabaseError;
       setSubmissions(data || []);
     } catch (err) {
       setError(err.message || "Failed to load submissions");
-      console.error("Fetch error:", err);
     } finally {
       setLoading(false);
     }
@@ -80,7 +79,6 @@ export default function Submissions() {
         prev.map((m) => (m.id === modelId ? { ...m, status: newStatus } : m))
       );
     } catch (err) {
-      console.error("Update error:", err);
       alert(`Failed to update status: ${err.message}`);
     } finally {
       setActionLoading((prev) => ({ ...prev, [modelId]: false }));

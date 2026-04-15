@@ -1,0 +1,23 @@
+User-agent: *
+
+# Public pages — allow crawling
+Allow: /
+Allow: /book
+Allow: /talent/
+Allow: /model-signup
+
+# Internal app pages — disallow crawling
+Disallow: /login
+Disallow: /dashboard
+Disallow: /models
+Disallow: /model-pipeline
+Disallow: /submissions
+Disallow: /bookings
+Disallow: /clients
+Disallow: /analytics
+Disallow: /integrations
+Disallow: /workflows
+Disallow: /team
+Disallow: /notifications
+
+Sitemap: https://meet-serenity.online/sitemap.xml

@@ -19,14 +19,13 @@ export default function AdminBookings() {
       setError("");
       const { data, error: supabaseError } = await supabase
         .from("bookings")
-        .select("*")
+        .select("id, name, email, company, service_type, preferred_date, message, status, confirmed, zoom_link, created_at")
         .order("created_at", { ascending: false });
 
       if (supabaseError) throw supabaseError;
       setBookings(data || []);
     } catch (err) {
       setError(err.message || "Failed to load bookings");
-      console.error("Fetch error:", err);
     } finally {
       setLoading(false);
     }

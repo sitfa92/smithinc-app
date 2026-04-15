@@ -16,8 +16,8 @@ export default function Analytics() {
     try {
       setError("");
       const [modelsResult, bookingsResult] = await Promise.all([
-        supabase.from("models").select("*"),
-        supabase.from("bookings").select("*"),
+        supabase.from("models").select("id, status, submitted_at, created_at"),
+        supabase.from("bookings").select("id, status, service_type, preferred_date, created_at"),
       ]);
 
       if (modelsResult.error) throw modelsResult.error;
@@ -27,7 +27,6 @@ export default function Analytics() {
       setBookings(bookingsResult.data || []);
     } catch (err) {
       setError(err.message || "Failed to load analytics");
-      console.error("Analytics error:", err);
     } finally {
       setLoading(false);
     }

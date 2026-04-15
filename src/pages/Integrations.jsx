@@ -16,7 +16,7 @@ export default function Integrations() {
 
   React.useEffect(() => {
     const fetchBookings = async () => {
-      const { data } = await supabase.from("bookings").select("*").order("created_at", { ascending: false });
+      const { data } = await supabase.from("bookings").select("id, name, status, preferred_date, zoom_link, created_at").order("created_at", { ascending: false });
       const list = data || [];
       setBookings(list);
       return list;

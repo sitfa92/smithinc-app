@@ -98,8 +98,6 @@ export default function Nav() {
     return false;
   };
 
-  const isActive = (paths) => paths.some(p => location.pathname === p);
-
   const openDrop = (key) => {
     clearTimeout(closeTimer.current);
     setOpenMenu(key);

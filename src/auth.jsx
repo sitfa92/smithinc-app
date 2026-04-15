@@ -45,7 +45,7 @@ const useProvideAuth = () => {
       if (!mounted) return;
 
       if (error) {
-        console.error("Session fetch error:", error);
+        // session fetch failed — user stays signed out
       }
 
       const sessionUser = data?.session?.user ?? null;

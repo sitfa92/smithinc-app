@@ -40,28 +40,28 @@ export default function WorkflowDashboard() {
       // Fetch recent workflow events
       const { data: eventsData } = await supabase
         .from("workflow_events")
-        .select("*")
+        .select("id, event_type, status, event_data, error_message, created_at")
         .order("created_at", { ascending: false })
         .limit(50);
 
       // Fetch leads
       const { data: leadsData } = await supabase
         .from("leads")
-        .select("*")
+        .select("id, name, email, service_type, status, created_at")
         .order("created_at", { ascending: false })
         .limit(20);
 
       // Fetch clients
       const { data: clientsData } = await supabase
         .from("clients")
-        .select("*")
+        .select("id, name, email, service_type, client_value, status, created_at")
         .order("created_at", { ascending: false })
         .limit(20);
 
       // Fetch enrollments
       const { data: enrollmentsData } = await supabase
         .from("program_enrollments")
-        .select("*")
+        .select("id, student_name, program_name, program_tier, status, start_date, created_at")
         .order("created_at", { ascending: false })
         .limit(20);
 
@@ -69,8 +69,8 @@ export default function WorkflowDashboard() {
       setLeads(leadsData || []);
       setClients(clientsData || []);
       setEnrollments(enrollmentsData || []);
-    } catch (error) {
-      console.error("Error fetching workflow data:", error);
+    } catch (_err) {
+      // silently handle fetch errors
     } finally {
       setLoading(false);
     }
