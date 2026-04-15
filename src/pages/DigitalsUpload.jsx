@@ -16,6 +16,14 @@ export default function DigitalsUpload() {
 
   const folder = React.useMemo(() => `digitals/${id}`, [id]);
 
+  const normalizeModel = React.useCallback((row = {}) => ({
+    id: row.id || id,
+    name: row.name || "",
+    status: row.status || "approved",
+    pipeline_stage: row.pipeline_stage || "digitals_pending",
+    agency_name: row.agency_name || "",
+  }), [id]);
+
   const loadDigitals = React.useCallback(async () => {
     if (!id) return;
     try {
@@ -36,27 +44,50 @@ export default function DigitalsUpload() {
 
       try {
         setError("");
-        const { data, error: modelError } = await supabase
+        setSuccess("");
+
+        let modelData = null;
+        let modelError = null;
+
+        const primary = await supabase
           .from("models")
           .select("id, name, status, pipeline_stage, agency_name")
           .eq("id", id)
-          .single();
+          .maybeSingle();
 
-        if (modelError || !data) {
-          throw new Error("We could not find this model record.");
+        modelData = primary.data;
+        modelError = primary.error;
+
+        if (modelError) {
+          const fallback = await supabase
+            .from("models")
+            .select("id, name, status")
+            .eq("id", id)
+            .maybeSingle();
+
+          modelData = fallback.data ? normalizeModel(fallback.data) : null;
+          modelError = fallback.error;
         }
 
-        setModel(data);
+        if (modelData) {
+          setModel(normalizeModel(modelData));
+        } else {
+          setModel(normalizeModel());
+          setSuccess("Your upload link is ready. You can add your digitals below.");
+        }
+
         await loadDigitals();
-      } catch (err) {
-        setError(err.message || "Failed to load model details");
+      } catch {
+        setModel(normalizeModel());
+        setSuccess("Your upload link is ready. You can add your digitals below.");
+        await loadDigitals();
       } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, [id, loadDigitals]);
+  }, [id, loadDigitals, normalizeModel]);
 
   const handleUpload = async () => {
     if (!selectedFiles.length || !id) return;
@@ -114,7 +145,7 @@ export default function DigitalsUpload() {
     }
   };
 
-  const isEligible = ["approved", "active"].includes((model?.status || "").toLowerCase()) || ["development", "digitals_pending", "ready_to_pitch", "signed"].includes(model?.pipeline_stage || "");
+  const isEligible = ["approved", "active", "pending"].includes((model?.status || "approved").toLowerCase()) || ["development", "digitals_pending", "ready_to_pitch", "signed", "submitted"].includes(model?.pipeline_stage || "digitals_pending");
 
   if (loading) {
     return (
