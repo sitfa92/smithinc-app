@@ -1,7 +1,7 @@
 import React from "react";
 import { supabase } from "../supabase";
 import { sendBookingConfirmedEmail } from "../emailService";
-import { sendZapierEvent, createInAppAlerts, sendInternalTeamEmailAlert } from "../utils";
+import { isMissingColumnError, sendZapierEvent, createInAppAlerts, sendInternalTeamEmailAlert } from "../utils";
 
 export default function AdminBookings() {
   const [bookings, setBookings] = React.useState([]);
@@ -9,6 +9,7 @@ export default function AdminBookings() {
   const [error, setError] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState({});
   const [zoomDrafts, setZoomDrafts] = React.useState({});
+  const [zoomAvailable, setZoomAvailable] = React.useState(true);
 
   React.useEffect(() => {
     fetchBookings();
@@ -17,11 +18,24 @@ export default function AdminBookings() {
   const fetchBookings = async () => {
     try {
       setError("");
-      const { data, error: supabaseError } = await supabase
+      let { data, error: supabaseError } = await supabase
         .from("bookings")
-        .select("id, name, email, company, service_type, preferred_date, message, status, confirmed, zoom_link, created_at")
+        .select("id, name, email, company, service_type, preferred_date, message, status, zoom_link, created_at")
         .order("created_at", { ascending: false })
         .limit(500);
+
+      if (supabaseError && isMissingColumnError(supabaseError)) {
+        const fallback = await supabase
+          .from("bookings")
+          .select("id, name, email, company, service_type, preferred_date, message, status, created_at")
+          .order("created_at", { ascending: false })
+          .limit(500);
+        data = fallback.data;
+        supabaseError = fallback.error;
+        setZoomAvailable(false);
+      } else {
+        setZoomAvailable(true);
+      }
 
       if (supabaseError) throw supabaseError;
       setBookings(data || []);
@@ -130,6 +144,12 @@ export default function AdminBookings() {
         Booking Requests
       </h1>
       <p style={{ color:C.dust, fontSize:13, marginBottom:24 }}>Manage and confirm incoming client booking requests.</p>
+
+      {!zoomAvailable && (
+        <div style={{ background:C.infoBg, border:`1px solid rgba(30,58,95,0.2)`, borderRadius:10, padding:"12px 16px", marginBottom:20, color:C.info, fontSize:13 }}>
+          Zoom links are temporarily hidden until the optional bookings field is available.
+        </div>
+      )}
 
       {loading && <p style={{ color:C.dust }}>Loading bookings…</p>}
       {error && <div style={{ background:C.errBg, border:`1px solid rgba(155,28,28,0.2)`, borderRadius:10, padding:"12px 16px", marginBottom:20, color:C.err, fontSize:13 }}>Error: {error}</div>}
