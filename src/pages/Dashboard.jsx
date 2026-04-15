@@ -334,8 +334,9 @@ alter table public.alerts disable row level security;`;
       let recipients = [];
       if (eventForm.notify_target === "approved") {
         recipients = approvedMailableModels;
-      } else if (eventForm.notify_target === "specific") {
-        recipients = approvedMailableModels.filter((m) => String(m.id) === String(eventForm.target_model_id));
+      } else if ((eventForm.notify_target || "").startsWith("model:")) {
+        const modelId = String(eventForm.notify_target).split(":")[1] || "";
+        recipients = approvedMailableModels.filter((m) => String(m.id) === modelId);
       }
 
       let sentCount = 0;
@@ -697,23 +698,21 @@ alter table public.alerts disable row level security;`;
                 <option value="meeting">Meeting</option>
                 <option value="deadline">Deadline</option>
               </select>
-              <select value={eventForm.notify_target} onChange={(e)=>setEventForm(p=>({...p,notify_target:e.target.value, target_model_id:e.target.value === "specific" ? p.target_model_id : ""}))} style={{ ...inp2, appearance:"none" }}>
-                <option value="none">Save to calendar only</option>
-                <option value="approved">Email all approved models</option>
-                <option value="specific">Email one approved model</option>
-              </select>
-              {eventForm.notify_target === "specific" ? (
-                <select value={eventForm.target_model_id} onChange={(e)=>setEventForm(p=>({...p,target_model_id:e.target.value}))} style={{ ...inp2, appearance:"none" }}>
-                  <option value="">Select model</option>
+              <div style={{ gridColumn:"1/-1" }}>
+                <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust, marginBottom:6 }}>
+                  Send event email to
+                </div>
+                <select value={eventForm.notify_target} onChange={(e)=>setEventForm(p=>({...p,notify_target:e.target.value}))} style={{ ...inp2, appearance:"none" }}>
+                  <option value="none">Calendar only — do not email</option>
+                  <option value="approved">All approved models</option>
                   {approvedMailableModels.map((model) => (
-                    <option key={model.id} value={model.id}>{model.name} · {model.email}</option>
+                    <option key={model.id} value={`model:${model.id}`}>{model.name} · {model.email}</option>
                   ))}
                 </select>
-              ) : (
-                <div style={{ color:C.dust, fontSize:12, alignSelf:"center" }}>
-                  {approvedMailableModels.length} approved model{approvedMailableModels.length === 1 ? "" : "s"} available for event emails.
+                <div style={{ color:C.dust, fontSize:12, marginTop:6 }}>
+                  Choose one model by name, or send the event to all approved models.
                 </div>
-              )}
+              </div>
               <input placeholder="Notes, location, or link (optional)" value={eventForm.notes} onChange={(e)=>setEventForm(p=>({...p,notes:e.target.value}))} style={{...inp2,gridColumn:"1/-1"}} />
               <button type="submit" disabled={savingEvent} style={btn(C.ink,C.white,{gridColumn:"1/-1",opacity:savingEvent?0.55:1,cursor:savingEvent?"not-allowed":"pointer"})}>
                 {savingEvent ? "Saving…" : "Add Event"}
