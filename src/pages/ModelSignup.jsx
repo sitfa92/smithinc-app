@@ -255,6 +255,54 @@ export default function ModelSignup() {
           </div>
         </div>
 
+        <div className="lx-model-soft-card" style={{ marginBottom:20 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:10, flexWrap:"wrap" }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:4 }}>AI Talent Assistant</div>
+              <div style={{ color:"#111", fontSize:14, fontWeight:600 }}>Ask what to improve before you submit.</div>
+            </div>
+            <span style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"5px 10px", borderRadius:999, background:"#111", color:"#fff", fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+              AI advisor
+            </span>
+          </div>
+
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
+            {[
+              "Am I ready to be a model?",
+              "What should I improve?",
+              "How do my photos look?",
+            ].map((question) => (
+              <button
+                key={question}
+                type="button"
+                onClick={() => askAssistant(question)}
+                style={{ padding:"8px 12px", borderRadius:999, border:"1px solid #e8e4dc", background:"#fff", color:"#111", fontSize:12, cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>
+                {question}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
+            <input
+              value={assistantQuestion}
+              onChange={(e) => setAssistantQuestion(e.target.value)}
+              placeholder="Ask about your readiness, photos, or improvements"
+              style={{ ...inp, flex:"1 1 220px", margin:0 }}
+            />
+            <button
+              type="button"
+              onClick={() => askAssistant(assistantQuestion)}
+              className="lx-btn lx-btn-primary"
+              style={{ padding:"12px 16px", fontSize:12 }}>
+              Ask AI
+            </button>
+          </div>
+
+          <div style={{ background:"#fff", border:"1px solid #e8e4dc", borderRadius:10, padding:"12px 14px", color:"#4a4a4a", fontSize:13, lineHeight:1.65 }}>
+            {assistantReply}
+          </div>
+        </div>
+
         <div className="lx-model-grid">
           <div className="lx-model-stack">
             <div className="lx-model-card">
@@ -317,53 +365,7 @@ export default function ModelSignup() {
               </div>
             </div>
 
-            <div className="lx-model-soft-card">
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:10, flexWrap:"wrap" }}>
-                <div>
-                  <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:4 }}>AI Talent Assistant</div>
-                  <div style={{ color:"#111", fontSize:14, fontWeight:600 }}>Ask what to improve before you submit.</div>
-                </div>
-                <span style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"5px 10px", borderRadius:999, background:"#111", color:"#fff", fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
-                  AI advisor
-                </span>
-              </div>
 
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
-                {[
-                  "Am I ready to be a model?",
-                  "What should I improve?",
-                  "How do my photos look?",
-                ].map((question) => (
-                  <button
-                    key={question}
-                    type="button"
-                    onClick={() => askAssistant(question)}
-                    style={{ padding:"8px 12px", borderRadius:999, border:"1px solid #e8e4dc", background:"#fff", color:"#111", fontSize:12, cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>
-                    {question}
-                  </button>
-                ))}
-              </div>
-
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
-                <input
-                  value={assistantQuestion}
-                  onChange={(e) => setAssistantQuestion(e.target.value)}
-                  placeholder="Ask about your readiness, photos, or improvements"
-                  style={{ ...inp, flex:"1 1 220px", margin:0 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => askAssistant(assistantQuestion)}
-                  className="lx-btn lx-btn-primary"
-                  style={{ padding:"12px 16px", fontSize:12 }}>
-                  Ask AI
-                </button>
-              </div>
-
-              <div style={{ background:"#fff", border:"1px solid #e8e4dc", borderRadius:10, padding:"12px 14px", color:"#4a4a4a", fontSize:13, lineHeight:1.65 }}>
-                {assistantReply}
-              </div>
-            </div>
           </div>
         </div>
       </div>
