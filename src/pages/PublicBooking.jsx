@@ -11,7 +11,28 @@ const inp = {
 };
 
 export default function PublicBooking() {
-  const [form, setForm] = React.useState({ name:"", email:"", company:"", service_type:"Model Booking", preferred_date:"", message:"" });
+  const intent = React.useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("intent") || window.localStorage.getItem("ms-intent") || "portfolio";
+  }, []);
+
+  const bookingContent = intent === "industry"
+    ? {
+        title: "Industry Guidance Session",
+        sub: "Ask questions, get direction, and learn the industry with a tailored consultation.",
+        service: "Consultation",
+        button: "Book Industry Consult",
+        success: "Your consultation request is in.",
+      }
+    : {
+        title: "Build Your Portfolio",
+        sub: "Book a portfolio-focused session for creative direction, photos, and positioning.",
+        service: "Photoshoot",
+        button: "Book Portfolio Session",
+        success: "Your portfolio session request is in.",
+      };
+
+  const [form, setForm] = React.useState({ name:"", email:"", company:"", service_type:bookingContent.service, preferred_date:"", message:"" });
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [success, setSuccess] = React.useState(false);
@@ -39,7 +60,7 @@ export default function PublicBooking() {
       sendBackendWebhook("booking", { client:form.company.trim(), name:form.name.trim(), email:form.email.trim(), service_type:form.service_type, preferred_date:form.preferred_date });
 
       setSuccess(true);
-      setForm({ name:"", email:"", company:"", service_type:"Model Booking", preferred_date:"", message:"" });
+      setForm({ name:"", email:"", company:"", service_type:bookingContent.service, preferred_date:"", message:"" });
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       setError(err.message || "Failed to submit booking. Please try again.");
@@ -55,7 +76,7 @@ export default function PublicBooking() {
           <div style={{ fontSize:40, marginBottom:16 }}>✦</div>
           <h1 className="lx-auth-title">Request Received</h1>
           <p style={{ color:"#888", fontSize:14, lineHeight:1.7, marginTop:8 }}>
-            Thank you for reaching out.<br/>We'll confirm your booking shortly.
+            {bookingContent.success}<br/>We'll confirm your booking shortly.
           </p>
         </div>
       </div>
@@ -66,8 +87,8 @@ export default function PublicBooking() {
     <div className="lx-auth-screen" style={{ alignItems:"flex-start", paddingTop:48 }}>
       <div className="lx-auth-panel wide" style={{ padding:"48px 44px" }}>
         <div className="lx-auth-brand">Meet Serenity</div>
-        <h1 className="lx-auth-title">Book Our Services</h1>
-        <p className="lx-auth-sub">Interested in booking talent or services? Let's connect.</p>
+        <h1 className="lx-auth-title">{bookingContent.title}</h1>
+        <p className="lx-auth-sub">{bookingContent.sub}</p>
 
         <form onSubmit={handleSubmit}>
           <div className="lx-field">
@@ -104,7 +125,7 @@ export default function PublicBooking() {
           {error && <div style={{ background:"#fef2f2", border:"1px solid rgba(155,28,28,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#9b1c1c", fontSize:13 }}>{error}</div>}
 
           <button disabled={loading} className={`lx-btn lx-btn-primary lx-btn-full${loading?" lx-btn-disabled":""}`} style={{ marginTop:4, padding:"14px 22px", fontSize:12 }}>
-            {loading ? "Sending…" : "Send Booking Request"}
+            {loading ? "Sending…" : bookingContent.button}
           </button>
         </form>
       </div>

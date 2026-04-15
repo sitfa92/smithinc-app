@@ -10,6 +10,7 @@ const Login = React.lazy(() => import("./pages/Login"));
 const ModelSignup = React.lazy(() => import("./pages/ModelSignup"));
 const PublicBooking = React.lazy(() => import("./pages/PublicBooking"));
 const Portfolio = React.lazy(() => import("./pages/Portfolio"));
+const Onboarding = React.lazy(() => import("./pages/Onboarding"));
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const Models = React.lazy(() => import("./pages/Models"));
 const ModelPipeline = React.lazy(() => import("./pages/ModelPipeline"));
@@ -45,7 +46,7 @@ const ProtectedApp = () => {
       <Nav />
       <React.Suspense fallback={<PageFallback />}>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route
             path="/models"
             element={
@@ -112,7 +113,7 @@ const ProtectedApp = () => {
           />
           <Route path="/team" element={<RoleRoute routeKey="team"><Team /></RoleRoute>} />
           <Route path="/notifications" element={<Notifications />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </React.Suspense>
     </>
@@ -125,6 +126,7 @@ function App() {
       <AuthProvider>
         <React.Suspense fallback={<PageFallback />}>
           <Routes>
+            <Route path="/" element={<Onboarding />} />
             <Route path="/login" element={<Login />} />
             <Route path="/model-signup" element={<ModelSignup />} />
             <Route path="/book" element={<PublicBooking />} />

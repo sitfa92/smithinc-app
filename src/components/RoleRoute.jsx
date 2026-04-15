@@ -28,7 +28,7 @@ export default function RoleRoute({ routeKey, children }) {
   }
 
   if (!canAccessRoute(role, routeKey)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return children;

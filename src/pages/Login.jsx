@@ -15,7 +15,7 @@ export default function Login() {
   const [cooldownSecs, setCooldownSecs] = React.useState(0);
 
   React.useEffect(() => {
-    if (user) navigate("/", { replace: true });
+    if (user) navigate("/dashboard", { replace: true });
   }, [user, navigate]);
 
   React.useEffect(() => {

@@ -288,7 +288,7 @@ export default function Nav() {
     }}>
       {/* Brand */}
       <Link
-        to={user ? "/" : "/login"}
+        to={user ? "/dashboard" : "/login"}
         style={{
           fontFamily: "'Cormorant Garamond', Georgia, serif",
           fontWeight: 600,
@@ -309,12 +309,12 @@ export default function Nav() {
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
           {/* Standalone: Dashboard */}
           {canAccess("dashboard") && (
-            <Link to="/" style={{
+            <Link to="/dashboard" style={{
               ...navLinkBase,
-              color: location.pathname === "/" ? C.ink : C.slate,
+              color: location.pathname === "/dashboard" ? C.ink : C.slate,
             }}>
               Dashboard
-              {location.pathname === "/" && <span style={{ ...activeBorderStyle, position: "absolute", bottom: -3 }} />}
+              {location.pathname === "/dashboard" && <span style={{ ...activeBorderStyle, position: "absolute", bottom: -3 }} />}
             </Link>
           )}
 
@@ -397,7 +397,7 @@ export default function Nav() {
         }}>
           {/* Standalone: Dashboard */}
           {canAccess("dashboard") && (
-            <Link to="/" onClick={() => setMobileMenuOpen(false)} style={{ ...mobileLinkStyle, paddingLeft: 16 }}>Dashboard</Link>
+            <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} style={{ ...mobileLinkStyle, paddingLeft: 16 }}>Dashboard</Link>
           )}
 
           {/* Groups */}
