@@ -10,6 +10,7 @@ const Login = React.lazy(() => import("./pages/Login"));
 const ModelSignup = React.lazy(() => import("./pages/ModelSignup"));
 const PublicBooking = React.lazy(() => import("./pages/PublicBooking"));
 const Portfolio = React.lazy(() => import("./pages/Portfolio"));
+const DigitalsUpload = React.lazy(() => import("./pages/DigitalsUpload"));
 const Onboarding = React.lazy(() => import("./pages/Onboarding"));
 const Dashboard = React.lazy(() => import("./pages/Dashboard"));
 const Models = React.lazy(() => import("./pages/Models"));
@@ -131,6 +132,7 @@ function App() {
             <Route path="/model-signup" element={<ModelSignup />} />
             <Route path="/book" element={<PublicBooking />} />
             <Route path="/talent/:id" element={<Portfolio />} />
+            <Route path="/digitals/:id" element={<DigitalsUpload />} />
             <Route path="/*" element={<ProtectedApp />} />
           </Routes>
         </React.Suspense>

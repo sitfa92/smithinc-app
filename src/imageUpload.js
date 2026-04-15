@@ -3,6 +3,39 @@ import { supabase } from "./supabase";
 const configuredBucket = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || "").trim();
 const STORAGE_BUCKETS = [configuredBucket, "model-images", "models", "images"].filter(Boolean);
 
+export const listFilesInFolder = async (folder = "") => {
+  let fallbackResults = [];
+
+  for (const bucket of STORAGE_BUCKETS) {
+    const { data, error } = await supabase.storage.from(bucket).list(folder, {
+      limit: 100,
+      sortBy: { column: "name", order: "desc" },
+    });
+
+    if (error) continue;
+
+    const mapped = (data || [])
+      .filter((item) => item?.name)
+      .map((item) => {
+        const path = folder ? `${folder}/${item.name}` : item.name;
+        const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);
+
+        return {
+          bucket,
+          name: item.name,
+          path,
+          url: publicData?.publicUrl || "",
+          updatedAt: item.updated_at || item.created_at || "",
+        };
+      });
+
+    if (mapped.length) return mapped;
+    fallbackResults = mapped;
+  }
+
+  return fallbackResults;
+};
+
 /**
  * Upload image to Supabase Storage and return public URL
  * @param {File} file - Image file to upload
