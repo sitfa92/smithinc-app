@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   }
 
   const resendKey = (process.env.RESEND_API_KEY || "").trim();
-  const fromEmail = (process.env.ALERT_FROM_EMAIL || "onboarding@resend.dev").trim();
+  const fromEmail = (process.env.ALERT_FROM_EMAIL || "onboarding@meet-serenity.online").trim();
 
   const {
     roles = [],
