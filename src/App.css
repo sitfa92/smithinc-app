@@ -273,6 +273,24 @@
   text-align: center;
 }
 
+.lx-model-ai-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.lx-model-ai-input {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.lx-model-ai-chip {
+  flex: 0 1 auto;
+}
+
 @media (max-width: 860px) {
   .lx-model-grid,
   .lx-model-inline-stats {
@@ -310,6 +328,65 @@
   color: var(--dust);
   font-size: 13px;
   margin-bottom: 32px;
+}
+
+@media (max-width: 640px) {
+  .lx-auth-screen {
+    padding: 10px;
+  }
+
+  .lx-auth-panel,
+  .lx-auth-panel.xwide {
+    padding: 20px 14px !important;
+    max-width: 100%;
+  }
+
+  .lx-auth-brand {
+    font-size: 17px;
+    letter-spacing: 0.14em;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+  }
+
+  .lx-auth-title {
+    font-size: 24px;
+    line-height: 1.15;
+  }
+
+  .lx-auth-sub {
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+
+  .lx-model-card,
+  .lx-model-soft-card {
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .lx-model-grid,
+  .lx-model-stack,
+  .lx-model-inline-stats {
+    gap: 12px;
+  }
+
+  .lx-model-ai-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .lx-model-ai-chip {
+    width: 100%;
+  }
+
+  .lx-model-ai-input {
+    flex-direction: column;
+  }
+
+  .lx-model-ai-input input,
+  .lx-model-ai-input button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 480px) {

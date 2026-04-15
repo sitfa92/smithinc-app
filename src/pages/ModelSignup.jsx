@@ -45,6 +45,7 @@ export default function ModelSignup() {
   const [success, setSuccess] = React.useState(false);
   const [assistantQuestion, setAssistantQuestion] = React.useState("Am I ready to be a model?");
   const [assistantReply, setAssistantReply] = React.useState("");
+  const [isMobile, setIsMobile] = React.useState(() => window.innerWidth <= 640);
 
   const completion = React.useMemo(() => {
     const checks = [form.name.trim(), form.email.trim(), form.instagram.trim(), image];
@@ -145,6 +146,12 @@ export default function ModelSignup() {
     setAssistantReply(buildAssistantReply(assistantQuestion));
   }, [assistantQuestion, buildAssistantReply]);
 
+  React.useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 640);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) {
@@ -238,35 +245,18 @@ export default function ModelSignup() {
         <h1 className="lx-auth-title" style={{ marginBottom:8 }}>{content.title}</h1>
         <p className="lx-auth-sub" style={{ maxWidth:620, margin:"0 auto 24px" }}>{content.sub}</p>
 
-        <div className="lx-model-soft-card" style={{ marginBottom:20 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap", marginBottom:10 }}>
-            <div>
-              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:4 }}>Application overview</div>
-              <div style={{ color:"#111", fontSize:16, fontWeight:600 }}>A polished submission gives you a better first impression.</div>
-            </div>
-            <span style={{ display:"inline-flex", padding:"6px 10px", borderRadius:999, background:readiness.bg, color:readiness.color, fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>{readiness.label}</span>
-          </div>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:8, flexWrap:"wrap" }}>
-            <span style={{ fontSize:12, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888" }}>Progress tracker</span>
-            <span style={{ fontSize:13, fontWeight:600, color:"#111" }}>{completion}% complete</span>
-          </div>
-          <div style={{ height:10, background:"#e8e4dc", borderRadius:999, overflow:"hidden" }}>
-            <div style={{ width:`${completion}%`, height:"100%", background:"linear-gradient(90deg, #111111 0%, #c9a84c 100%)", borderRadius:999, transition:"width 0.25s ease" }} />
-          </div>
-        </div>
-
-        <div className="lx-model-soft-card" style={{ marginBottom:20 }}>
+        <div className="lx-model-soft-card" style={{ marginBottom:16 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:10, flexWrap:"wrap" }}>
             <div>
               <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:4 }}>AI Talent Assistant</div>
-              <div style={{ color:"#111", fontSize:14, fontWeight:600 }}>Ask what to improve before you submit.</div>
+              <div style={{ color:"#111", fontSize:isMobile ? 13 : 14, fontWeight:600 }}>Ask what to improve before you submit.</div>
             </div>
             <span style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"5px 10px", borderRadius:999, background:"#111", color:"#fff", fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
               AI advisor
             </span>
           </div>
 
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
+          <div className="lx-model-ai-actions">
             {[
               "Am I ready to be a model?",
               "What should I improve?",
@@ -276,13 +266,14 @@ export default function ModelSignup() {
                 key={question}
                 type="button"
                 onClick={() => askAssistant(question)}
+                className="lx-model-ai-chip"
                 style={{ padding:"8px 12px", borderRadius:999, border:"1px solid #e8e4dc", background:"#fff", color:"#111", fontSize:12, cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>
                 {question}
               </button>
             ))}
           </div>
 
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
+          <div className="lx-model-ai-input">
             <input
               value={assistantQuestion}
               onChange={(e) => setAssistantQuestion(e.target.value)}
@@ -300,6 +291,23 @@ export default function ModelSignup() {
 
           <div style={{ background:"#fff", border:"1px solid #e8e4dc", borderRadius:10, padding:"12px 14px", color:"#4a4a4a", fontSize:13, lineHeight:1.65 }}>
             {assistantReply}
+          </div>
+        </div>
+
+        <div className="lx-model-soft-card" style={{ marginBottom:20 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap", marginBottom:10 }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:4 }}>Application overview</div>
+              <div style={{ color:"#111", fontSize:isMobile ? 14 : 16, fontWeight:600 }}>{isMobile ? "Complete the form and upload one strong image." : "A polished submission gives you a better first impression."}</div>
+            </div>
+            <span style={{ display:"inline-flex", padding:"6px 10px", borderRadius:999, background:readiness.bg, color:readiness.color, fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>{readiness.label}</span>
+          </div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:8, flexWrap:"wrap" }}>
+            <span style={{ fontSize:12, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888" }}>Progress tracker</span>
+            <span style={{ fontSize:13, fontWeight:600, color:"#111" }}>{completion}% complete</span>
+          </div>
+          <div style={{ height:10, background:"#e8e4dc", borderRadius:999, overflow:"hidden" }}>
+            <div style={{ width:`${completion}%`, height:"100%", background:"linear-gradient(90deg, #111111 0%, #c9a84c 100%)", borderRadius:999, transition:"width 0.25s ease" }} />
           </div>
         </div>
 
@@ -356,7 +364,7 @@ export default function ModelSignup() {
             <div className="lx-model-card">
               <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:10 }}>Photo feedback</div>
               <div style={{ display:"grid", gap:8 }}>
-                {photoFeedback.slice(0, 3).map((item) => (
+                {photoFeedback.slice(0, isMobile ? 2 : 3).map((item) => (
                   <div key={item} style={{ display:"flex", alignItems:"flex-start", gap:8, color:"#111", fontSize:13, lineHeight:1.55 }}>
                     <span style={{ color:"#c9a84c" }}>✦</span>
                     <span>{item}</span>
