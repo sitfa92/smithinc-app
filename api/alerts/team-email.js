@@ -14,6 +14,7 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 
 const normalizeEmail = (value) => (value || "").trim().toLowerCase();
+const TEST_SAFE_RECIPIENT = "sitfa92@gmail.com";
 
 const isValidEmail = (value) => /.+@.+\..+/.test(normalizeEmail(value));
 
@@ -50,8 +51,12 @@ export default async function handler(req, res) {
   const manualRecipients = (extraRecipients || [])
     .map(normalizeEmail)
     .filter(isValidEmail);
+  let to = Array.from(new Set([...roleRecipients, ...manualRecipients]));
 
-  const to = Array.from(new Set([...roleRecipients, ...manualRecipients]));
+  const usingResendTestMode = fromEmail.endsWith("resend.dev");
+  if (usingResendTestMode && to.length > 0) {
+    to = [TEST_SAFE_RECIPIENT];
+  }
 
   if (!resendKey) {
     return res.status(200).json({ ok: true, skipped: true, reason: "RESEND_API_KEY not configured" });

@@ -1,6 +1,7 @@
 const RESEND_API_URL = "https://api.resend.com/emails";
 
 const normalizeEmail = (v) => (v || "").trim().toLowerCase();
+const TEST_SAFE_RECIPIENT = "sitfa92@gmail.com";
 const isValidEmail = (v) => /.+@.+\..+/.test(normalizeEmail(v));
 
 // ─── HTML shell ───────────────────────────────────────────────────────────────
@@ -135,6 +136,10 @@ export default async function handler(req, res) {
   }
 
   const { subject, html, text } = templateFn(data);
+  const usingResendTestMode = fromEmail.endsWith("resend.dev");
+  const actualRecipient = usingResendTestMode && recipientEmail !== TEST_SAFE_RECIPIENT
+    ? TEST_SAFE_RECIPIENT
+    : recipientEmail;
 
   try {
     const resp = await fetch(RESEND_API_URL, {
@@ -143,7 +148,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${resendKey}`,
       },
-      body: JSON.stringify({ from: fromEmail, to: [recipientEmail], subject, html, text }),
+      body: JSON.stringify({ from: fromEmail, to: [actualRecipient], subject, html, text }),
     });
 
     if (!resp.ok) {
@@ -151,7 +156,13 @@ export default async function handler(req, res) {
       throw new Error(errText || "Resend request failed");
     }
 
-    return res.status(200).json({ ok: true, type, sentTo: recipientEmail });
+    return res.status(200).json({
+      ok: true,
+      type,
+      sentTo: actualRecipient,
+      intendedRecipient: recipientEmail,
+      testMode: usingResendTestMode,
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message || "Failed to send email" });
   }
