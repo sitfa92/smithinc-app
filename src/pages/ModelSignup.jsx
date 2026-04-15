@@ -252,7 +252,7 @@ export default function ModelSignup() {
               <div style={{ color:"#111", fontSize:isMobile ? 13 : 14, fontWeight:600 }}>Ask what to improve before you submit.</div>
             </div>
             <span style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"5px 10px", borderRadius:999, background:"#111", color:"#fff", fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
-              AI advisor
+              SerenityAI
             </span>
           </div>
 
@@ -285,7 +285,7 @@ export default function ModelSignup() {
               onClick={() => askAssistant(assistantQuestion)}
               className="lx-btn lx-btn-primary"
               style={{ padding:"12px 16px", fontSize:12 }}>
-              Ask AI
+              Ask Serenity
             </button>
           </div>
 
