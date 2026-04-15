@@ -43,6 +43,8 @@ export default function ModelSignup() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [success, setSuccess] = React.useState(false);
+  const [assistantQuestion, setAssistantQuestion] = React.useState("Am I ready to be a model?");
+  const [assistantReply, setAssistantReply] = React.useState("");
 
   const completion = React.useMemo(() => {
     const checks = [form.name.trim(), form.email.trim(), form.instagram.trim(), image];
@@ -100,6 +102,48 @@ export default function ModelSignup() {
 
     return feedback;
   }, [image, imageMeta]);
+
+  const improvementList = React.useMemo(() => {
+    const items = [];
+    if (!form.name.trim()) items.push("Add your full name so the team can identify your submission clearly.");
+    if (!form.email.trim()) items.push("Include a working email so scouts can contact you quickly.");
+    if (!form.instagram.trim()) items.push("Add your Instagram or portfolio handle to strengthen your profile.");
+    if (!image) items.push("Upload clean digitals or a strong headshot to unlock visual review.");
+    if (image && (imageMeta?.width || 0) < 1200) items.push("Use a sharper, higher-resolution image for better presentation.");
+    if (image && (imageMeta?.height || 0) <= (imageMeta?.width || 0)) items.push("A portrait-oriented image will feel more agency-ready.");
+    return items.slice(0, 3);
+  }, [form, image, imageMeta]);
+
+  const buildAssistantReply = React.useCallback((questionText) => {
+    const q = (questionText || "").trim().toLowerCase();
+    const name = form.name.trim() || "there";
+
+    if (q.includes("ready")) {
+      return `${name}, based on your current profile, you are ${completion}% complete with a profile score of ${profileScore}/100. Your current status is ${readiness.label}. ${readiness.note} ${improvementList.length ? `To improve further, focus on ${improvementList[0].toLowerCase()}` : "You look ready to submit."}`;
+    }
+
+    if (q.includes("improve") || q.includes("better")) {
+      return improvementList.length
+        ? `Here’s what I would improve next: ${improvementList.join(" ")}`
+        : "Your profile is already in a strong place. The next best move is to submit and wait for review.";
+    }
+
+    if (q.includes("photo") || q.includes("upload") || q.includes("digitals")) {
+      return `From your current upload review: ${photoFeedback.join(" ")}`;
+    }
+
+    return `Your next step is to complete the remaining profile fields, upload your strongest image, and submit for review. Right now you are ${completion}% complete and rated ${profileScore}/100.`;
+  }, [completion, form.name, improvementList, photoFeedback, profileScore, readiness.label, readiness.note]);
+
+  const askAssistant = (questionText) => {
+    const nextQuestion = (questionText || assistantQuestion || "Am I ready to be a model?").trim();
+    setAssistantQuestion(nextQuestion);
+    setAssistantReply(buildAssistantReply(nextQuestion));
+  };
+
+  React.useEffect(() => {
+    setAssistantReply(buildAssistantReply(assistantQuestion));
+  }, [assistantQuestion, buildAssistantReply]);
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
@@ -229,6 +273,54 @@ export default function ModelSignup() {
                   <span>{item}</span>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div style={{ background:"linear-gradient(180deg, #faf8f4 0%, #f5f2ec 100%)", border:"1px solid #e8e4dc", borderRadius:12, padding:"16px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:10, flexWrap:"wrap" }}>
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:4 }}>AI Talent Assistant</div>
+                <div style={{ color:"#111", fontSize:14, fontWeight:600 }}>Ask if you’re ready and what to improve.</div>
+              </div>
+              <span style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"5px 10px", borderRadius:999, background:"#111", color:"#fff", fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+                AI advisor
+              </span>
+            </div>
+
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
+              {[
+                "Am I ready to be a model?",
+                "What should I improve?",
+                "How do my photos look?",
+              ].map((question) => (
+                <button
+                  key={question}
+                  type="button"
+                  onClick={() => askAssistant(question)}
+                  style={{ padding:"8px 12px", borderRadius:999, border:"1px solid #e8e4dc", background:"#fff", color:"#111", fontSize:12, cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>
+                  {question}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
+              <input
+                value={assistantQuestion}
+                onChange={(e) => setAssistantQuestion(e.target.value)}
+                placeholder="Ask about your readiness, photos, or improvements"
+                style={{ ...inp, flex:"1 1 280px", margin:0 }}
+              />
+              <button
+                type="button"
+                onClick={() => askAssistant(assistantQuestion)}
+                className="lx-btn lx-btn-primary"
+                style={{ padding:"12px 16px", fontSize:12 }}>
+                Ask AI
+              </button>
+            </div>
+
+            <div style={{ background:"#fff", border:"1px solid #e8e4dc", borderRadius:10, padding:"12px 14px", color:"#4a4a4a", fontSize:13, lineHeight:1.65 }}>
+              {assistantReply}
             </div>
           </div>
         </div>
