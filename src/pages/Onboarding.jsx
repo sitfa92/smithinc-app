@@ -2,33 +2,62 @@ import React from "react";
 import { Link } from "react-router-dom";
 import "../App.css";
 
-const STEPS = [
+const OPTIONS = [
   {
-    number: "01",
-    title: "Build your profile",
-    summary: "Share your basics so the team can understand your look and goals.",
+    id: "become-model",
+    title: "Become a model",
+    summary: "Apply to join the talent roster and start getting reviewed.",
+    detail: "You’ll be guided straight into a model application with the right next steps for new talent.",
+    href: "/model-signup?intent=become-model",
+    cta: "Start model application",
+    highlights: ["Upload your image", "Share your contact details", "Get reviewed by the team"],
   },
   {
-    number: "02",
-    title: "Submit digitals",
-    summary: "Upload clean digitals and images for the first review stage.",
+    id: "get-signed",
+    title: "Get signed to agency",
+    summary: "Looking for representation? Start the signing process here.",
+    detail: "We’ll tailor the application experience around agency representation and next-step review.",
+    href: "/model-signup?intent=get-signed",
+    cta: "Apply for representation",
+    highlights: ["Agency-focused application", "Representation review", "Direct path to scouting"],
   },
   {
-    number: "03",
-    title: "Get reviewed",
-    summary: "The team checks your submission and decides next-step fit.",
+    id: "build-portfolio",
+    title: "Build portfolio",
+    summary: "Book a portfolio-building session to elevate your presentation.",
+    detail: "This route takes you to a booking flow focused on portfolio shoots and creative direction.",
+    href: "/book?intent=portfolio",
+    cta: "Book a portfolio session",
+    highlights: ["Portfolio-focused booking", "Photoshoot planning", "Creative direction support"],
   },
   {
-    number: "04",
-    title: "Join program",
-    summary: "Qualified applicants move into the next phase of support and development.",
+    id: "learn-industry",
+    title: "Learn industry",
+    summary: "Get guidance, clarity, and advice on how the industry works.",
+    detail: "You’ll be sent into a consultation flow built for questions, strategy, and career guidance.",
+    href: "/book?intent=industry",
+    cta: "Book an industry consult",
+    highlights: ["Career guidance", "Industry Q&A", "Practical next steps"],
   },
 ];
 
+function getStoredIntent() {
+  try {
+    return window.localStorage.getItem("ms-intent") || "become-model";
+  } catch {
+    return "become-model";
+  }
+}
+
 export default function Onboarding() {
-  const handleStart = () => {
+  const [selected, setSelected] = React.useState(getStoredIntent);
+
+  const active = OPTIONS.find((option) => option.id === selected) || OPTIONS[0];
+
+  const handleChoose = (intent) => {
+    setSelected(intent);
     try {
-      window.localStorage.setItem("ms-intent", "get-signed");
+      window.localStorage.setItem("ms-intent", intent);
     } catch {
       // ignore storage issues
     }
@@ -40,9 +69,9 @@ export default function Onboarding() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
           <div>
             <div className="lx-auth-brand">Meet Serenity</div>
-            <h1 className="lx-auth-title" style={{ marginBottom: 6 }}>Your next steps</h1>
+            <h1 className="lx-auth-title" style={{ marginBottom: 6 }}>What are you here for?</h1>
             <p className="lx-auth-sub" style={{ maxWidth: 640 }}>
-              Instead of random features, follow the path from application to review.
+              Choose your path and the app will tailor the next step for you.
             </p>
           </div>
 
@@ -66,49 +95,58 @@ export default function Onboarding() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 20 }}>
           <div style={{ display: "grid", gap: 12 }}>
-            {STEPS.map((step) => (
-              <div
-                key={step.number}
-                style={{
-                  textAlign: "left",
-                  padding: "18px 18px",
-                  borderRadius: 14,
-                  border: "1px solid #e8e4dc",
-                  background: "#ffffff",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-                  <div style={{ minWidth: 40, height: 40, borderRadius: 999, background: "#111111", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em" }}>
-                    {step.number}
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 28, color: "#111", marginBottom: 4 }}>
-                      {step.title}
+            {OPTIONS.map((option) => {
+              const isActive = active.id === option.id;
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => handleChoose(option.id)}
+                  style={{
+                    textAlign: "left",
+                    padding: "18px 18px",
+                    borderRadius: 14,
+                    border: isActive ? "1px solid #111111" : "1px solid #e8e4dc",
+                    background: isActive ? "#faf8f4" : "#ffffff",
+                    cursor: "pointer",
+                    boxShadow: isActive ? "0 8px 30px rgba(17,17,17,0.08)" : "none",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <div>
+                      <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 28, color: "#111", marginBottom: 4 }}>
+                        {option.title}
+                      </div>
+                      <div style={{ color: "#4a4a4a", fontSize: 14, lineHeight: 1.6 }}>{option.summary}</div>
                     </div>
-                    <div style={{ color: "#4a4a4a", fontSize: 14, lineHeight: 1.6 }}>{step.summary}</div>
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 999,
+                        border: isActive ? "5px solid #111111" : "2px solid #cfc7bb",
+                        flexShrink: 0,
+                      }}
+                    />
                   </div>
-                </div>
-              </div>
-            ))}
+                </button>
+              );
+            })}
           </div>
 
           <div style={{ background: "linear-gradient(180deg, #faf8f4 0%, #f5f2ec 100%)", border: "1px solid #e8e4dc", borderRadius: 16, padding: 22 }}>
             <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#888", marginBottom: 10 }}>
-              Start here
+              Recommended experience
             </div>
             <h2 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 34, lineHeight: 1.05, color: "#111", margin: "0 0 10px" }}>
-              Begin with your application
+              {active.title}
             </h2>
             <p style={{ color: "#4a4a4a", fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>
-              The first move is to build your profile and submit your digitals. From there, the agency can review and place you into the right program.
+              {active.detail}
             </p>
 
             <div style={{ display: "grid", gap: 10, marginBottom: 20 }}>
-              {[
-                "Clear step-by-step path",
-                "Focused on profile, digitals, and review",
-                "Built to guide applicants into the program",
-              ].map((item) => (
+              {active.highlights.map((item) => (
                 <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, color: "#111", fontSize: 14 }}>
                   <span style={{ color: "#c9a84c", fontSize: 16 }}>✦</span>
                   <span>{item}</span>
@@ -117,12 +155,12 @@ export default function Onboarding() {
             </div>
 
             <Link
-              to="/model-signup?intent=get-signed"
-              onClick={handleStart}
+              to={active.href}
+              onClick={() => handleChoose(active.id)}
               className="lx-btn lx-btn-primary"
               style={{ display: "inline-flex", textDecoration: "none", padding: "14px 18px", fontSize: 12 }}
             >
-              Start Step 1
+              {active.cta}
             </Link>
           </div>
         </div>
