@@ -229,7 +229,60 @@
   animation: lx-fadein 0.38s var(--ease) both;
 }
 .lx-auth-panel.wide  { max-width: 580px; }
-.lx-auth-panel.xwide { max-width: 720px; }
+.lx-auth-panel.xwide { max-width: 980px; }
+
+.lx-model-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.lx-model-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.lx-model-card {
+  background: var(--white);
+  border: 1px solid var(--smoke);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: var(--shadow-xs);
+}
+
+.lx-model-soft-card {
+  background: linear-gradient(180deg, #faf8f4 0%, #f5f2ec 100%);
+  border: 1px solid var(--smoke);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.lx-model-inline-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.lx-model-preview {
+  margin-top: 14px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #faf8f4;
+  border: 1px solid var(--smoke);
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .lx-model-grid,
+  .lx-model-inline-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .lx-auth-panel.xwide {
+    max-width: 680px;
+  }
+}
 
 .lx-auth-brand {
   font-family: var(--font-display);

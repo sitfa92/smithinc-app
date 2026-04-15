@@ -232,130 +232,140 @@ export default function ModelSignup() {
   }
 
   return (
-    <div className="lx-auth-screen" style={{ alignItems:"flex-start", paddingTop:48 }}>
-      <div className="lx-auth-panel wide" style={{ padding:"48px 44px" }}>
-        <div className="lx-auth-brand">Meet Serenity</div>
-        <h1 className="lx-auth-title">{content.title}</h1>
-        <p className="lx-auth-sub">{content.sub}</p>
+    <div className="lx-auth-screen" style={{ alignItems:"flex-start", paddingTop:32, paddingBottom:32 }}>
+      <div className="lx-auth-panel xwide" style={{ padding:"36px 28px" }}>
+        <div className="lx-auth-brand" style={{ marginBottom:20, paddingBottom:18 }}>Meet Serenity</div>
+        <h1 className="lx-auth-title" style={{ marginBottom:8 }}>{content.title}</h1>
+        <p className="lx-auth-sub" style={{ maxWidth:620, margin:"0 auto 24px" }}>{content.sub}</p>
 
-        <div style={{ display:"grid", gap:12, marginBottom:24 }}>
-          <div style={{ background:"#faf8f4", border:"1px solid #e8e4dc", borderRadius:12, padding:"14px 16px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:8, flexWrap:"wrap" }}>
-              <span style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888" }}>Progress tracker</span>
-              <span style={{ fontSize:13, fontWeight:600, color:"#111" }}>You are {completion}% complete</span>
+        <div className="lx-model-soft-card" style={{ marginBottom:20 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap", marginBottom:10 }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:4 }}>Application overview</div>
+              <div style={{ color:"#111", fontSize:16, fontWeight:600 }}>A polished submission gives you a better first impression.</div>
             </div>
-            <div style={{ height:10, background:"#e8e4dc", borderRadius:999, overflow:"hidden" }}>
-              <div style={{ width:`${completion}%`, height:"100%", background:"linear-gradient(90deg, #111111 0%, #c9a84c 100%)", borderRadius:999, transition:"width 0.25s ease" }} />
-            </div>
+            <span style={{ display:"inline-flex", padding:"6px 10px", borderRadius:999, background:readiness.bg, color:readiness.color, fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>{readiness.label}</span>
           </div>
-
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))", gap:12 }}>
-            <div style={{ background:"#fff", border:"1px solid #e8e4dc", borderRadius:12, padding:"14px 16px" }}>
-              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:6 }}>Profile score</div>
-              <div style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:34, color:"#111" }}>{profileScore}<span style={{ fontSize:16 }}>/100</span></div>
-            </div>
-
-            <div style={{ background:"#fff", border:"1px solid #e8e4dc", borderRadius:12, padding:"14px 16px" }}>
-              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:8 }}>Agency readiness</div>
-              <span style={{ display:"inline-flex", padding:"5px 10px", borderRadius:999, background:readiness.bg, color:readiness.color, fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
-                {readiness.label}
-              </span>
-              <p style={{ margin:"8px 0 0", color:"#4a4a4a", fontSize:13, lineHeight:1.55 }}>{readiness.note}</p>
-            </div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:8, flexWrap:"wrap" }}>
+            <span style={{ fontSize:12, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888" }}>Progress tracker</span>
+            <span style={{ fontSize:13, fontWeight:600, color:"#111" }}>{completion}% complete</span>
           </div>
-
-          <div style={{ background:"#fff", border:"1px solid #e8e4dc", borderRadius:12, padding:"14px 16px" }}>
-            <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:10 }}>AI photo feedback</div>
-            <div style={{ display:"grid", gap:8 }}>
-              {photoFeedback.map((item) => (
-                <div key={item} style={{ display:"flex", alignItems:"flex-start", gap:8, color:"#111", fontSize:13, lineHeight:1.5 }}>
-                  <span style={{ color:"#c9a84c" }}>✦</span>
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ background:"linear-gradient(180deg, #faf8f4 0%, #f5f2ec 100%)", border:"1px solid #e8e4dc", borderRadius:12, padding:"16px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:10, flexWrap:"wrap" }}>
-              <div>
-                <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:4 }}>AI Talent Assistant</div>
-                <div style={{ color:"#111", fontSize:14, fontWeight:600 }}>Ask if you’re ready and what to improve.</div>
-              </div>
-              <span style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"5px 10px", borderRadius:999, background:"#111", color:"#fff", fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
-                AI advisor
-              </span>
-            </div>
-
-            <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
-              {[
-                "Am I ready to be a model?",
-                "What should I improve?",
-                "How do my photos look?",
-              ].map((question) => (
-                <button
-                  key={question}
-                  type="button"
-                  onClick={() => askAssistant(question)}
-                  style={{ padding:"8px 12px", borderRadius:999, border:"1px solid #e8e4dc", background:"#fff", color:"#111", fontSize:12, cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>
-                  {question}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
-              <input
-                value={assistantQuestion}
-                onChange={(e) => setAssistantQuestion(e.target.value)}
-                placeholder="Ask about your readiness, photos, or improvements"
-                style={{ ...inp, flex:"1 1 280px", margin:0 }}
-              />
-              <button
-                type="button"
-                onClick={() => askAssistant(assistantQuestion)}
-                className="lx-btn lx-btn-primary"
-                style={{ padding:"12px 16px", fontSize:12 }}>
-                Ask AI
-              </button>
-            </div>
-
-            <div style={{ background:"#fff", border:"1px solid #e8e4dc", borderRadius:10, padding:"12px 14px", color:"#4a4a4a", fontSize:13, lineHeight:1.65 }}>
-              {assistantReply}
-            </div>
+          <div style={{ height:10, background:"#e8e4dc", borderRadius:999, overflow:"hidden" }}>
+            <div style={{ width:`${completion}%`, height:"100%", background:"linear-gradient(90deg, #111111 0%, #c9a84c 100%)", borderRadius:999, transition:"width 0.25s ease" }} />
           </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="lx-field">
-            <label className="lx-label">Full Name *</label>
-            <input value={form.name} placeholder="Your full name" onChange={(e)=>setForm({...form,name:e.target.value})} disabled={loading} style={inp} />
+        <div className="lx-model-grid">
+          <div className="lx-model-stack">
+            <div className="lx-model-card">
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:14 }}>Your details</div>
+              <form onSubmit={handleSubmit}>
+                <div className="lx-field">
+                  <label className="lx-label">Full Name *</label>
+                  <input value={form.name} placeholder="Your full name" onChange={(e)=>setForm({...form,name:e.target.value})} disabled={loading} style={inp} />
+                </div>
+                <div className="lx-field">
+                  <label className="lx-label">Email *</label>
+                  <input value={form.email} placeholder="your@email.com" type="email" onChange={(e)=>setForm({...form,email:e.target.value})} disabled={loading} style={inp} />
+                </div>
+                <div className="lx-field">
+                  <label className="lx-label">Instagram Handle</label>
+                  <input value={form.instagram} placeholder="@yourprofile" onChange={(e)=>setForm({...form,instagram:e.target.value})} disabled={loading} style={inp} />
+                </div>
+                <div className="lx-field" style={{ marginBottom:10 }}>
+                  <label className="lx-label">Profile Image * (JPG, PNG — max 5 MB)</label>
+                  <input type="file" accept="image/*" onChange={handleImageChange} disabled={loading}
+                    style={{ ...inp, padding:"10px 14px", cursor:"pointer" }} />
+                  {imagePreview && (
+                    <div className="lx-model-preview">
+                      <img src={imagePreview} alt="Preview" loading="lazy" decoding="async"
+                        style={{ maxWidth:"100%", maxHeight:300, borderRadius:12, objectFit:"cover", border:"1px solid #e8e4dc" }} />
+                    </div>
+                  )}
+                </div>
+
+                {error && <div style={{ background:"#fef2f2", border:"1px solid rgba(155,28,28,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#9b1c1c", fontSize:13 }}>{error}</div>}
+
+                <button disabled={loading} className={`lx-btn lx-btn-primary lx-btn-full${loading?" lx-btn-disabled":""}`} style={{ marginTop:8, padding:"14px 22px", fontSize:12 }}>
+                  {loading ? "Submitting…" : content.button}
+                </button>
+              </form>
+            </div>
           </div>
-          <div className="lx-field">
-            <label className="lx-label">Email *</label>
-            <input value={form.email} placeholder="your@email.com" type="email" onChange={(e)=>setForm({...form,email:e.target.value})} disabled={loading} style={inp} />
-          </div>
-          <div className="lx-field">
-            <label className="lx-label">Instagram Handle</label>
-            <input value={form.instagram} placeholder="@yourprofile" onChange={(e)=>setForm({...form,instagram:e.target.value})} disabled={loading} style={inp} />
-          </div>
-          <div className="lx-field">
-            <label className="lx-label">Profile Image * (JPG, PNG — max 5 MB)</label>
-            <input type="file" accept="image/*" onChange={handleImageChange} disabled={loading}
-              style={{ ...inp, padding:"10px 14px", cursor:"pointer" }} />
-            {imagePreview && (
-              <div style={{ marginTop:16, textAlign:"center" }}>
-                <img src={imagePreview} alt="Preview"
-                  style={{ maxWidth:"100%", maxHeight:280, borderRadius:12, objectFit:"cover", border:"1px solid #e8e4dc" }} />
+
+          <div className="lx-model-stack">
+            <div className="lx-model-inline-stats">
+              <div className="lx-model-card">
+                <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:6 }}>Profile score</div>
+                <div style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:34, color:"#111" }}>{profileScore}<span style={{ fontSize:16 }}>/100</span></div>
               </div>
-            )}
+              <div className="lx-model-card">
+                <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:8 }}>Agency note</div>
+                <p style={{ margin:0, color:"#4a4a4a", fontSize:13, lineHeight:1.6 }}>{readiness.note}</p>
+              </div>
+            </div>
+
+            <div className="lx-model-card">
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:10 }}>Photo feedback</div>
+              <div style={{ display:"grid", gap:8 }}>
+                {photoFeedback.slice(0, 3).map((item) => (
+                  <div key={item} style={{ display:"flex", alignItems:"flex-start", gap:8, color:"#111", fontSize:13, lineHeight:1.55 }}>
+                    <span style={{ color:"#c9a84c" }}>✦</span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="lx-model-soft-card">
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:10, flexWrap:"wrap" }}>
+                <div>
+                  <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:4 }}>AI Talent Assistant</div>
+                  <div style={{ color:"#111", fontSize:14, fontWeight:600 }}>Ask what to improve before you submit.</div>
+                </div>
+                <span style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"5px 10px", borderRadius:999, background:"#111", color:"#fff", fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase" }}>
+                  AI advisor
+                </span>
+              </div>
+
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
+                {[
+                  "Am I ready to be a model?",
+                  "What should I improve?",
+                  "How do my photos look?",
+                ].map((question) => (
+                  <button
+                    key={question}
+                    type="button"
+                    onClick={() => askAssistant(question)}
+                    style={{ padding:"8px 12px", borderRadius:999, border:"1px solid #e8e4dc", background:"#fff", color:"#111", fontSize:12, cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>
+                    {question}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:12 }}>
+                <input
+                  value={assistantQuestion}
+                  onChange={(e) => setAssistantQuestion(e.target.value)}
+                  placeholder="Ask about your readiness, photos, or improvements"
+                  style={{ ...inp, flex:"1 1 220px", margin:0 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => askAssistant(assistantQuestion)}
+                  className="lx-btn lx-btn-primary"
+                  style={{ padding:"12px 16px", fontSize:12 }}>
+                  Ask AI
+                </button>
+              </div>
+
+              <div style={{ background:"#fff", border:"1px solid #e8e4dc", borderRadius:10, padding:"12px 14px", color:"#4a4a4a", fontSize:13, lineHeight:1.65 }}>
+                {assistantReply}
+              </div>
+            </div>
           </div>
-
-          {error && <div style={{ background:"#fef2f2", border:"1px solid rgba(155,28,28,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#9b1c1c", fontSize:13 }}>{error}</div>}
-
-          <button disabled={loading} className={`lx-btn lx-btn-primary lx-btn-full${loading?" lx-btn-disabled":""}`} style={{ marginTop:4, padding:"14px 22px", fontSize:12 }}>
-            {loading ? "Submitting…" : content.button}
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   );
