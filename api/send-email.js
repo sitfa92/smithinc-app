@@ -1,8 +1,19 @@
 const RESEND_API_URL = "https://api.resend.com/emails";
 const APP_BASE_URL = (process.env.APP_BASE_URL || "https://meet-serenity.online").trim().replace(/\/$/, "");
+const DEFAULT_ADMIN_EMAILS = ["sitfa92@gmail.com"];
 
 const normalizeEmail = (v) => (v || "").trim().toLowerCase();
 const isValidEmail = (v) => /.+@.+\..+/.test(normalizeEmail(v));
+
+const getAdminRecipients = () => {
+  const configured = String(process.env.ADMIN_NOTIFICATION_EMAILS || "")
+    .split(",")
+    .map(normalizeEmail)
+    .filter(isValidEmail);
+
+  const merged = configured.length ? configured : DEFAULT_ADMIN_EMAILS;
+  return Array.from(new Set(merged.map(normalizeEmail).filter(isValidEmail)));
+};
 
 // ─── HTML shell ───────────────────────────────────────────────────────────────
 const shell = (bodyContent) => `<!DOCTYPE html>
@@ -181,8 +192,9 @@ export default async function handler(req, res) {
   }
 
   const recipientEmail = normalizeEmail(data.email);
-  if (!isValidEmail(recipientEmail)) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "Invalid or missing recipient email" });
+  const adminRecipients = getAdminRecipients();
+  if (adminRecipients.length === 0) {
+    return res.status(200).json({ ok: true, skipped: true, reason: "No admin recipients configured" });
   }
 
   const { subject, html, text } = templateFn(data);
@@ -194,7 +206,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${resendKey}`,
       },
-      body: JSON.stringify({ from: fromEmail, to: [recipientEmail], subject, html, text }),
+      body: JSON.stringify({ from: fromEmail, to: adminRecipients, subject, html, text, reply_to: isValidEmail(recipientEmail) ? recipientEmail : undefined }),
     });
 
     if (!resp.ok) {
@@ -205,7 +217,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       type,
-      sentTo: recipientEmail,
+      sentTo: adminRecipients,
+      intendedRecipient: recipientEmail,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message || "Failed to send email" });

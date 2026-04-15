@@ -25,6 +25,20 @@ const normalizeEmail = (value) => (value || "").trim().toLowerCase();
 const isValidEmail = (value) => /.+@.+\..+/.test(normalizeEmail(value));
 const escapeHtml = (value) => String(value || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+const getAdminRecipients = () => {
+  const configured = String(process.env.ADMIN_NOTIFICATION_EMAILS || "")
+    .split(",")
+    .map(normalizeEmail)
+    .filter(isValidEmail);
+
+  const defaults = Object.entries(DEFAULT_ROLE_BY_EMAIL)
+    .filter(([, role]) => role === "admin")
+    .map(([email]) => normalizeEmail(email));
+
+  const merged = configured.length ? configured : defaults;
+  return Array.from(new Set(merged.filter(isValidEmail)));
+};
+
 const formatDate = (value) => {
   if (!value) return "To be announced";
   const dt = new Date(value);
@@ -99,24 +113,13 @@ export default async function handler(req, res) {
           status: "unread",
           created_at: new Date().toISOString(),
         },
-        {
-          title: internalTitle,
-          message: internalMessage,
-          audience_role: "agent",
-          audience_email: null,
-          source_type: "model_event_response",
-          source_id: `${cleanEmail}:${eventTitle}`,
-          level: levelByAction[normalizedAction],
-          status: "unread",
-          created_at: new Date().toISOString(),
-        },
       ]);
     } catch (_err) {
       // non-blocking
     }
   }
 
-  const recipients = Object.keys(DEFAULT_ROLE_BY_EMAIL).filter(isValidEmail);
+  const recipients = getAdminRecipients();
   if (resendKey && recipients.length > 0) {
     try {
       const html = `<!DOCTYPE html>

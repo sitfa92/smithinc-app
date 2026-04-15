@@ -18,6 +18,20 @@ const TEST_SAFE_RECIPIENT = "sitfa92@gmail.com";
 
 const isValidEmail = (value) => /.+@.+\..+/.test(normalizeEmail(value));
 
+const getAdminRecipients = () => {
+  const configured = String(process.env.ADMIN_NOTIFICATION_EMAILS || "")
+    .split(",")
+    .map(normalizeEmail)
+    .filter(isValidEmail);
+
+  const defaults = Object.entries(DEFAULT_ROLE_BY_EMAIL)
+    .filter(([, role]) => role === "admin")
+    .map(([email]) => normalizeEmail(email));
+
+  const merged = configured.length ? configured : defaults;
+  return Array.from(new Set(merged.filter(isValidEmail)));
+};
+
 const getRecipientsFromRoles = (roles) => {
   const requested = new Set((roles || []).map((role) => String(role || "").trim().toLowerCase()));
   return Object.entries(DEFAULT_ROLE_BY_EMAIL)
@@ -51,7 +65,8 @@ export default async function handler(req, res) {
   const manualRecipients = (extraRecipients || [])
     .map(normalizeEmail)
     .filter(isValidEmail);
-  let to = Array.from(new Set([...roleRecipients, ...manualRecipients]));
+  const requestedRecipients = Array.from(new Set([...roleRecipients, ...manualRecipients]));
+  let to = getAdminRecipients();
 
   const usingResendTestMode = fromEmail.endsWith("resend.dev");
   if (usingResendTestMode && to.length > 0) {
@@ -120,7 +135,7 @@ export default async function handler(req, res) {
       throw new Error(errorText || "Resend request failed");
     }
 
-    return res.status(200).json({ ok: true, sentTo: to.length });
+    return res.status(200).json({ ok: true, sentTo: to.length, intendedRecipients: requestedRecipients.length });
   } catch (error) {
     return res.status(500).json({ error: error.message || "Failed to send internal alert email" });
   }
