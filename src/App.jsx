@@ -4,7 +4,7 @@ import { AuthProvider } from "./auth";
 import { useAuth } from "./auth";
 import Nav from "./components/Nav";
 import RoleRoute from "./components/RoleRoute";
-import WorkflowDashboard from "./components/WorkflowDashboard";
+const WorkflowDashboard = React.lazy(() => import("./components/WorkflowDashboard"));
 
 const Login = React.lazy(() => import("./pages/Login"));
 const ModelSignup = React.lazy(() => import("./pages/ModelSignup"));

@@ -22,7 +22,8 @@ export default function Submissions() {
       const { data, error: supabaseError } = await supabase
         .from("models")
         .select("id, name, email, instagram, status, source, image_url, submitted_at")
-        .order("submitted_at", { ascending: false });
+        .order("submitted_at", { ascending: false })
+        .limit(500);
 
       if (supabaseError) throw supabaseError;
       setSubmissions(data || []);

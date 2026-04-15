@@ -20,7 +20,8 @@ export default function AdminBookings() {
       const { data, error: supabaseError } = await supabase
         .from("bookings")
         .select("id, name, email, company, service_type, preferred_date, message, status, confirmed, zoom_link, created_at")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(500);
 
       if (supabaseError) throw supabaseError;
       setBookings(data || []);

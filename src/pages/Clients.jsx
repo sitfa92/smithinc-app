@@ -85,7 +85,8 @@ alter table public.bookings disable row level security;`;
       const { data, error } = await supabase
         .from("clients")
         .select("id, name, email, project, service_type, status, invoice_status, invoice_paid, contract_signed, client_value, source, created_at")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(500);
 
       if (error) throw error;
       setTableReady(true);

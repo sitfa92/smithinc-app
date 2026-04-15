@@ -197,56 +197,35 @@ alter table public.alerts disable row level security;`;
   }, [fallbackMembers]);
 
   const fetchOpsAndEvents = React.useCallback(async () => {
-    try {
-      const tasksResp = await supabase
+    const [tasksResp, eventsResp, alertsResp] = await Promise.allSettled([
+      supabase
         .from("ops_tasks")
         .select("id, task_key, title, description, role, assigned_email, source_type, source_id, status, due_at, created_at, updated_at")
         .order("created_at", { ascending: false })
-        .limit(200);
-
-      if (tasksResp.error) throw tasksResp.error;
-      setTasksTableReady(true);
-      setOpsTasks(tasksResp.data || []);
-    } catch (err) {
-      if (isTableMissingError(err)) {
-        setTasksTableReady(false);
-        setOpsTasks([]);
-      }
-    }
-
-    try {
-      const eventsResp = await supabase
+        .limit(200),
+      supabase
         .from("calendar_events")
         .select("id, title, event_at, event_type, notes, created_by, created_at")
         .order("event_at", { ascending: true })
-        .limit(100);
-
-      if (eventsResp.error) throw eventsResp.error;
-      setEventsTableReady(true);
-      setCalendarEvents(eventsResp.data || []);
-    } catch (err) {
-      if (isTableMissingError(err)) {
-        setEventsTableReady(false);
-        setCalendarEvents([]);
-      }
-    }
-
-    try {
-      const alertsResp = await supabase
+        .limit(100),
+      supabase
         .from("alerts")
         .select("id, title, message, audience_role, audience_email, source_type, source_id, level, status, created_at, read_at")
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(100),
+    ]);
 
-      if (alertsResp.error) throw alertsResp.error;
-      setAlertsTableReady(true);
-      setAlerts(alertsResp.data || []);
-    } catch (err) {
-      if (isTableMissingError(err)) {
-        setAlertsTableReady(false);
-        setAlerts([]);
-      }
-    }
+    const tasks = tasksResp.status === "fulfilled" ? tasksResp.value : { error: tasksResp.reason };
+    if (tasks.error && isTableMissingError(tasks.error)) { setTasksTableReady(false); setOpsTasks([]); }
+    else if (!tasks.error) { setTasksTableReady(true); setOpsTasks(tasks.data || []); }
+
+    const events = eventsResp.status === "fulfilled" ? eventsResp.value : { error: eventsResp.reason };
+    if (events.error && isTableMissingError(events.error)) { setEventsTableReady(false); setCalendarEvents([]); }
+    else if (!events.error) { setEventsTableReady(true); setCalendarEvents(events.data || []); }
+
+    const alerts = alertsResp.status === "fulfilled" ? alertsResp.value : { error: alertsResp.reason };
+    if (alerts.error && isTableMissingError(alerts.error)) { setAlertsTableReady(false); setAlerts([]); }
+    else if (!alerts.error) { setAlertsTableReady(true); setAlerts(alerts.data || []); }
   }, []);
 
   const fetchOverview = React.useCallback(async () => {

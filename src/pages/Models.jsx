@@ -27,7 +27,8 @@ export default function Models() {
       const { data, error } = await supabase
         .from("models")
         .select("id, name, email, instagram, status, source, image_url, submitted_at, created_at")
-        .order("submitted_at", { ascending: false });
+        .order("submitted_at", { ascending: false })
+        .limit(500);
       if (error) throw error;
       setModels(data || []);
     } catch (err) {
