@@ -25,11 +25,12 @@ export const sendModelSubmissionEmail = (model) =>
     instagram: model.instagram,
   });
 
-export const sendModelStatusUpdateEmail = (model, status) =>
+export const sendModelStatusUpdateEmail = (model, status, digitalsLink = "") =>
   sendEmail("model-status", {
     name: model.name,
     email: model.email,
     status,
+    digitalsLink,
   });
 
 export const sendBookingConfirmationEmail = (booking) =>

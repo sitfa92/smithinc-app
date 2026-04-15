@@ -1,7 +1,7 @@
 import React from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../supabase";
-import { uploadImage, listFilesInFolder } from "../imageUpload";
+import { uploadImage, listFilesInFolder, deleteImage } from "../imageUpload";
 import "../App.css";
 
 export default function DigitalsUpload() {
@@ -77,6 +77,22 @@ export default function DigitalsUpload() {
       setError(err.message || "Upload failed. Please try again.");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDelete = async (file) => {
+    const confirmed = window.confirm(`Delete ${file.name}?`);
+    if (!confirmed) return;
+
+    setError("");
+    setSuccess("");
+
+    try {
+      await deleteImage(file.url);
+      await loadDigitals();
+      setSuccess("File deleted successfully.");
+    } catch (err) {
+      setError(err.message || "Failed to delete file.");
     }
   };
 
@@ -186,9 +202,14 @@ export default function DigitalsUpload() {
                     <div style={{ color: "#111", fontSize: 13, fontWeight: 600 }}>{file.name}</div>
                     <div style={{ color: "#888", fontSize: 12 }}>{file.updatedAt ? new Date(file.updatedAt).toLocaleString() : "Recently uploaded"}</div>
                   </div>
-                  <button type="button" onClick={() => handleDownload(file)} className="lx-btn lx-btn-outline">
-                    Download
-                  </button>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button type="button" onClick={() => handleDownload(file)} className="lx-btn lx-btn-outline">
+                      Download
+                    </button>
+                    <button type="button" onClick={() => handleDelete(file)} className="lx-btn lx-btn-danger">
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

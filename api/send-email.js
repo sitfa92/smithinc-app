@@ -44,24 +44,31 @@ const templates = {
     text: `Hi ${name},\n\nThank you for applying to Smith Inc. We've received your model application and will be in touch shortly.\n\n— The Smith Inc Team`,
   }),
 
-  "model-status": ({ name = "there", status = "" }) => {
+  "model-status": ({ name = "there", status = "", digitalsLink = "" }) => {
     const approved = status === "approved";
     return {
-      subject: approved ? "You're approved — Smith Inc" : "Application update — Smith Inc",
+      subject: approved ? "Congratulations — you're accepted to the program" : "Application update — Smith Inc",
       html: shell(`
         <h2 style="margin:0 0 20px;font-size:20px;color:${approved ? "#16a34a" : "#dc2626"};">
-          ${approved ? "You're Approved! 🎉" : "Application Update"}
+          ${approved ? "Congratulations! 🎉" : "Application Update"}
         </h2>
         <p style="margin:0 0 12px;color:#444;line-height:1.7;">Hi <strong>${name}</strong>,</p>
         <p style="margin:0 0 20px;color:#444;line-height:1.7;">
           ${approved
-            ? "Congratulations! Your model application has been <strong>approved</strong>. Welcome to Smith Inc — our team will be reaching out shortly with next steps."
+            ? "You’ve been <strong>accepted into our model development program</strong>. We’re excited to support your next steps and help you start your career with Smith Inc."
             : "After reviewing your application, we've decided not to move forward at this time. We appreciate your interest and encourage you to apply again in the future."}
         </p>
+        ${approved && digitalsLink ? `
+          <p style="margin:0 0 18px;color:#444;line-height:1.7;">Please upload your digitals using the secure link below:</p>
+          <p style="margin:0 0 22px;">
+            <a href="${digitalsLink}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;letter-spacing:0.04em;">Upload Your Digitals</a>
+          </p>
+          <p style="margin:0 0 20px;color:#666;font-size:13px;line-height:1.7;">If the button does not work, copy this link into your browser:<br>${digitalsLink}</p>
+        ` : ""}
         <p style="margin:0;color:#444;line-height:1.7;">— <strong>The Smith Inc Team</strong></p>
       `),
       text: approved
-        ? `Hi ${name},\n\nYour application has been approved. Welcome to Smith Inc!\n\n— The Smith Inc Team`
+        ? `Hi ${name},\n\nCongratulations — you have been accepted into our model development program. ${digitalsLink ? `Please upload your digitals here: ${digitalsLink}\n\n` : ""}— The Smith Inc Team`
         : `Hi ${name},\n\nThank you for applying. We've decided not to move forward at this time.\n\n— The Smith Inc Team`,
     };
   },

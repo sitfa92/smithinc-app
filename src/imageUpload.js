@@ -98,19 +98,27 @@ export const uploadImage = async (file, folder = "models") => {
  */
 export const deleteImage = async (imageUrl) => {
   try {
+    const resp = await fetch("/api/storage/delete-file", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageUrl }),
+    });
+
+    if (resp.ok) {
+      return true;
+    }
+
     const publicSegment = "/storage/v1/object/public/";
     const publicIndex = imageUrl.indexOf(publicSegment);
 
     if (publicIndex < 0) {
-      console.warn("Could not extract file path from URL");
-      return;
+      throw new Error("Could not extract file path from URL");
     }
 
     const objectPath = imageUrl.slice(publicIndex + publicSegment.length);
     const firstSlash = objectPath.indexOf("/");
     if (firstSlash < 0) {
-      console.warn("Could not extract bucket and file path from URL");
-      return;
+      throw new Error("Could not extract bucket and file path from URL");
     }
 
     const bucket = objectPath.slice(0, firstSlash);
@@ -119,8 +127,9 @@ export const deleteImage = async (imageUrl) => {
     const { error } = await supabase.storage.from(bucket).remove([filePath]);
 
     if (error) throw error;
+    return true;
   } catch (error) {
     console.error("Image deletion error:", error);
-    // Don't throw - deletion failure shouldn't break the app
+    throw error;
   }
 };

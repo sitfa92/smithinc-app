@@ -56,7 +56,11 @@ export default function Submissions() {
 
       if (supabaseError) throw supabaseError;
 
-      sendModelStatusUpdateEmail(model, newStatus);
+      sendModelStatusUpdateEmail(
+        model,
+        newStatus,
+        newStatus === "approved" ? `${window.location.origin}/digitals/${modelId}` : ""
+      );
 
       createInAppAlerts([
         {
