@@ -51,6 +51,13 @@ function getStoredIntent() {
 
 export default function Onboarding() {
   const [selected, setSelected] = React.useState(getStoredIntent);
+  const [isMobile, setIsMobile] = React.useState(() => window.innerWidth <= 768);
+
+  React.useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const active = OPTIONS.find((option) => option.id === selected) || OPTIONS[0];
 
@@ -64,13 +71,13 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="lx-auth-screen" style={{ alignItems: "flex-start", paddingTop: 32, paddingBottom: 32 }}>
-      <div className="lx-auth-panel wide" style={{ maxWidth: 1100, width: "min(1100px, 100%)", padding: "40px 32px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
+    <div className="lx-auth-screen" style={{ alignItems: "flex-start", paddingTop: isMobile ? 10 : 32, paddingBottom: isMobile ? 14 : 32 }}>
+      <div className="lx-auth-panel wide" style={{ maxWidth: 1100, width: "min(1100px, 100%)", padding: isMobile ? "18px 14px" : "40px 32px" }}>
+        <div className="lx-onboarding-header" style={{ display: "flex", alignItems: isMobile ? "stretch" : "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: isMobile ? 14 : 20 }}>
           <div>
-            <div className="lx-auth-brand">Meet Serenity</div>
-            <h1 className="lx-auth-title" style={{ marginBottom: 6 }}>What are you here for?</h1>
-            <p className="lx-auth-sub" style={{ maxWidth: 640 }}>
+            <div className="lx-auth-brand" style={{ marginBottom: isMobile ? 12 : 20, paddingBottom: isMobile ? 10 : 18 }}>Meet Serenity</div>
+            <h1 className="lx-auth-title" style={{ marginBottom: 6, fontSize: isMobile ? 24 : undefined }}>What are you here for?</h1>
+            <p className="lx-auth-sub" style={{ maxWidth: 640, marginBottom: 0, fontSize: isMobile ? 12 : 13 }}>
               Choose your path and the app will tailor the next step for you.
             </p>
           </div>
@@ -79,7 +86,7 @@ export default function Onboarding() {
             to="/login"
             style={{
               textDecoration: "none",
-              padding: "10px 16px",
+              padding: isMobile ? "10px 12px" : "10px 16px",
               borderRadius: 10,
               border: "1px solid #e8e4dc",
               color: "#111",
@@ -87,14 +94,17 @@ export default function Onboarding() {
               fontWeight: 600,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
+              width: isMobile ? "100%" : "auto",
+              textAlign: "center",
+              boxSizing: "border-box",
             }}
           >
             Team login
           </Link>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 20 }}>
-          <div style={{ display: "grid", gap: 12 }}>
+        <div className="lx-onboarding-grid" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.1fr 0.9fr", gap: isMobile ? 14 : 20 }}>
+          <div style={{ display: "grid", gap: 10, order: isMobile ? 2 : 1 }}>
             {OPTIONS.map((option) => {
               const isActive = active.id === option.id;
               return (
@@ -104,7 +114,7 @@ export default function Onboarding() {
                   onClick={() => handleChoose(option.id)}
                   style={{
                     textAlign: "left",
-                    padding: "18px 18px",
+                    padding: isMobile ? "14px 14px" : "18px 18px",
                     borderRadius: 14,
                     border: isActive ? "1px solid #111111" : "1px solid #e8e4dc",
                     background: isActive ? "#faf8f4" : "#ffffff",
@@ -114,10 +124,10 @@ export default function Onboarding() {
                 >
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                     <div>
-                      <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 28, color: "#111", marginBottom: 4 }}>
+                      <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: isMobile ? 23 : 28, color: "#111", marginBottom: 4, lineHeight: 1.05 }}>
                         {option.title}
                       </div>
-                      <div style={{ color: "#4a4a4a", fontSize: 14, lineHeight: 1.6 }}>{option.summary}</div>
+                      <div style={{ color: "#4a4a4a", fontSize: isMobile ? 13 : 14, lineHeight: 1.5 }}>{option.summary}</div>
                     </div>
                     <div
                       style={{
@@ -134,20 +144,20 @@ export default function Onboarding() {
             })}
           </div>
 
-          <div style={{ background: "linear-gradient(180deg, #faf8f4 0%, #f5f2ec 100%)", border: "1px solid #e8e4dc", borderRadius: 16, padding: 22 }}>
+          <div style={{ background: "linear-gradient(180deg, #faf8f4 0%, #f5f2ec 100%)", border: "1px solid #e8e4dc", borderRadius: 16, padding: isMobile ? 16 : 22, order: isMobile ? 1 : 2 }}>
             <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#888", marginBottom: 10 }}>
               Recommended experience
             </div>
-            <h2 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 34, lineHeight: 1.05, color: "#111", margin: "0 0 10px" }}>
+            <h2 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: isMobile ? 28 : 34, lineHeight: 1.05, color: "#111", margin: "0 0 10px" }}>
               {active.title}
             </h2>
-            <p style={{ color: "#4a4a4a", fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>
-              {active.detail}
+            <p style={{ color: "#4a4a4a", fontSize: isMobile ? 13 : 14, lineHeight: 1.65, marginBottom: 14 }}>
+              {isMobile ? active.summary : active.detail}
             </p>
 
-            <div style={{ display: "grid", gap: 10, marginBottom: 20 }}>
-              {active.highlights.map((item) => (
-                <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, color: "#111", fontSize: 14 }}>
+            <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
+              {active.highlights.slice(0, isMobile ? 2 : 3).map((item) => (
+                <div key={item} style={{ display: "flex", alignItems: "center", gap: 10, color: "#111", fontSize: isMobile ? 13 : 14 }}>
                   <span style={{ color: "#c9a84c", fontSize: 16 }}>✦</span>
                   <span>{item}</span>
                 </div>
@@ -158,7 +168,7 @@ export default function Onboarding() {
               to={active.href}
               onClick={() => handleChoose(active.id)}
               className="lx-btn lx-btn-primary"
-              style={{ display: "inline-flex", textDecoration: "none", padding: "14px 18px", fontSize: 12 }}
+              style={{ display: "inline-flex", textDecoration: "none", padding: "14px 18px", fontSize: 12, width: isMobile ? "100%" : "auto" }}
             >
               {active.cta}
             </Link>
