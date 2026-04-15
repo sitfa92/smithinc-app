@@ -60,22 +60,11 @@ export const calculateMetrics = (models = [], bookings = []) => {
 /**
  * Metric Card Component
  */
-export const MetricCard = ({ label, value, color = "#333" }) => {
-  const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 768);
-
-  React.useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
+export const MetricCard = React.memo(function MetricCard({ label, value, color = "#333" }) {
   return (
     <div
       style={{
-        flex: isMobile ? "1 1 calc(100% - 10px)" : "1 1 calc(50% - 10px)",
+        flex: "1 1 180px",
         minWidth: 150,
         padding: "15px",
         backgroundColor: "#f5f5f5",
@@ -93,4 +82,4 @@ export const MetricCard = ({ label, value, color = "#333" }) => {
       </div>
     </div>
   );
-};
+});

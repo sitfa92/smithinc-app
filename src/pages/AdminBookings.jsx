@@ -16,8 +16,26 @@ export default function AdminBookings() {
   }, []);
 
   const fetchBookings = async () => {
+    const cacheKey = "admin-bookings-v1";
+
+    try {
+      const raw = window.sessionStorage.getItem(cacheKey);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached?.data && Date.now() - cached.ts < 60000) {
+          setBookings(cached.data);
+          setZoomAvailable(cached.zoomAvailable !== false);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // ignore cache issues
+    }
+
     try {
       setError("");
+      let nextZoomAvailable = true;
       let { data, error: supabaseError } = await supabase
         .from("bookings")
         .select("id, name, email, company, service_type, preferred_date, message, status, zoom_link, created_at")
@@ -32,13 +50,19 @@ export default function AdminBookings() {
           .limit(500);
         data = fallback.data;
         supabaseError = fallback.error;
-        setZoomAvailable(false);
-      } else {
-        setZoomAvailable(true);
+        nextZoomAvailable = false;
       }
 
+      setZoomAvailable(nextZoomAvailable);
+
       if (supabaseError) throw supabaseError;
-      setBookings(data || []);
+      const nextBookings = data || [];
+      setBookings(nextBookings);
+      try {
+        window.sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: nextBookings, zoomAvailable: nextZoomAvailable }));
+      } catch {
+        // ignore cache issues
+      }
     } catch (err) {
       setError(err.message || "Failed to load bookings");
     } finally {
@@ -99,9 +123,15 @@ export default function AdminBookings() {
         });
       }
 
-      setBookings((prev) =>
-        prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
-      );
+      setBookings((prev) => {
+        const next = prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b));
+        try {
+          window.sessionStorage.setItem("admin-bookings-v1", JSON.stringify({ ts: Date.now(), data: next, zoomAvailable }));
+        } catch {
+          // ignore cache issues
+        }
+        return next;
+      });
     } catch (err) {
       alert(`Failed to update booking: ${err.message}`);
     } finally {
@@ -121,9 +151,15 @@ export default function AdminBookings() {
 
       if (supabaseError) throw supabaseError;
 
-      setBookings((prev) =>
-        prev.map((b) => (b.id === bookingId ? { ...b, zoom_link: zoomLink } : b))
-      );
+      setBookings((prev) => {
+        const next = prev.map((b) => (b.id === bookingId ? { ...b, zoom_link: zoomLink } : b));
+        try {
+          window.sessionStorage.setItem("admin-bookings-v1", JSON.stringify({ ts: Date.now(), data: next, zoomAvailable }));
+        } catch {
+          // ignore cache issues
+        }
+        return next;
+      });
       setZoomDrafts((prev) => ({ ...prev, [bookingId]: "" }));
     } catch (err) {
       alert(err.message || "Failed to save Zoom link. Ensure bookings table has zoom_link column.");

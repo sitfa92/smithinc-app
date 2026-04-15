@@ -117,12 +117,35 @@ alter table public.bookings disable row level security;`;
 
     if (bookingError) throw bookingError;
 
+    const fallbackClients = buildClientsFromBookings(data || []);
     setUsingFallbackData(true);
     setTableReady(false);
-    setClients(buildClientsFromBookings(data || []));
+    setClients(fallbackClients);
+
+    try {
+      window.sessionStorage.setItem("clients-page-v1", JSON.stringify({ ts: Date.now(), data: fallbackClients, tableReady: false, usingFallbackData: true }));
+    } catch {
+      // ignore cache issues
+    }
   };
 
   const fetchClients = async () => {
+    try {
+      const raw = window.sessionStorage.getItem("clients-page-v1");
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached?.data && Date.now() - cached.ts < 60000) {
+          setClients(cached.data);
+          setTableReady(cached.tableReady !== false);
+          setUsingFallbackData(!!cached.usingFallbackData);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // ignore cache issues
+    }
+
     try {
       setError("");
       const { data, error } = await supabase
@@ -132,9 +155,15 @@ alter table public.bookings disable row level security;`;
         .limit(500);
 
       if (error) throw error;
+      const nextClients = (data || []).map(normalizeClient);
       setTableReady(true);
       setUsingFallbackData(false);
-      setClients((data || []).map(normalizeClient));
+      setClients(nextClients);
+      try {
+        window.sessionStorage.setItem("clients-page-v1", JSON.stringify({ ts: Date.now(), data: nextClients, tableReady: true, usingFallbackData: false }));
+      } catch {
+        // ignore cache issues
+      }
     } catch (err) {
       if (isTableMissingError(err)) {
         try {

@@ -201,7 +201,7 @@ alter table public.models disable row level security;`;
                   <div key={model.id} style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:10, padding:12, marginBottom:10 }}>
                     <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:8 }}>
                       {model.image_url
-                        ? <img src={model.image_url} alt={model.name} style={{ width:48, height:48, borderRadius:8, objectFit:"cover", flexShrink:0 }} />
+                        ? <img src={model.image_url} alt={model.name} loading="lazy" decoding="async" style={{ width:48, height:48, borderRadius:8, objectFit:"cover", flexShrink:0 }} />
                         : <div style={{ width:48, height:48, borderRadius:8, background:C.ivory, flexShrink:0 }} />
                       }
                       <div style={{ minWidth:0 }}>

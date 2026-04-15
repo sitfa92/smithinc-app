@@ -19,6 +19,22 @@ export default function Portfolio() {
 
   React.useEffect(() => {
     if (!id) { setNotFound(true); setLoading(false); return; }
+
+    const cacheKey = `portfolio-${id}`;
+    try {
+      const raw = window.sessionStorage.getItem(cacheKey);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (cached?.data && Date.now() - cached.ts < 300000) {
+          setModel(cached.data);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // ignore cache issues
+    }
+
     const load = async () => {
       try {
         const { data, error } = await supabase
@@ -27,7 +43,14 @@ export default function Portfolio() {
           .eq("id", id)
           .single();
         if (error || !data) { setNotFound(true); }
-        else { setModel(data); }
+        else {
+          setModel(data);
+          try {
+            window.sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data }));
+          } catch {
+            // ignore cache issues
+          }
+        }
       } catch (_) {
         setNotFound(true);
       } finally {
@@ -98,6 +121,8 @@ export default function Portfolio() {
               <img
                 src={model.image_url}
                 alt={model.name}
+                loading="lazy"
+                decoding="async"
                 style={{ width: 220, height: 280, objectFit: "cover", borderRadius: 16, border: `1px solid ${C.smoke}`, boxShadow: "0 8px 36px rgba(17,17,17,0.12)", display: "block" }}
                 onError={(e) => { e.target.style.display = "none"; }}
               />

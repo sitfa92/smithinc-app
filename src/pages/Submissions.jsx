@@ -201,7 +201,7 @@ export default function Submissions() {
           <div key={model.id} style={{ display:"flex", gap:18, padding:18, marginBottom:16, border:`1px solid ${C.smoke}`, borderRadius:12, background:C.white, boxShadow:"0 1px 4px rgba(17,17,17,0.04)", flexWrap:"wrap" }}>
             <div style={{ flex:"0 0 140px", minWidth:0 }}>
               {model.image_url ? (
-                <img src={model.image_url} alt={model.name} style={{ width:"100%", height:185, objectFit:"cover", borderRadius:10, display:"block" }} />
+                <img src={model.image_url} alt={model.name} loading="lazy" decoding="async" style={{ width:"100%", height:185, objectFit:"cover", borderRadius:10, display:"block" }} />
               ) : (
                 <div style={{ width:"100%", height:185, background:C.ivory, display:"flex", alignItems:"center", justifyContent:"center", borderRadius:10, color:C.dust, fontSize:13 }}>No Image</div>
               )}
