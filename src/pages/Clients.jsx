@@ -6,11 +6,13 @@ export default function Clients() {
   const [clients, setClients] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [tableReady, setTableReady] = React.useState(true);
+  const [usingFallbackData, setUsingFallbackData] = React.useState(false);
   const [error, setError] = React.useState("");
   const [saveError, setSaveError] = React.useState("");
   const [form, setForm] = React.useState({
     name: "",
     email: "",
+    company: "",
     service_type: "General",
     client_value: "",
     status: "lead",
@@ -71,12 +73,53 @@ alter table public.bookings disable row level security;`;
     return {
       ...client,
       email: client.email || "",
-      service_type: client.service_type || client.project || "General",
+      service_type: client.service_type || client.project || client.company || "General",
       client_value: client.client_value ?? 0,
       invoice_status: invoiceStatus,
-      project: client.project || client.service_type || "",
+      project: client.project || client.company || client.service_type || "",
       source: client.source || "manual",
     };
+  };
+
+  const buildClientsFromBookings = (rows = []) => {
+    const seen = new Map();
+
+    (rows || []).forEach((booking) => {
+      const key = ((booking.email || `${booking.name}-${booking.company || booking.service_type || "client"}`) || "").toLowerCase();
+      if (seen.has(key)) return;
+
+      seen.set(key, normalizeClient({
+        id: `booking-${booking.id}`,
+        name: booking.name || booking.company || "Client",
+        email: booking.email || "",
+        company: booking.company || "",
+        project: booking.company || booking.service_type || "",
+        service_type: booking.service_type || "General",
+        status: ["confirmed", "completed"].includes(booking.status) ? "active" : "lead",
+        invoice_status: "pending",
+        invoice_paid: false,
+        contract_signed: false,
+        client_value: 0,
+        source: "booking",
+        created_at: booking.created_at,
+      }));
+    });
+
+    return Array.from(seen.values());
+  };
+
+  const fetchBookingFallback = async () => {
+    const { data, error: bookingError } = await supabase
+      .from("bookings")
+      .select("id, name, email, company, service_type, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (bookingError) throw bookingError;
+
+    setUsingFallbackData(true);
+    setTableReady(false);
+    setClients(buildClientsFromBookings(data || []));
   };
 
   const fetchClients = async () => {
@@ -90,10 +133,15 @@ alter table public.bookings disable row level security;`;
 
       if (error) throw error;
       setTableReady(true);
+      setUsingFallbackData(false);
       setClients((data || []).map(normalizeClient));
     } catch (err) {
       if (isTableMissingError(err)) {
-        setTableReady(false);
+        try {
+          await fetchBookingFallback();
+        } catch (fallbackErr) {
+          setError(fallbackErr.message || "Failed to load client records");
+        }
       } else {
         setError(err.message || "Failed to load clients");
       }
@@ -110,10 +158,30 @@ alter table public.bookings disable row level security;`;
     e.preventDefault();
     setSaveError("");
     try {
+      if (usingFallbackData || !tableReady) {
+        const fallbackLead = {
+          name: form.name.trim(),
+          email: form.email.trim().toLowerCase(),
+          company: form.company.trim() || form.name.trim(),
+          service_type: form.service_type.trim() || "General",
+          preferred_date: "",
+          message: `Client lead created from Clients view${form.client_value ? ` · Value: $${form.client_value}` : ""}`,
+          status: "pending",
+          created_at: new Date().toISOString(),
+        };
+
+        const fallbackInsert = await supabase.from("bookings").insert([fallbackLead]);
+        if (fallbackInsert.error) throw fallbackInsert.error;
+
+        setForm({ name: "", email: "", company: "", service_type: "General", client_value: "", status: "lead", contract_signed: false, invoice_paid: false });
+        fetchClients();
+        return;
+      }
+
       const clientPayload = {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
-        project: form.service_type.trim(),
+        project: form.company.trim() || form.service_type.trim(),
         service_type: form.service_type.trim(),
         client_value: Number(form.client_value || 0),
         status: form.status,
@@ -173,7 +241,7 @@ alter table public.bookings disable row level security;`;
         stage: form.status,
       });
 
-      setForm({ name: "", email: "", service_type: "General", client_value: "", status: "lead", contract_signed: false, invoice_paid: false });
+      setForm({ name: "", email: "", company: "", service_type: "General", client_value: "", status: "lead", contract_signed: false, invoice_paid: false });
       fetchClients();
     } catch (err) {
       if (isDuplicateClientError(err)) {
@@ -195,23 +263,25 @@ alter table public.bookings disable row level security;`;
       <p style={{ color:C.dust, fontSize:13, marginBottom:24 }}>Track your client roster, contracts, and invoices.</p>
 
       {!tableReady && (
-        <div style={{ background:C.warnBg, border:`1px solid rgba(146,86,10,0.2)`, borderRadius:12, padding:"18px 22px", marginBottom:24 }}>
-          <p style={{ margin:"0 0 6px", fontWeight:600, color:C.warn, fontSize:14 }}>Database setup required</p>
+        <div style={{ background:C.infoBg, border:`1px solid rgba(30,58,95,0.15)`, borderRadius:12, padding:"18px 22px", marginBottom:24 }}>
+          <p style={{ margin:"0 0 6px", fontWeight:600, color:C.info, fontSize:14 }}>Client view restored</p>
           <p style={{ margin:"0 0 10px", color:C.slate, fontSize:13 }}>
-            The clients table doesn't exist yet. Copy and run this SQL in your{" "}
-            <a href="https://supabase.com/dashboard/project/jjmmakbnjzzxbuflucck/sql" target="_blank" rel="noreferrer" style={{ color:C.ink }}>Supabase SQL Editor</a>:
+            The dedicated clients table is not available yet, so this page is now using your booking records as a live fallback instead of blocking the Business tab.
           </p>
-          <pre style={{ background:C.ivory, border:`1px solid ${C.smoke}`, padding:"12px 14px", borderRadius:8, fontSize:11, overflowX:"auto", whiteSpace:"pre-wrap", color:C.slate }}>{SETUP_SQL}</pre>
-          <button onClick={()=>navigator.clipboard.writeText(SETUP_SQL)} style={{ marginTop:10, padding:"9px 16px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>Copy SQL</button>
+          <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+            <button onClick={fetchClients} style={{ padding:"9px 16px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>Refresh</button>
+            <button onClick={()=>navigator.clipboard.writeText(SETUP_SQL)} style={{ padding:"9px 16px", background:C.white, color:C.ink, border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>Copy setup SQL</button>
+          </div>
         </div>
       )}
 
-      {tableReady && (
+      {(tableReady || usingFallbackData) && (
         <div style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:"22px 22px", marginBottom:24, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
-          <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:18, fontWeight:500, color:C.ink, margin:"0 0 14px" }}>Add Client</p>
+          <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:18, fontWeight:500, color:C.ink, margin:"0 0 14px" }}>{usingFallbackData ? "Add Client Lead" : "Add Client"}</p>
           <form onSubmit={saveClient} style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
             <input value={form.name} placeholder="Client name" onChange={(e)=>setForm({...form,name:e.target.value})} required style={inp} />
             <input value={form.email} placeholder="Client email" type="email" onChange={(e)=>setForm({...form,email:e.target.value})} style={inp} />
+            <input value={form.company} placeholder="Company / brand" onChange={(e)=>setForm({...form,company:e.target.value})} style={inp} />
             <input value={form.service_type} placeholder="Service / project" onChange={(e)=>setForm({...form,service_type:e.target.value})} required style={inp} />
             <input value={form.client_value} placeholder="Client value (optional)" type="number" min="0" step="0.01" onChange={(e)=>setForm({...form,client_value:e.target.value})} style={inp} />
             <select value={form.status} onChange={(e)=>setForm({...form,status:e.target.value})} style={{ ...inp, appearance:"none", cursor:"pointer" }}>
@@ -230,7 +300,7 @@ alter table public.bookings disable row level security;`;
               </label>
             </div>
             {saveError && <p style={{ color:C.err, margin:0, gridColumn:"1/-1", fontSize:13 }}>{saveError}</p>}
-            <button style={{ gridColumn:"1/-1", padding:"12px 20px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>Save Client</button>
+            <button style={{ gridColumn:"1/-1", padding:"12px 20px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}>{usingFallbackData ? "Save Client Lead" : "Save Client"}</button>
           </form>
         </div>
       )}
