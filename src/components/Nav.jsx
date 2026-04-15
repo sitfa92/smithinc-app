@@ -52,6 +52,7 @@ export default function Nav() {
   const [openMenu, setOpenMenu] = React.useState(null);
   const [unreadAlertCount, setUnreadAlertCount] = React.useState(0);
   const closeTimer = React.useRef(null);
+  const navRef = React.useRef(null);
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -90,6 +91,17 @@ export default function Nav() {
     return () => { mounted = false; supabase.removeChannel(ch); };
   }, [user?.email, role]);
 
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (navRef.current && !navRef.current.contains(event.target)) {
+        setOpenMenu(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const canAccess = (section) => {
     if (role === "admin") return true;
     if (role === "va")    return ["dashboard","models","model-pipeline","bookings","clients","integrations","workflows"].includes(section);
@@ -101,6 +113,10 @@ export default function Nav() {
   const openDrop = (key) => {
     clearTimeout(closeTimer.current);
     setOpenMenu(key);
+  };
+  const toggleDrop = (key) => {
+    clearTimeout(closeTimer.current);
+    setOpenMenu((prev) => (prev === key ? null : key));
   };
   const closeDrop = () => {
     closeTimer.current = setTimeout(() => setOpenMenu(null), 120);
@@ -240,10 +256,15 @@ export default function Nav() {
       <div style={{ position: "relative" }}
         onMouseEnter={() => openDrop(group.key)}
         onMouseLeave={closeDrop}>
-        <button style={{
-          ...navLinkBase,
-          color: anyActive ? C.ink : C.slate,
-        }}>
+        <button
+          type="button"
+          onClick={() => toggleDrop(group.key)}
+          aria-expanded={isOpen}
+          aria-haspopup="menu"
+          style={{
+            ...navLinkBase,
+            color: anyActive ? C.ink : C.slate,
+          }}>
           {group.label}
           <Chevron open={isOpen} />
           {anyActive && (
@@ -273,7 +294,7 @@ export default function Nav() {
   };
 
   return (
-    <nav style={{
+    <nav ref={navRef} style={{
       padding: "0 28px",
       backgroundColor: C.white,
       borderBottom: `1px solid ${C.smoke}`,
@@ -407,10 +428,13 @@ export default function Nav() {
             const expanded = !!mobileExpanded[g.key];
             return (
               <div key={g.key}>
-                <div style={mobileGroupLabel} onClick={() => setMobileExpanded(p => ({ ...p, [g.key]: !p[g.key] }))}>
+                <button
+                  type="button"
+                  style={{ ...mobileGroupLabel, background: "transparent", border: "none", width: "100%" }}
+                  onClick={() => setMobileExpanded(p => ({ ...p, [g.key]: !p[g.key] }))}>
                   {g.label}
                   <Chevron open={expanded} />
-                </div>
+                </button>
                 {expanded && visibleItems.map(item => (
                   <Link key={item.key} to={item.to}
                     onClick={() => setMobileMenuOpen(false)}

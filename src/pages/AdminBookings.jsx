@@ -89,7 +89,6 @@ export default function AdminBookings() {
         prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
       );
     } catch (err) {
-      console.error("Update error:", err);
       alert(`Failed to update booking: ${err.message}`);
     } finally {
       setActionLoading((prev) => ({ ...prev, [bookingId]: false }));
