@@ -60,7 +60,7 @@ export default function ModelSignup() {
     if (image) score += 20;
     if ((imageMeta?.width || 0) >= 1200 && (imageMeta?.height || 0) >= 1600) score += 15;
     if ((imageMeta?.height || 0) > (imageMeta?.width || 0)) score += 5;
-    if ((imageMeta?.sizeMb || 0) > 0 && (imageMeta?.sizeMb || 0) <= 5) score += 5;
+    if ((imageMeta?.sizeMb || 0) > 0 && (imageMeta?.sizeMb || 0) <= 10) score += 5;
     return Math.min(score, 100);
   }, [form, image, imageMeta]);
 
@@ -95,8 +95,8 @@ export default function ModelSignup() {
       feedback.push("A portrait-oriented photo usually performs better for submissions.");
     }
 
-    if ((imageMeta?.sizeMb || 0) > 5) {
-      feedback.push("The file is above the 5 MB target, so a lighter export is recommended.");
+    if ((imageMeta?.sizeMb || 0) > 10) {
+      feedback.push("The file is above the 10 MB target, so a lighter export is recommended.");
     } else {
       feedback.push("File size is reviewer-friendly and easy to process.");
     }
@@ -329,7 +329,7 @@ export default function ModelSignup() {
                   <input value={form.instagram} placeholder="@yourprofile" onChange={(e)=>setForm({...form,instagram:e.target.value})} disabled={loading} style={inp} />
                 </div>
                 <div className="lx-field" style={{ marginBottom:10 }}>
-                  <label className="lx-label">Profile Image * (JPG, PNG — max 5 MB)</label>
+                  <label className="lx-label">Profile Image * (JPG, PNG — max 10 MB)</label>
                   <input type="file" accept="image/*" onChange={handleImageChange} disabled={loading}
                     style={{ ...inp, padding:"10px 14px", cursor:"pointer" }} />
                   {imagePreview && (
