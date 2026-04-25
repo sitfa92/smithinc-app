@@ -30,10 +30,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --prefer-offline=false
+
+      - name: Verify Capacitor CLI installed
+        run: ls node_modules/@capacitor/cli/bin/capacitor && echo "cap binary OK"
 
       - name: Build web app
         env:
