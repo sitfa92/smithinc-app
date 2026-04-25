@@ -38,11 +38,8 @@ jobs:
       - name: Build web app
         run: npm run build
 
-      - name: Install Capacitor CLI
-        run: npm install -g @capacitor/cli@8
-
       - name: Sync Capacitor to Android
-        run: cap sync android
+        run: npx cap sync android
 
       # ── 3. Java ──────────────────────────────────────────────────────────────
       - name: Setup Java 17
