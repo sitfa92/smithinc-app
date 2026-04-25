@@ -42,7 +42,7 @@ jobs:
         run: npm run build
 
       - name: Sync Capacitor to Android
-        run: npx cap sync android
+        run: node node_modules/@capacitor/cli/bin/capacitor sync android
 
       # ── 3. Java ──────────────────────────────────────────────────────────────
       - name: Setup Java 17

@@ -42,7 +42,7 @@ jobs:
         run: npm run build
 
       - name: Sync Capacitor to iOS
-        run: npx cap sync ios
+        run: node node_modules/@capacitor/cli/bin/capacitor sync ios
 
       # ── 3. Code signing ──────────────────────────────────────────────────────
       - name: Import distribution certificate
