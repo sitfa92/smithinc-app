@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Meet Serenity</string>
+    <string name="title_activity_main">Meet Serenity</string>
+    <string name="package_name">online.meetserenity.app</string>
+    <string name="custom_url_scheme">online.meetserenity.app</string>
+</resources>

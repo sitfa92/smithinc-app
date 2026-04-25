@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 .env
+.env.vercel
 
 # Editor directories and files
 .vscode/*
@@ -25,3 +26,15 @@ dist-ssr
 *.sw?
 .vercel
 .env*.local
+
+# Android — never commit signing keys or build artifacts
+android/app/release.keystore
+android/app/*.jks
+android/.gradle/
+android/app/build/
+android/build/
+
+# iOS — never commit build artifacts or local Pods cache
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/.build/
