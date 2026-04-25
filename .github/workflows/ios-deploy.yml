@@ -38,8 +38,11 @@ jobs:
       - name: Build web app
         run: npm run build
 
+      - name: Install Capacitor CLI
+        run: npm install -g @capacitor/cli@8
+
       - name: Sync Capacitor to iOS
-        run: node_modules/.bin/cap sync ios
+        run: cap sync ios
 
       # ── 3. Code signing ──────────────────────────────────────────────────────
       - name: Import distribution certificate
