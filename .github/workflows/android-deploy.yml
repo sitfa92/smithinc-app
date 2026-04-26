@@ -9,6 +9,24 @@ on:
         description: "Upload to Google Play (internal track)?"
         type: boolean
         default: false
+      track:
+        description: "Play track"
+        type: choice
+        options: [internal, alpha, beta, production]
+        default: internal
+      release_status:
+        description: "Release status"
+        type: choice
+        options: [draft, completed, inProgress, halted]
+        default: draft
+      version_code:
+        description: "Android versionCode (integer, must increase each release)"
+        type: string
+        required: false
+      version_name:
+        description: "Android versionName (e.g. 1.0.1)"
+        type: string
+        required: false
 
 concurrency:
   group: android-${{ github.ref }}
@@ -30,15 +48,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: "npm"
 
       - name: Install dependencies
-        run: npm install
-
-      - name: Install Capacitor packages
-        run: npm install @capacitor/cli@8.3.1 @capacitor/core@8.3.1 @capacitor/android@8.3.1 @capacitor/ios@8.3.1 @capacitor/keyboard@8.0.3 @capacitor/splash-screen@8.0.1 @capacitor/status-bar@8.0.2 --no-save
+        run: npm ci
 
       - name: Verify Capacitor CLI installed
-        run: ls node_modules/@capacitor/cli/bin/capacitor && echo "cap binary OK"
+        run: npx cap --version
 
       - name: Build web app
         env:
@@ -47,7 +63,7 @@ jobs:
         run: npm run build
 
       - name: Sync Capacitor to Android
-        run: node node_modules/@capacitor/cli/bin/capacitor sync android
+        run: npx cap sync android
 
       # ── 3. Java ──────────────────────────────────────────────────────────────
       - name: Setup Java 21
@@ -62,6 +78,7 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
+          test -n "$KEYSTORE_BASE64" || { echo "Missing secret: ANDROID_KEYSTORE_BASE64"; exit 1; }
           echo -n "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
 
       # ── 5. Build release AAB ─────────────────────────────────────────────────
@@ -72,13 +89,24 @@ jobs:
           KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
         run: |
+          test -n "$KEY_ALIAS" || { echo "Missing variable: ANDROID_KEY_ALIAS"; exit 1; }
+          test -n "$KEYSTORE_PASSWORD" || { echo "Missing secret: ANDROID_KEYSTORE_PASSWORD"; exit 1; }
+          test -n "$KEY_PASSWORD" || { echo "Missing secret: ANDROID_KEY_PASSWORD"; exit 1; }
+
+          EXTRA_PROPS=""
+          if [ -n "$VERSION_CODE" ]; then EXTRA_PROPS="$EXTRA_PROPS -PVERSION_CODE=$VERSION_CODE"; fi
+          if [ -n "$VERSION_NAME" ]; then EXTRA_PROPS="$EXTRA_PROPS -PVERSION_NAME=$VERSION_NAME"; fi
+
           chmod +x gradlew
           ./gradlew bundleRelease \
             -Pandroid.injected.signing.store.file="$PWD/$KEYSTORE_PATH" \
             -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
-            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD" \
+            $EXTRA_PROPS
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
@@ -89,11 +117,11 @@ jobs:
 
       # ── 6. Play Store upload (manual trigger or main branch) ─────────────────
       - name: Upload to Google Play (internal track)
-        if: github.event_name == 'workflow_dispatch' && inputs.upload_to_store == 'true' || github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_to_store == true
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: online.meetserenity.app
           releaseFiles: android/app/build/outputs/bundle/release/*.aab
-          track: internal
-          status: draft
+          track: ${{ inputs.track }}
+          status: ${{ inputs.release_status }}
