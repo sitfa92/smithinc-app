@@ -34,8 +34,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Capacitor CLI
-        run: npm install @capacitor/cli@8.3.1 --no-save
+      - name: Install Capacitor packages
+        run: npm install @capacitor/cli@8.3.1 @capacitor/core@8.3.1 @capacitor/android@8.3.1 @capacitor/ios@8.3.1 @capacitor/keyboard@8.0.3 @capacitor/splash-screen@8.0.1 @capacitor/status-bar@8.0.2 --no-save
 
       - name: Verify Capacitor CLI installed
         run: ls node_modules/@capacitor/cli/bin/capacitor && echo "cap binary OK"
