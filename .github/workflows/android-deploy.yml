@@ -80,9 +80,25 @@ jobs:
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS }}
         run: |
           test -n "$KEYSTORE_BASE64" || { echo "Missing secret: ANDROID_KEYSTORE_BASE64"; exit 1; }
-          echo -n "$KEYSTORE_BASE64" | base64 --decode > android/app/release.keystore
+          test -n "$KEYSTORE_PASSWORD" || { echo "Missing secret: ANDROID_KEYSTORE_PASSWORD"; exit 1; }
+
+          SANITIZED_BASE64="$(printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]')"
+          if printf '%s' "$SANITIZED_BASE64" | grep -q '[_-]'; then
+            SANITIZED_BASE64="$(printf '%s' "$SANITIZED_BASE64" | tr '_-' '/+')"
+          fi
+
+          printf '%s' "$SANITIZED_BASE64" | base64 --decode > android/app/release.keystore
+          test -s android/app/release.keystore || { echo "Decoded keystore is empty"; exit 1; }
+
+          if [ -n "$KEY_ALIAS" ]; then
+            keytool -list -keystore android/app/release.keystore -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          else
+            keytool -list -keystore android/app/release.keystore -storepass "$KEYSTORE_PASSWORD" >/dev/null
+          fi
 
       # ── 5. Build release AAB ─────────────────────────────────────────────────
       - name: Build release AAB
