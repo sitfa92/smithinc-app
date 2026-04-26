@@ -54,7 +54,7 @@ jobs:
         run: npm ci
 
       - name: Verify Capacitor CLI installed
-        run: npx cap --version
+        run: ./node_modules/.bin/capacitor --version
 
       - name: Build web app
         env:
