@@ -1,5 +1,6 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Analytics as VercelAnalytics } from "@vercel/analytics/react";
 import { AuthProvider } from "./auth";
 import { useAuth } from "./auth";
 import Nav from "./components/Nav";
@@ -138,6 +139,7 @@ function App() {
             <Route path="/*" element={<ProtectedApp />} />
           </Routes>
         </React.Suspense>
+        <VercelAnalytics />
       </AuthProvider>
     </BrowserRouter>
   );
