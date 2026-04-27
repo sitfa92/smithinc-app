@@ -99,8 +99,6 @@ export default function Portfolio() {
     );
   }
 
-  const instagramHandle = model.instagram ? model.instagram.replace(/^@/, "") : null;
-
   return (
     <div style={{ minHeight: "100vh", background: C.canvas, padding: "0 0 60px" }}>
       {/* Header bar */}
@@ -135,32 +133,14 @@ export default function Portfolio() {
 
           {/* Details */}
           <div style={{ flex: 1, minWidth: 220 }}>
-            <h1 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 500, color: C.ink, letterSpacing: "-0.03em", margin: "0 0 8px", lineHeight: 1.1 }}>
-              {model.name}
-            </h1>
-
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 20 }}>
-              {statusBadge(model.status)}
-              {model.height && (
-                <span style={{ fontSize: 13, color: C.dust }}>Height: {model.height}</span>
-              )}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.gold, marginBottom: 10 }}>
+                Meet Serenity Talent
+              </div>
+              <h1 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: "clamp(32px,5vw,52px)", fontWeight: 500, color: C.ink, letterSpacing: "-0.03em", margin: 0, lineHeight: 1.1 }}>
+                Private Talent Profile
+              </h1>
             </div>
-
-            {instagramHandle && (
-              <a
-                href={`https://instagram.com/${instagramHandle}`}
-                target="_blank"
-                rel="noreferrer"
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: C.slate, textDecoration: "none", marginBottom: 20, padding: "8px 14px", background: C.white, border: `1px solid ${C.smoke}`, borderRadius: 8, transition: "all 0.2s ease" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = C.ink; e.currentTarget.style.color = C.ink; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = C.smoke; e.currentTarget.style.color = C.slate; }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
-                </svg>
-                @{instagramHandle}
-              </a>
-            )}
 
             <hr style={{ border: "none", borderTop: `1px solid ${C.smoke}`, margin: "20px 0" }} />
 
