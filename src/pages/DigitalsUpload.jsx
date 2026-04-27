@@ -17,36 +17,28 @@ export default function DigitalsUpload() {
 
   const folder = React.useMemo(() => `digitals/${id}`, [id]);
 
-  const normalizeModel = React.useCallback((row = {}) => ({
-    id: row.id || id,
-    name: row.name || "",
-    email: row.email || "",
-    instagram: row.instagram || "",
-    status: row.status || "approved",
-    pipeline_stage: row.pipeline_stage || "digitals_pending",
-    agency_name: row.agency_name || "",
-  }), [id]);
-
+  // Stable ref so loadDigitals never causes the effect to re-run
   const loadDigitals = React.useCallback(async (modelData) => {
     if (!id) return;
     try {
       const results = await listDigitalsForModel({
         id,
-        email: modelData?.email || model?.email,
-        instagram: modelData?.instagram || model?.instagram,
+        email: modelData?.email || "",
+        instagram: modelData?.instagram || "",
         folder,
       });
       setFiles(results);
     } catch (err) {
-      setError(err.message || "Failed to load uploaded digitals");
+      console.warn("Failed to load existing digitals:", err);
     }
-  }, [folder, id, model]);
+  }, [folder, id]); // ← no `model` dep — avoids infinite loop
 
   React.useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       if (!id) {
         setError("Missing model ID. Please use your upload link.");
-        setModel(normalizeModel());
+        setModel({ id: "", name: "", email: "", instagram: "", status: "approved", pipeline_stage: "digitals_pending", agency_name: "" });
         setLoading(false);
         return;
       }
@@ -56,7 +48,6 @@ export default function DigitalsUpload() {
         setSuccess("Loading your upload portal…");
 
         let modelData = null;
-
         try {
           const { data } = await supabase
             .from("models")
@@ -68,27 +59,34 @@ export default function DigitalsUpload() {
           console.warn("Model lookup failed, using fallback:", dbErr);
         }
 
-        const model = modelData ? normalizeModel(modelData) : normalizeModel();
-        setModel(model);
+        const resolved = {
+          id: modelData?.id || id,
+          name: modelData?.name || "",
+          email: modelData?.email || "",
+          instagram: modelData?.instagram || "",
+          status: modelData?.status || "approved",
+          pipeline_stage: modelData?.pipeline_stage || "digitals_pending",
+          agency_name: modelData?.agency_name || "",
+        };
 
-        try {
-          await loadDigitals(model);
-        } catch (loadErr) {
-          console.warn("Failed to load existing digitals:", loadErr);
-        }
-
+        if (cancelled) return;
+        setModel(resolved);
+        await loadDigitals(resolved);
+        if (cancelled) return;
         setSuccess("Your upload link is ready. Upload your digitals below.");
       } catch (err) {
         console.error("Upload portal load error:", err);
-        setModel(normalizeModel());
+        if (cancelled) return;
+        setModel({ id, name: "", email: "", instagram: "", status: "approved", pipeline_stage: "digitals_pending", agency_name: "" });
         setSuccess("Your upload link is ready. Upload your digitals below.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     load();
-  }, [id, loadDigitals, normalizeModel]);
+    return () => { cancelled = true; }; // cleanup prevents stale state on remount
+  }, [id, loadDigitals]); // ← normalizeModel removed; no longer needed here
 
   const handleUpload = async () => {
     if (!selectedFiles.length) {
