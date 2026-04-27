@@ -36,6 +36,56 @@ export const listFilesInFolder = async (folder = "") => {
   return fallbackResults;
 };
 
+const pushUnique = (arr, value) => {
+  if (!value) return;
+  if (!arr.includes(value)) arr.push(value);
+};
+
+const buildDigitalsFolderCandidates = ({ id = "", email = "", instagram = "", folder = "" } = {}) => {
+  const normalizedId = String(id || "").trim();
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedHandle = String(instagram || "").replace(/^@+/, "").trim().toLowerCase();
+  const folders = [];
+
+  pushUnique(folders, folder ? String(folder).trim() : "");
+  pushUnique(folders, normalizedId ? `digitals/${normalizedId}` : "");
+  pushUnique(folders, normalizedId ? `digitals/${normalizedId.toLowerCase()}` : "");
+
+  if (normalizedEmail) {
+    pushUnique(folders, `digitals/${normalizedEmail}`);
+    const localPart = normalizedEmail.split("@")[0];
+    pushUnique(folders, localPart ? `digitals/${localPart}` : "");
+  }
+
+  pushUnique(folders, normalizedHandle ? `digitals/${normalizedHandle}` : "");
+
+  return folders.filter(Boolean);
+};
+
+export const listDigitalsForModel = async (modelRef = {}) => {
+  const folders = buildDigitalsFolderCandidates(modelRef);
+  if (!folders.length) return [];
+
+  const seen = new Set();
+  const merged = [];
+
+  for (const folder of folders) {
+    const files = await listFilesInFolder(folder);
+    for (const file of files) {
+      const key = file.url || `${file.bucket || ""}/${file.path || file.name}`;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      merged.push(file);
+    }
+  }
+
+  return merged.sort((a, b) => {
+    const aTime = Date.parse(a.updatedAt || "") || 0;
+    const bTime = Date.parse(b.updatedAt || "") || 0;
+    return bTime - aTime;
+  });
+};
+
 /**
  * Upload image to Supabase Storage and return public URL
  * @param {File} file - Image file to upload

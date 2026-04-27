@@ -1,7 +1,8 @@
 import React from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../supabase";
-import { uploadImage, listFilesInFolder, deleteImage } from "../imageUpload";
+import { uploadImage, listDigitalsForModel, deleteImage } from "../imageUpload";
+import LuxuryPhotoCarousel from "../components/LuxuryPhotoCarousel";
 import "../App.css";
 
 export default function DigitalsUpload() {
@@ -19,20 +20,27 @@ export default function DigitalsUpload() {
   const normalizeModel = React.useCallback((row = {}) => ({
     id: row.id || id,
     name: row.name || "",
+    email: row.email || "",
+    instagram: row.instagram || "",
     status: row.status || "approved",
     pipeline_stage: row.pipeline_stage || "digitals_pending",
     agency_name: row.agency_name || "",
   }), [id]);
 
-  const loadDigitals = React.useCallback(async () => {
+  const loadDigitals = React.useCallback(async (modelData) => {
     if (!id) return;
     try {
-      const results = await listFilesInFolder(folder);
+      const results = await listDigitalsForModel({
+        id,
+        email: modelData?.email || model?.email,
+        instagram: modelData?.instagram || model?.instagram,
+        folder,
+      });
       setFiles(results);
     } catch (err) {
       setError(err.message || "Failed to load uploaded digitals");
     }
-  }, [folder, id]);
+  }, [folder, id, model]);
 
   React.useEffect(() => {
     const load = async () => {
@@ -51,7 +59,7 @@ export default function DigitalsUpload() {
 
         const primary = await supabase
           .from("models")
-          .select("id, name, status, pipeline_stage, agency_name")
+          .select("id, name, email, instagram, status, pipeline_stage, agency_name")
           .eq("id", id)
           .maybeSingle();
 
@@ -61,7 +69,7 @@ export default function DigitalsUpload() {
         if (modelError) {
           const fallback = await supabase
             .from("models")
-            .select("id, name, status")
+            .select("id, name, email, instagram, status")
             .eq("id", id)
             .maybeSingle();
 
@@ -70,17 +78,20 @@ export default function DigitalsUpload() {
         }
 
         if (modelData) {
-          setModel(normalizeModel(modelData));
+          const normalized = normalizeModel(modelData);
+          setModel(normalized);
+          await loadDigitals(normalized);
         } else {
-          setModel(normalizeModel());
+          const fallbackModel = normalizeModel();
+          setModel(fallbackModel);
+          await loadDigitals(fallbackModel);
           setSuccess("Your upload link is ready. You can add your digitals below.");
         }
-
-        await loadDigitals();
       } catch {
-        setModel(normalizeModel());
+        const fallbackModel = normalizeModel();
+        setModel(fallbackModel);
         setSuccess("Your upload link is ready. You can add your digitals below.");
-        await loadDigitals();
+        await loadDigitals(fallbackModel);
       } finally {
         setLoading(false);
       }
@@ -102,7 +113,7 @@ export default function DigitalsUpload() {
       }
 
       setSelectedFiles([]);
-      await loadDigitals();
+      await loadDigitals(model);
       setSuccess("Digitals uploaded successfully.");
     } catch (err) {
       setError(err.message || "Upload failed. Please try again.");
@@ -120,7 +131,7 @@ export default function DigitalsUpload() {
 
     try {
       await deleteImage(file.url);
-      await loadDigitals();
+      await loadDigitals(model);
       setSuccess("File deleted successfully.");
     } catch (err) {
       setError(err.message || "Failed to delete file.");
@@ -222,49 +233,16 @@ export default function DigitalsUpload() {
         )}
 
         <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888" }}>
-              Uploaded digitals{files.length > 0 ? ` · ${files.length}` : ""}
-            </div>
-          </div>
           {!files.length ? (
             <p style={{ margin: 0, color: "#888", fontSize: 13 }}>No digitals uploaded yet.</p>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 12 }}>
-              {files.map((file) => (
-                <div key={file.path} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #e8e4dc", background: "#faf8f4", display: "flex", flexDirection: "column" }}>
-                  <a href={file.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", aspectRatio: "3/4", overflow: "hidden" }}>
-                    <img
-                      src={file.url}
-                      alt={file.name}
-                      loading="lazy"
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    />
-                  </a>
-                  <div style={{ padding: "8px 10px", display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                    <button
-                      type="button"
-                      onClick={() => handleDownload(file)}
-                      title="Download"
-                      style={{ padding: "4px 10px", background: "transparent", color: "#4a4a4a", border: "1px solid #e8e4dc", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(file)}
-                      title="Delete"
-                      style={{ padding: "4px 10px", background: "transparent", color: "#9b1c1c", border: "1px solid rgba(155,28,28,0.25)", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div style={{ padding: "0 10px 8px", fontSize: 11, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={file.name}>
-                    {file.name}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <LuxuryPhotoCarousel
+              files={files}
+              title="Uploaded digitals"
+              showDelete
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+            />
           )}
         </div>
       </div>

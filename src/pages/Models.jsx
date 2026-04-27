@@ -3,7 +3,8 @@ import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { isMissingColumnError, sendZapierEvent, sendBackendWebhook } from "../utils";
 import { MetricCard } from "../analyticsUtils";
-import { listFilesInFolder } from "../imageUpload";
+import { listDigitalsForModel } from "../imageUpload";
+import LuxuryPhotoCarousel from "../components/LuxuryPhotoCarousel";
 
 export default function Models() {
   const { role } = useAuth();
@@ -24,14 +25,21 @@ export default function Models() {
 
   const [expandedDigitals, setExpandedDigitals] = React.useState({});   // { [modelId]: { open, loading, files } }
 
-  const toggleDigitals = async (modelId) => {
+  const toggleDigitals = async (model) => {
+    const modelId = model?.id;
+    if (!modelId) return;
     setExpandedDigitals(prev => {
       const cur = prev[modelId];
       if (cur?.open) return { ...prev, [modelId]: { ...cur, open: false } };
       return { ...prev, [modelId]: { open: true, loading: true, files: cur?.files || [] } };
     });
     try {
-      const files = await listFilesInFolder(`digitals/${modelId}`);
+      const files = await listDigitalsForModel({
+        id: modelId,
+        email: model.email,
+        instagram: model.instagram,
+        folder: `digitals/${modelId}`,
+      });
       setExpandedDigitals(prev => ({ ...prev, [modelId]: { open: true, loading: false, files } }));
     } catch {
       setExpandedDigitals(prev => ({ ...prev, [modelId]: { open: true, loading: false, files: [] } }));
@@ -228,7 +236,7 @@ export default function Models() {
             {/* Inline digitals toggle */}
             <div style={{ marginTop:10, borderTop:`1px solid ${C.smoke}`, paddingTop:10, display:"flex", alignItems:"center", gap:8 }}>
               <button
-                onClick={() => toggleDigitals(model.id)}
+                onClick={() => toggleDigitals(model)}
                 style={{ padding:"4px 12px", background:"transparent", color:C.slate, border:`1px solid ${C.smoke}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
               >
                 {dState?.open ? "Hide Digitals" : "View Digitals"}
@@ -245,13 +253,7 @@ export default function Models() {
                   <p style={{ color:C.dust, fontSize:13, margin:0 }}>No digitals uploaded yet.</p>
                 )}
                 {!dState.loading && dState.files.length > 0 && (
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))", gap:8 }}>
-                    {dState.files.map(f => (
-                      <a key={f.path} href={f.url} target="_blank" rel="noopener noreferrer" title={f.name} style={{ display:"block", borderRadius:8, overflow:"hidden", border:`1px solid ${C.smoke}`, aspectRatio:"3/4" }}>
-                        <img src={f.url} alt={f.name} loading="lazy" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
-                      </a>
-                    ))}
-                  </div>
+                  <LuxuryPhotoCarousel files={dState.files} title="Digitals archive" />
                 )}
               </div>
             )}
