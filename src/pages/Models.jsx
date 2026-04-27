@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { isMissingColumnError, sendZapierEvent, sendBackendWebhook } from "../utils";
 import { MetricCard } from "../analyticsUtils";
+import { listFilesInFolder } from "../imageUpload";
 
 export default function Models() {
   const { role } = useAuth();
@@ -20,6 +21,22 @@ export default function Models() {
   });
 
   const canAddModels = ["admin", "agent", "user"].includes(role);
+
+  const [expandedDigitals, setExpandedDigitals] = React.useState({});   // { [modelId]: { open, loading, files } }
+
+  const toggleDigitals = async (modelId) => {
+    setExpandedDigitals(prev => {
+      const cur = prev[modelId];
+      if (cur?.open) return { ...prev, [modelId]: { ...cur, open: false } };
+      return { ...prev, [modelId]: { open: true, loading: true, files: cur?.files || [] } };
+    });
+    try {
+      const files = await listFilesInFolder(`digitals/${modelId}`);
+      setExpandedDigitals(prev => ({ ...prev, [modelId]: { open: true, loading: false, files } }));
+    } catch {
+      setExpandedDigitals(prev => ({ ...prev, [modelId]: { open: true, loading: false, files: [] } }));
+    }
+  };
 
   const fetchModels = async () => {
     try {
@@ -151,13 +168,29 @@ export default function Models() {
       {error && <p style={{ color:C.err }}>{error}</p>}
       {!loading && models.map(model => {
         const [bg,clr] = statusStyle[model.status] || [C.ivory,C.slate];
+        const dState = expandedDigitals[model.id];
         return (
           <div key={model.id} style={card}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
-              <div>
-                <p style={{ margin:"0 0 4px", fontSize:15, fontWeight:600, color:C.ink }}>{model.name}</p>
-                <p style={{ margin:"0 0 2px", fontSize:13, color:C.dust }}>{model.email}</p>
-                <p style={{ margin:0, fontSize:13, color:C.dust }}>{model.instagram || "No Instagram"}</p>
+              {/* Avatar + info */}
+              <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+                {model.image_url ? (
+                  <img
+                    src={model.image_url}
+                    alt={model.name}
+                    loading="lazy"
+                    style={{ width:52, height:52, borderRadius:10, objectFit:"cover", flexShrink:0, border:`1px solid ${C.smoke}`, background:C.ivory }}
+                  />
+                ) : (
+                  <div style={{ width:52, height:52, borderRadius:10, background:C.ivory, border:`1px solid ${C.smoke}`, flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:20, color:C.dust }}>
+                    {(model.name || "?")[0].toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <p style={{ margin:"0 0 4px", fontSize:15, fontWeight:600, color:C.ink }}>{model.name}</p>
+                  <p style={{ margin:"0 0 2px", fontSize:13, color:C.dust }}>{model.email}</p>
+                  <p style={{ margin:0, fontSize:13, color:C.dust }}>{model.instagram || "No Instagram"}</p>
+                </div>
               </div>
               <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
                 {model.source === "manychat" && (
@@ -191,6 +224,37 @@ export default function Models() {
                 )}
               </div>
             </div>
+
+            {/* Inline digitals toggle */}
+            <div style={{ marginTop:10, borderTop:`1px solid ${C.smoke}`, paddingTop:10, display:"flex", alignItems:"center", gap:8 }}>
+              <button
+                onClick={() => toggleDigitals(model.id)}
+                style={{ padding:"4px 12px", background:"transparent", color:C.slate, border:`1px solid ${C.smoke}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+              >
+                {dState?.open ? "Hide Digitals" : "View Digitals"}
+              </button>
+              {dState?.open && !dState.loading && dState.files.length > 0 && (
+                <span style={{ fontSize:11, color:C.dust }}>{dState.files.length} photo{dState.files.length !== 1 ? "s" : ""}</span>
+              )}
+            </div>
+
+            {dState?.open && (
+              <div style={{ marginTop:10 }}>
+                {dState.loading && <p style={{ color:C.dust, fontSize:13, margin:0 }}>Loading…</p>}
+                {!dState.loading && dState.files.length === 0 && (
+                  <p style={{ color:C.dust, fontSize:13, margin:0 }}>No digitals uploaded yet.</p>
+                )}
+                {!dState.loading && dState.files.length > 0 && (
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))", gap:8 }}>
+                    {dState.files.map(f => (
+                      <a key={f.path} href={f.url} target="_blank" rel="noopener noreferrer" title={f.name} style={{ display:"block", borderRadius:8, overflow:"hidden", border:`1px solid ${C.smoke}`, aspectRatio:"3/4" }}>
+                        <img src={f.url} alt={f.name} loading="lazy" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

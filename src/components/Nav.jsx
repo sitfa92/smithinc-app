@@ -16,6 +16,14 @@ const C = {
 // Groups — each item only shows if the user canAccess its key
 const GROUPS = [
   {
+    key: "dashboard-group",
+    label: "Dashboard",
+    items: [
+      { key: "dashboard",      label: "Overview",      to: "/dashboard" },
+      { key: "notifications",  label: "Alerts",        to: "/notifications" },
+    ],
+  },
+  {
     key: "talent",
     label: "Talent",
     items: [
@@ -104,9 +112,9 @@ export default function Nav() {
 
   const canAccess = (section) => {
     if (role === "admin") return true;
-    if (role === "va")    return ["dashboard","models","model-pipeline","bookings","clients","integrations","workflows"].includes(section);
-    if (role === "agent") return ["dashboard","models","model-pipeline","submissions","analytics"].includes(section);
-    if (role === "user")  return ["dashboard","models"].includes(section);
+    if (role === "va")    return ["dashboard","dashboard-group","notifications","models","model-pipeline","bookings","clients","integrations","workflows"].includes(section);
+    if (role === "agent") return ["dashboard","dashboard-group","notifications","models","model-pipeline","submissions","analytics"].includes(section);
+    if (role === "user")  return ["dashboard","dashboard-group","notifications","models"].includes(section);
     return false;
   };
 
@@ -328,18 +336,7 @@ export default function Nav() {
       {/* Desktop Nav */}
       {!isMobile && (
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          {/* Standalone: Dashboard */}
-          {canAccess("dashboard") && (
-            <Link to="/dashboard" style={{
-              ...navLinkBase,
-              color: location.pathname === "/dashboard" ? C.ink : C.slate,
-            }}>
-              Dashboard
-              {location.pathname === "/dashboard" && <span style={{ ...activeBorderStyle, position: "absolute", bottom: -3 }} />}
-            </Link>
-          )}
-
-          {/* Dropdown groups */}
+          {/* Dropdown groups (Dashboard group is first) */}
           {GROUPS.map(g => <DropGroup key={g.key} group={g} />)}
 
           {/* Standalone: Analytics */}
@@ -416,12 +413,7 @@ export default function Nav() {
           zIndex: 1400,
           paddingBottom: 12,
         }}>
-          {/* Standalone: Dashboard */}
-          {canAccess("dashboard") && (
-            <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} style={{ ...mobileLinkStyle, paddingLeft: 16 }}>Dashboard</Link>
-          )}
-
-          {/* Groups */}
+          {/* Groups (Dashboard group is first, contains Overview + Alerts) */}
           {GROUPS.map(g => {
             const visibleItems = g.items.filter(i => canAccess(i.key));
             if (visibleItems.length === 0) return null;
