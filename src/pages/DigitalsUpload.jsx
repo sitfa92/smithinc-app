@@ -222,24 +222,45 @@ export default function DigitalsUpload() {
         )}
 
         <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 18 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888", marginBottom: 10 }}>Uploaded digitals</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888" }}>
+              Uploaded digitals{files.length > 0 ? ` · ${files.length}` : ""}
+            </div>
+          </div>
           {!files.length ? (
             <p style={{ margin: 0, color: "#888", fontSize: 13 }}>No digitals uploaded yet.</p>
           ) : (
-            <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 12 }}>
               {files.map((file) => (
-                <div key={file.path} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "10px 12px", background: "#faf8f4", border: "1px solid #e8e4dc", borderRadius: 10 }}>
-                  <div>
-                    <div style={{ color: "#111", fontSize: 13, fontWeight: 600 }}>{file.name}</div>
-                    <div style={{ color: "#888", fontSize: 12 }}>{file.updatedAt ? new Date(file.updatedAt).toLocaleString() : "Recently uploaded"}</div>
+                <div key={file.path} style={{ borderRadius: 10, overflow: "hidden", border: "1px solid #e8e4dc", background: "#faf8f4", display: "flex", flexDirection: "column" }}>
+                  <a href={file.url} target="_blank" rel="noopener noreferrer" style={{ display: "block", aspectRatio: "3/4", overflow: "hidden" }}>
+                    <img
+                      src={file.url}
+                      alt={file.name}
+                      loading="lazy"
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  </a>
+                  <div style={{ padding: "8px 10px", display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(file)}
+                      title="Download"
+                      style={{ padding: "4px 10px", background: "transparent", color: "#4a4a4a", border: "1px solid #e8e4dc", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(file)}
+                      title="Delete"
+                      style={{ padding: "4px 10px", background: "transparent", color: "#9b1c1c", border: "1px solid rgba(155,28,28,0.25)", borderRadius: 6, fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button type="button" onClick={() => handleDownload(file)} className="lx-btn lx-btn-outline">
-                      Download
-                    </button>
-                    <button type="button" onClick={() => handleDelete(file)} className="lx-btn lx-btn-danger">
-                      Delete
-                    </button>
+                  <div style={{ padding: "0 10px 8px", fontSize: 11, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={file.name}>
+                    {file.name}
                   </div>
                 </div>
               ))}
