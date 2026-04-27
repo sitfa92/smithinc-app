@@ -4,10 +4,31 @@ const configuredBucket = (import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || "").tr
 const STORAGE_BUCKETS = [configuredBucket, "model-images", "models", "images"].filter(Boolean);
 
 export const listFilesInFolder = async (folder = "") => {
+  const normalizedFolder = String(folder || "").replace(/^\/+/, "").trim();
+
+  if (normalizedFolder) {
+    try {
+      const resp = await fetch("/api/storage/list-files", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder: normalizedFolder }),
+      });
+
+      if (resp.ok) {
+        const payload = await resp.json().catch(() => ({}));
+        if (Array.isArray(payload?.files)) {
+          return payload.files;
+        }
+      }
+    } catch {
+      // Fall back to client listing below when API route is unavailable.
+    }
+  }
+
   let fallbackResults = [];
 
   for (const bucket of STORAGE_BUCKETS) {
-    const { data, error } = await supabase.storage.from(bucket).list(folder, {
+    const { data, error } = await supabase.storage.from(bucket).list(normalizedFolder, {
       limit: 100,
       sortBy: { column: "name", order: "desc" },
     });
@@ -17,7 +38,7 @@ export const listFilesInFolder = async (folder = "") => {
     const mapped = (data || [])
       .filter((item) => item?.name)
       .map((item) => {
-        const path = folder ? `${folder}/${item.name}` : item.name;
+        const path = normalizedFolder ? `${normalizedFolder}/${item.name}` : item.name;
         const { data: publicData } = supabase.storage.from(bucket).getPublicUrl(path);
 
         return {
