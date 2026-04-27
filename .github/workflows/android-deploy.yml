@@ -1,8 +1,6 @@
 name: Android — Build & Deploy to Play Store
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       upload_to_store:
@@ -136,7 +134,7 @@ jobs:
 
       # ── 6. Play Store upload (manual trigger or main branch) ─────────────────
       - name: Upload to Google Play (internal track)
-        if: github.event_name == 'workflow_dispatch' && inputs.upload_to_store == true
+        if: github.event_name == 'workflow_dispatch' && inputs.upload_to_store == true && secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON != ''
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
