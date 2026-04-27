@@ -258,11 +258,7 @@ alter table public.alerts disable row level security;`;
   }, []);
 
   React.useEffect(() => {
-    const init = async () => {
-      await Promise.all([fetchOverview(), fetchMembers()]);
-      await fetchOpsAndEvents();
-    };
-    init();
+    Promise.all([fetchOverview(), fetchMembers(), fetchOpsAndEvents()]);
   }, [fetchOverview, fetchMembers, fetchOpsAndEvents]);
 
   const syncIncomingTasks = React.useCallback(async () => {
