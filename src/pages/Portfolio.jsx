@@ -60,25 +60,6 @@ export default function Portfolio() {
     load();
   }, [id]);
 
-  const statusBadge = (st) => {
-    const m = {
-      approved: [C.okBg, C.ok],
-      pending:  [C.warnBg, C.warn],
-      rejected: [C.errBg, C.err],
-    };
-    const [bg, clr] = m[st] || [C.ivory, C.dust];
-    return (
-      <span style={{
-        display: "inline-flex", alignItems: "center",
-        padding: "4px 12px", borderRadius: 99,
-        fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-        background: bg, color: clr,
-      }}>
-        {st || "pending"}
-      </span>
-    );
-  };
-
   if (loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: C.canvas }}>
