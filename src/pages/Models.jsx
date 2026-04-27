@@ -215,18 +215,11 @@ export default function Models() {
                 {model.status === "approved" && (
                   <>
                     <button
-                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/talent/${model.id}`)}
-                      title="Copy portfolio link"
-                      style={{ padding:"4px 10px", background:C.ivory, color:C.dust, border:`1px solid ${C.smoke}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
-                    >
-                      Copy Link
-                    </button>
-                    <button
                       onClick={() => navigator.clipboard.writeText(`${window.location.origin}/digitals/${model.id}`)}
                       title="Copy digitals upload link"
                       style={{ padding:"4px 10px", background:C.okBg, color:C.ok, border:`1px solid rgba(26,102,54,0.2)`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
                     >
-                      Digitals Link
+                      Copy Digitals Link
                     </button>
                     <button
                       onClick={() => window.open(`${window.location.origin}/digitals/${model.id}`, "_blank", "noopener,noreferrer")}
@@ -234,6 +227,13 @@ export default function Models() {
                       style={{ padding:"4px 10px", background:C.ink, color:C.white, border:`1px solid ${C.ink}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
                     >
                       Open Digitals
+                    </button>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/talent/${model.id}`)}
+                      title="Copy public portfolio link"
+                      style={{ padding:"4px 10px", background:C.ivory, color:C.dust, border:`1px solid ${C.smoke}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+                    >
+                      Copy Portfolio Link
                     </button>
                   </>
                 )}

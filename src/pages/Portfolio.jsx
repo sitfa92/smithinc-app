@@ -73,9 +73,16 @@ export default function Portfolio() {
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: C.canvas, padding: 24, textAlign: "center" }}>
         <p style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 40, fontWeight: 400, color: C.ink, marginBottom: 8 }}>Profile not found</p>
         <p style={{ color: C.dust, fontSize: 14, marginBottom: 28 }}>This talent profile does not exist or has been removed.</p>
-        <Link to="/book" style={{ padding: "12px 24px", background: C.ink, color: C.white, borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", textDecoration: "none" }}>
-          Book a Consultation
-        </Link>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
+          {id ? (
+            <Link to={`/digitals/${id}`} style={{ padding: "12px 24px", background: C.ok, color: C.white, borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", textDecoration: "none" }}>
+              Upload Digitals
+            </Link>
+          ) : null}
+          <Link to="/book" style={{ padding: "12px 24px", background: C.ink, color: C.white, borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", textDecoration: "none" }}>
+            Book a Consultation
+          </Link>
+        </div>
       </div>
     );
   }
