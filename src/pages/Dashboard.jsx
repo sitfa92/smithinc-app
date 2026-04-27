@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { DEFAULT_ROLE_BY_EMAIL, runAuthenticatedCurrentDataSync } from "../utils";
 import { sendModelEventEmail } from "../emailService";
+import { MetricCard } from "../analyticsUtils";
 
 export default function Dashboard() {
   const { user, logout, role, roleByEmail } = useAuth();
@@ -23,11 +24,6 @@ export default function Dashboard() {
   const [savingEvent, setSavingEvent] = React.useState(false);
   const [updatingAlertId, setUpdatingAlertId] = React.useState("");
   const [eventNotice, setEventNotice] = React.useState("");
-  const [alertFilter, setAlertFilter] = React.useState("all");
-  const [taskFilter, setTaskFilter] = React.useState("all");
-  const [calendarFilter, setCalendarFilter] = React.useState("all");
-  const [bookingFilter, setBookingFilter] = React.useState("all");
-  const [submissionFilter, setSubmissionFilter] = React.useState("all");
   const [eventForm, setEventForm] = React.useState({
     title: "",
     event_at: "",
@@ -394,23 +390,23 @@ alter table public.alerts disable row level security;`;
 
   const userEmail = (user?.email || "").toLowerCase();
   const canManageAllTasks = role === "admin";
-  const alertsForViewer = React.useMemo(() => alerts.filter((item) => {
+  const alertsForViewer = alerts.filter((item) => {
     if (canManageAllTasks) return true;
     const audienceEmail = (item.audience_email || "").toLowerCase();
     return audienceEmail === userEmail || item.audience_role === role;
-  }), [alerts, canManageAllTasks, role, userEmail]);
-  const unreadAlerts = React.useMemo(() => alertsForViewer.filter((item) => item.status !== "read").length, [alertsForViewer]);
+  });
+  const unreadAlerts = alertsForViewer.filter((item) => item.status !== "read").length;
 
-  const taskListForViewer = React.useMemo(() => opsTasks.filter((task) => {
+  const taskListForViewer = opsTasks.filter((task) => {
     if (canManageAllTasks) return true;
     const assigned = (task.assigned_email || "").toLowerCase();
     return assigned === userEmail || task.role === role;
-  }), [opsTasks, canManageAllTasks, role, userEmail]);
+  });
 
-  const taskSummary = React.useMemo(() => ({
+  const taskSummary = {
     pending: opsTasks.filter((t) => t.status === "pending").length,
     done: opsTasks.filter((t) => t.status === "done").length,
-  }), [opsTasks]);
+  };
 
   const markAlertRead = async (alertId) => {
     if (!alertsTableReady) return;
@@ -435,23 +431,23 @@ alter table public.alerts disable row level security;`;
     }
   };
 
-  const userProgress = React.useMemo(() => activeMembers.map((member) => {
+  const userProgress = activeMembers.map((member) => {
     const email = (member.email || "").toLowerCase();
     const assigned = opsTasks.filter((task) => (task.assigned_email || "").toLowerCase() === email);
     const completed = assigned.filter((task) => task.status === "done").length;
     const pct = assigned.length ? Math.round((completed / assigned.length) * 100) : 0;
     return { email: member.email, role: member.role, completed, total: assigned.length, pct };
-  }), [activeMembers, opsTasks]);
+  });
 
-  const recentModels = React.useMemo(() => models.slice(0, 5), [models]);
-  const approvedMailableModels = React.useMemo(() => models.filter(
+  const recentModels = models.slice(0, 5);
+  const approvedMailableModels = models.filter(
     (m) => (m.status || "").toLowerCase() === "approved" && (m.email || "").trim()
-  ), [models]);
-  const upcomingBookings = React.useMemo(() => bookings.filter((b) => b.preferred_date).slice(0, 5), [bookings]);
-  const nextPendingModel = React.useMemo(() => models.find((m) => m.status === "pending"), [models]);
-  const nextPendingBooking = React.useMemo(() => bookings.find((b) => b.status === "pending"), [bookings]);
+  );
+  const upcomingBookings = bookings.filter((b) => b.preferred_date).slice(0, 5);
+  const nextPendingModel = models.find((m) => m.status === "pending");
+  const nextPendingBooking = bookings.find((b) => b.status === "pending");
 
-  const bookingCalendarEvents = React.useMemo(() => bookings
+  const bookingCalendarEvents = bookings
     .filter((b) => b.preferred_date)
     .map((b) => ({
       id: `booking-${b.id}`,
@@ -459,59 +455,11 @@ alter table public.alerts disable row level security;`;
       event_at: b.preferred_date,
       event_type: "booking",
       notes: b.service_type || "",
-    })), [bookings]);
+    }));
 
-  const mergedCalendar = React.useMemo(() => [...calendarEvents, ...bookingCalendarEvents]
+  const mergedCalendar = [...calendarEvents, ...bookingCalendarEvents]
     .sort((a, b) => new Date(a.event_at).getTime() - new Date(b.event_at).getTime())
-    .slice(0, 20), [calendarEvents, bookingCalendarEvents]);
-
-  const filteredAlerts = React.useMemo(() => alertsForViewer.filter((item) => {
-    if (alertFilter === "all") return true;
-    if (alertFilter === "unread") return item.status !== "read";
-    if (alertFilter === "read") return item.status === "read";
-    if (alertFilter === "priority") return ["warning", "error"].includes(item.level || "");
-    return (item.level || "") === alertFilter;
-  }), [alertsForViewer, alertFilter]);
-
-  const filteredTasks = React.useMemo(() => taskListForViewer.filter((task) => {
-    if (taskFilter === "all") return true;
-    return (task.status || "pending") === taskFilter;
-  }), [taskListForViewer, taskFilter]);
-
-  const filteredCalendar = React.useMemo(() => mergedCalendar.filter((ev) => {
-    if (calendarFilter === "all") return true;
-    return (ev.event_type || "internal") === calendarFilter;
-  }), [mergedCalendar, calendarFilter]);
-
-  const filteredUpcomingBookings = React.useMemo(() => upcomingBookings.filter((booking) => {
-    if (bookingFilter === "all") return true;
-    return (booking.status || "pending") === bookingFilter;
-  }), [upcomingBookings, bookingFilter]);
-
-  const filteredRecentModels = React.useMemo(() => recentModels.filter((model) => {
-    if (submissionFilter === "all") return true;
-    return (model.status || "pending") === submissionFilter;
-  }), [recentModels, submissionFilter]);
-
-  const bookingChartData = React.useMemo(() => ([
-    { label:"Pending",   v:bookings.filter(b=>b.status==="pending").length,   color:C.warn },
-    { label:"Confirmed", v:bookings.filter(b=>b.status==="confirmed").length, color:C.info },
-    { label:"Completed", v:bookings.filter(b=>b.status==="completed").length, color:C.ok },
-    { label:"Cancelled", v:bookings.filter(b=>b.status==="cancelled").length, color:C.err },
-  ]), [bookings]);
-
-  const modelChartData = React.useMemo(() => ([
-    { label:"Pending",  v:models.filter(m=>m.status==="pending").length,  color:C.warn },
-    { label:"Approved", v:models.filter(m=>m.status==="approved").length, color:C.ok },
-    { label:"Rejected", v:models.filter(m=>m.status==="rejected").length, color:C.err },
-  ]), [models]);
-
-  const clientChartData = React.useMemo(() => ([
-    { label:"Lead",      v:clients.filter(c=>c.status==="lead").length,      color:C.warn },
-    { label:"Active",    v:clients.filter(c=>c.status==="active").length,    color:C.ok },
-    { label:"Completed", v:clients.filter(c=>c.status==="completed").length, color:C.info },
-    { label:"Inactive",  v:clients.filter(c=>c.status==="inactive").length,  color:"#b0aaa0" },
-  ]), [clients]);
+    .slice(0, 20);
 
   // luxury style helpers (inline, no import needed)
   const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", canvas:"#f5f2ec", white:"#ffffff", gold:"#c9a84c", err:"#9b1c1c", errBg:"#fef2f2", warn:"#92560a", warnBg:"#fef8ec", info:"#1e3a5f", infoBg:"#eff6ff", ok:"#1a6636", okBg:"#edf7ee" };
@@ -585,15 +533,29 @@ alter table public.alerts disable row level security;`;
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:16, marginBottom:28 }}>
           <div style={{ ...card, marginBottom:0 }}>
             <h3 style={{ ...cardH, marginBottom:16 }}>Booking Pipeline</h3>
-            <SvgBar data={bookingChartData} />
+            <SvgBar data={[
+              { label:"Pending",   v:bookings.filter(b=>b.status==="pending").length,   color:C.warn },
+              { label:"Confirmed", v:bookings.filter(b=>b.status==="confirmed").length, color:C.info },
+              { label:"Completed", v:bookings.filter(b=>b.status==="completed").length, color:C.ok },
+              { label:"Cancelled", v:bookings.filter(b=>b.status==="cancelled").length, color:C.err },
+            ]} />
           </div>
           <div style={{ ...card, marginBottom:0 }}>
             <h3 style={{ ...cardH, marginBottom:16 }}>Model Funnel</h3>
-            <SvgBar data={modelChartData} />
+            <SvgBar data={[
+              { label:"Pending",  v:models.filter(m=>m.status==="pending").length,  color:C.warn },
+              { label:"Approved", v:models.filter(m=>m.status==="approved").length, color:C.ok },
+              { label:"Rejected", v:models.filter(m=>m.status==="rejected").length, color:C.err },
+            ]} />
           </div>
           <div style={{ ...card, marginBottom:0 }}>
             <h3 style={{ ...cardH, marginBottom:16 }}>Client Pipeline</h3>
-            <SvgBar data={clientChartData} />
+            <SvgBar data={[
+              { label:"Lead",      v:clients.filter(c=>c.status==="lead").length,      color:C.warn },
+              { label:"Active",    v:clients.filter(c=>c.status==="active").length,    color:C.ok },
+              { label:"Completed", v:clients.filter(c=>c.status==="completed").length, color:C.info },
+              { label:"Inactive",  v:clients.filter(c=>c.status==="inactive").length,  color:"#b0aaa0" },
+            ]} />
           </div>
         </div>
       )}
@@ -647,24 +609,12 @@ alter table public.alerts disable row level security;`;
         <div style={card}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:12 }}>
             <h3 style={cardH}>Alerts</h3>
-            <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-              <span style={{ color:C.dust, fontSize:12, letterSpacing:"0.06em", textTransform:"uppercase" }}>{unreadAlerts} unread</span>
-              <select value={alertFilter} onChange={(e)=>setAlertFilter(e.target.value)} style={{ ...inp2, width:"auto", minWidth:150, padding:"8px 10px", fontSize:12 }}>
-                <option value="all">All alerts</option>
-                <option value="unread">Unread only</option>
-                <option value="read">Read only</option>
-                <option value="priority">Priority only</option>
-                <option value="info">Info only</option>
-                <option value="success">Success only</option>
-                <option value="warning">Warnings only</option>
-                <option value="error">Errors only</option>
-              </select>
-            </div>
+            <span style={{ color:C.dust, fontSize:12, letterSpacing:"0.06em", textTransform:"uppercase" }}>{unreadAlerts} unread</span>
           </div>
           <p style={{ color:C.dust, fontSize:13, marginBottom:12, lineHeight:1.6 }}>Internal alerts for admins and team members.</p>
           {!alertsTableReady && <p style={{ color:C.dust, fontSize:13 }}>Run the dashboard setup SQL above to enable alerts.</p>}
-          {alertsTableReady && filteredAlerts.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No alerts match this filter.</p>}
-          {filteredAlerts.slice(0,10).map(item => {
+          {alertsTableReady && alertsForViewer.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No alerts yet.</p>}
+          {alertsForViewer.slice(0,10).map(item => {
             const lvlColor = { info:[C.infoBg,C.info], success:[C.okBg,C.ok], warning:[C.warnBg,C.warn], error:[C.errBg,C.err] }[item.level] || [C.ivory,C.slate];
             return (
               <div key={item.id} style={{ border:`1px solid ${C.smoke}`, borderRadius:10, padding:"12px 14px", marginBottom:10, background:item.status==="read"?C.ivory:C.white }}>
@@ -690,21 +640,13 @@ alter table public.alerts disable row level security;`;
         <div style={card}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:12 }}>
             <h3 style={cardH}>Role-Based Intake Tasks</h3>
-            <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-              <select value={taskFilter} onChange={(e)=>setTaskFilter(e.target.value)} style={{ ...inp2, width:"auto", minWidth:150, padding:"8px 10px", fontSize:12 }}>
-                <option value="all">All tasks</option>
-                <option value="pending">Pending</option>
-                <option value="in_progress">In progress</option>
-                <option value="done">Done</option>
-              </select>
-              <button onClick={syncIncomingTasks} disabled={!tasksTableReady||syncingTasks} style={btn(C.ink,C.white,{opacity:(!tasksTableReady||syncingTasks)?0.55:1,cursor:(!tasksTableReady||syncingTasks)?"not-allowed":"pointer",padding:"8px 14px"})}>
-                {syncingTasks ? "Syncing…" : "Sync Tasks"}
-              </button>
-            </div>
+            <button onClick={syncIncomingTasks} disabled={!tasksTableReady||syncingTasks} style={btn(C.ink,C.white,{opacity:(!tasksTableReady||syncingTasks)?0.55:1,cursor:(!tasksTableReady||syncingTasks)?"not-allowed":"pointer",padding:"8px 14px"})}>
+              {syncingTasks ? "Syncing…" : "Sync Tasks"}
+            </button>
           </div>
           <p style={{ color:C.dust, fontSize:13, marginBottom:12, lineHeight:1.6 }}>Pending models → Agent. Pending bookings → VA. Client leads → Admin.</p>
-          {filteredTasks.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No tasks match this filter.</p>}
-          {filteredTasks.slice(0,12).map(task => {
+          {taskListForViewer.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No tasks assigned yet.</p>}
+          {taskListForViewer.slice(0,12).map(task => {
             const assigned = (task.assigned_email||"unassigned").toLowerCase();
             const canEditTask = canManageAllTasks || assigned === userEmail;
             const sColor = { pending:[C.warnBg,C.warn], in_progress:[C.infoBg,C.info], done:[C.okBg,C.ok] }[task.status] || [C.ivory,C.slate];
@@ -745,17 +687,7 @@ alter table public.alerts disable row level security;`;
 
         {/* Calendar */}
         <div style={card}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:12 }}>
-            <h3 style={{ ...cardH, marginBottom:0 }}>Calendar & Events</h3>
-            <select value={calendarFilter} onChange={(e)=>setCalendarFilter(e.target.value)} style={{ ...inp2, width:"auto", minWidth:170, padding:"8px 10px", fontSize:12 }}>
-              <option value="all">All event types</option>
-              <option value="booking">Bookings only</option>
-              <option value="internal">Internal only</option>
-              <option value="shoot">Shoots only</option>
-              <option value="meeting">Meetings only</option>
-              <option value="deadline">Deadlines only</option>
-            </select>
-          </div>
+          <h3 style={cardH}>Calendar & Events</h3>
           {eventsTableReady && (
             <form onSubmit={addCalendarEvent} style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
               <input placeholder="Event title" value={eventForm.title} onChange={(e)=>setEventForm(p=>({...p,title:e.target.value}))} style={{...inp2,gridColumn:"1/-1"}} />
@@ -788,8 +720,8 @@ alter table public.alerts disable row level security;`;
             </form>
           )}
           {eventNotice && <p style={{ color:C.ok, fontSize:13, marginTop:-4, marginBottom:12 }}>{eventNotice}</p>}
-          {filteredCalendar.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No upcoming events match this filter.</p>}
-          {filteredCalendar.map(ev => (
+          {mergedCalendar.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No upcoming events yet.</p>}
+          {mergedCalendar.map(ev => (
             <div key={ev.id} style={{ display:"flex", gap:12, alignItems:"baseline", marginBottom:8, paddingBottom:8, borderBottom:`1px solid ${C.smoke}` }}>
               <span style={{ fontSize:12, color:C.dust, whiteSpace:"nowrap" }}>{new Date(ev.event_at).toLocaleString()}</span>
               <span style={{ fontSize:13, color:C.ink }}>{ev.title}{ev.event_type?` · ${ev.event_type}`:""}</span>
@@ -800,18 +732,9 @@ alter table public.alerts disable row level security;`;
         {/* Two-col bottom */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:20 }}>
           <div style={card}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:12 }}>
-              <h3 style={{ ...cardH, marginBottom:0 }}>Upcoming Bookings</h3>
-              <select value={bookingFilter} onChange={(e)=>setBookingFilter(e.target.value)} style={{ ...inp2, width:"auto", minWidth:160, padding:"8px 10px", fontSize:12 }}>
-                <option value="all">All bookings</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-            {filteredUpcomingBookings.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No bookings match this filter.</p>}
-            {filteredUpcomingBookings.map(b => (
+            <h3 style={cardH}>Upcoming Bookings</h3>
+            {upcomingBookings.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No upcoming bookings yet.</p>}
+            {upcomingBookings.map(b => (
               <div key={b.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid ${C.smoke}`, gap:8 }}>
                 <span style={{ fontSize:13, color:C.ink }}>{b.name}</span>
                 <span style={{ fontSize:12, color:C.dust }}>{b.preferred_date}</span>
@@ -820,17 +743,9 @@ alter table public.alerts disable row level security;`;
             ))}
           </div>
           <div style={card}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:12 }}>
-              <h3 style={{ ...cardH, marginBottom:0 }}>Recent Submissions</h3>
-              <select value={submissionFilter} onChange={(e)=>setSubmissionFilter(e.target.value)} style={{ ...inp2, width:"auto", minWidth:160, padding:"8px 10px", fontSize:12 }}>
-                <option value="all">All submissions</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
-            {filteredRecentModels.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No submissions match this filter.</p>}
-            {filteredRecentModels.map(m => (
+            <h3 style={cardH}>Recent Submissions</h3>
+            {recentModels.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No submissions yet.</p>}
+            {recentModels.map(m => (
               <div key={m.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid ${C.smoke}`, gap:8 }}>
                 <span style={{ fontSize:13, color:C.ink }}>{m.name}</span>
                 <span style={{ fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", color:m.status==="approved"?"#1a6636":m.status==="rejected"?C.err:C.warn }}>{m.status}</span>
