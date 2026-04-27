@@ -3,7 +3,6 @@ import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { DEFAULT_ROLE_BY_EMAIL, runAuthenticatedCurrentDataSync } from "../utils";
 import { sendModelEventEmail } from "../emailService";
-import { MetricCard } from "../analyticsUtils";
 
 export default function Dashboard() {
   const { user, logout, role, roleByEmail } = useAuth();

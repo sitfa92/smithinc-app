@@ -16,6 +16,31 @@ export default function Submissions() {
     fetchSubmissions();
   }, []);
 
+  const submissionById = React.useMemo(
+    () => Object.fromEntries(submissions.map((submission) => [submission.id, submission])),
+    [submissions]
+  );
+
+  const rejectedCount = React.useMemo(
+    () => submissions.filter((m) => m.status === "rejected").length,
+    [submissions]
+  );
+
+  const filteredSubmissions = React.useMemo(
+    () => submissions.filter((m) => {
+      if (statusFilter === "active") {
+        if (m.status === "rejected") return false;
+      } else if (statusFilter !== "all") {
+        if (m.status !== statusFilter) return false;
+      }
+
+      if (sourceFilter === "manychat") return m.source === "manychat";
+      if (sourceFilter === "direct") return m.source !== "manychat";
+      return true;
+    }),
+    [submissions, statusFilter, sourceFilter]
+  );
+
   const fetchSubmissions = async () => {
     try {
       setError("");
@@ -35,7 +60,7 @@ export default function Submissions() {
   };
 
   const updateModelStatus = async (modelId, newStatus) => {
-    const model = submissions.find((m) => m.id === modelId);
+    const model = submissionById[modelId];
     if (!model) return;
 
     setActionLoading((prev) => ({ ...prev, [modelId]: true }));
@@ -117,7 +142,6 @@ export default function Submissions() {
   };
 
   const deleteAllRejectedApplicants = async () => {
-    const rejectedCount = submissions.filter((m) => m.status === "rejected").length;
     if (rejectedCount === 0) {
       alert("No rejected applicants to delete.");
       return;
@@ -192,16 +216,9 @@ export default function Submissions() {
       {loading && <p style={{ color:C.dust }}>Loading applications…</p>}
       {error && <div style={{ background:C.errBg, border:`1px solid rgba(155,28,28,0.2)`, borderRadius:10, padding:"12px 16px", marginBottom:20, color:C.err, fontSize:13 }}>Error: {error}</div>}
       {!loading && submissions.length === 0 && <p style={{ color:C.dust }}>No submissions yet.</p>}
+      {!loading && submissions.length > 0 && filteredSubmissions.length === 0 && <p style={{ color:C.dust }}>No submissions match the current filters.</p>}
 
-      {!loading && submissions
-        .filter(m => {
-          if (statusFilter === "active") { if (m.status === "rejected") return false; }
-          else if (statusFilter !== "all") { if (m.status !== statusFilter) return false; }
-          if (sourceFilter === "manychat") return m.source === "manychat";
-          if (sourceFilter === "direct") return m.source !== "manychat";
-          return true;
-        })
-        .map(model => (
+      {!loading && filteredSubmissions.map(model => (
           <div key={model.id} style={{ display:"flex", gap:18, padding:18, marginBottom:16, border:`1px solid ${C.smoke}`, borderRadius:12, background:C.white, boxShadow:"0 1px 4px rgba(17,17,17,0.04)", flexWrap:"wrap" }}>
             <div style={{ flex:"0 0 140px", minWidth:0 }}>
               {model.image_url ? (

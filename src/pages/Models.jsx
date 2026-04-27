@@ -2,7 +2,6 @@ import React from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { isMissingColumnError, sendZapierEvent, sendBackendWebhook } from "../utils";
-import { MetricCard } from "../analyticsUtils";
 import { listDigitalsForModel } from "../imageUpload";
 import LuxuryPhotoCarousel from "../components/LuxuryPhotoCarousel";
 
@@ -127,8 +126,16 @@ export default function Models() {
     }
   };
 
-  const approved = models.filter((m) => m.status === "approved").length;
-  const pending = models.filter((m) => m.status === "pending").length;
+  const approved = React.useMemo(() => models.filter((m) => m.status === "approved").length, [models]);
+  const pending = React.useMemo(() => models.filter((m) => m.status === "pending").length, [models]);
+  const modelMetricCards = React.useMemo(
+    () => [
+      { label: "Total Models", value: models.length },
+      { label: "Approved Talent", value: approved },
+      { label: "Pending Review", value: pending },
+    ],
+    [models.length, approved, pending]
+  );
 
   const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2" };
   const card = { background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:"16px 18px", marginBottom:12, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" };
@@ -164,7 +171,7 @@ export default function Models() {
       )}
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:24 }}>
-        {[{label:"Total Models",value:models.length},{label:"Approved Talent",value:approved},{label:"Pending Review",value:pending}].map(m=>(
+        {modelMetricCards.map(m=>(
           <div key={m.label} style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:18, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
             <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust }}>{m.label}</p>
             <p style={{ margin:0, fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:32, fontWeight:500, color:C.ink, lineHeight:1 }}>{m.value}</p>
