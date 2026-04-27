@@ -29,12 +29,13 @@ export default async function handler(req, res) {
   }
 
   if (!supabaseUrl || !serviceRoleKey) {
-    return res.status(503).json({ error: "Missing Supabase server environment variables" });
+    console.error("Missing Supabase server environment variables");
+    return res.status(503).json({ error: "Server configuration error. Please contact support." });
   }
 
-  const origin = req.headers.origin || req.headers.referer || "";
-  const originBase = origin.split("/").slice(0, 3).join("/");
-  if (origin && !ALLOWED_ORIGINS.has(originBase)) {
+  const origin = (req.headers.origin || req.headers.referer || "").split("/").slice(0, 3).join("/");
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
+    console.warn("Blocked request from origin:", origin);
     return res.status(403).json({ error: "Forbidden" });
   }
 
@@ -45,7 +46,7 @@ export default async function handler(req, res) {
   }
 
   if (!allowedMimeTypes.has(contentType)) {
-    return res.status(400).json({ error: "Invalid file type" });
+    return res.status(400).json({ error: "Invalid file type. Allowed: JPEG, PNG, GIF, WebP" });
   }
 
   const extension = String(fileName).split(".").pop() || "jpg";
@@ -55,28 +56,34 @@ export default async function handler(req, res) {
 
   let lastError = null;
   for (const bucket of candidateBuckets) {
-    const { data, error } = await admin.storage.from(bucket).createSignedUploadUrl(filePath);
+    try {
+      const { data, error } = await admin.storage.from(bucket).createSignedUploadUrl(filePath);
 
-    if (error) {
-      lastError = error;
-      const msg = (error.message || "").toLowerCase();
-      if (msg.includes("bucket") && msg.includes("not found")) {
+      if (error) {
+        lastError = error;
+        const msg = (error.message || "").toLowerCase();
+        if (msg.includes("bucket") && msg.includes("not found")) {
+          continue;
+        }
+        console.error(`Sign upload error for bucket ${bucket}:`, error.message);
         continue;
       }
-      return res.status(500).json({ error: error.message || "Failed to sign upload" });
-    }
 
-    return res.status(200).json({
-      bucket,
-      path: filePath,
-      token: data?.token,
-      signedUrl: data?.signedUrl,
-    });
+      return res.status(200).json({
+        bucket,
+        path: filePath,
+        token: data?.token,
+        signedUrl: data?.signedUrl,
+      });
+    } catch (err) {
+      console.error(`Exception signing upload for bucket ${bucket}:`, err.message);
+      lastError = err;
+    }
   }
 
+  console.error("No valid storage bucket found. Last error:", lastError?.message);
   return res.status(500).json({
-    error:
-      lastError?.message ||
-      "No valid storage bucket found for model uploads",
+    error: "Unable to prepare upload. Please check your connection and try again.",
+    detail: process.env.NODE_ENV === "development" ? lastError?.message : undefined,
   });
 }

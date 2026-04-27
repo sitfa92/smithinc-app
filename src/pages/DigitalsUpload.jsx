@@ -13,7 +13,7 @@ export default function DigitalsUpload() {
   const [loading, setLoading] = React.useState(true);
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState("");
-  const [success, setSuccess] = React.useState("");
+  const [success, setSuccess] = React.useState("Your upload link is ready.");
 
   const folder = React.useMemo(() => `digitals/${id}`, [id]);
 
@@ -45,53 +45,43 @@ export default function DigitalsUpload() {
   React.useEffect(() => {
     const load = async () => {
       if (!id) {
-        setError("Missing model link.");
+        setError("Missing model ID. Please use your upload link.");
+        setModel(normalizeModel());
         setLoading(false);
         return;
       }
 
       try {
         setError("");
-        setSuccess("");
+        setSuccess("Loading your upload portal…");
 
         let modelData = null;
-        let modelError = null;
 
-        const primary = await supabase
-          .from("models")
-          .select("id, name, email, instagram, status, pipeline_stage, agency_name")
-          .eq("id", id)
-          .maybeSingle();
-
-        modelData = primary.data;
-        modelError = primary.error;
-
-        if (modelError) {
-          const fallback = await supabase
+        try {
+          const { data } = await supabase
             .from("models")
-            .select("id, name, email, instagram, status")
+            .select("id, name, email, instagram, status, pipeline_stage, agency_name")
             .eq("id", id)
             .maybeSingle();
-
-          modelData = fallback.data ? normalizeModel(fallback.data) : null;
-          modelError = fallback.error;
+          modelData = data;
+        } catch (dbErr) {
+          console.warn("Model lookup failed, using fallback:", dbErr);
         }
 
-        if (modelData) {
-          const normalized = normalizeModel(modelData);
-          setModel(normalized);
-          await loadDigitals(normalized);
-        } else {
-          const fallbackModel = normalizeModel();
-          setModel(fallbackModel);
-          await loadDigitals(fallbackModel);
-          setSuccess("Your upload link is ready. You can add your digitals below.");
+        const model = modelData ? normalizeModel(modelData) : normalizeModel();
+        setModel(model);
+
+        try {
+          await loadDigitals(model);
+        } catch (loadErr) {
+          console.warn("Failed to load existing digitals:", loadErr);
         }
-      } catch {
-        const fallbackModel = normalizeModel();
-        setModel(fallbackModel);
-        setSuccess("Your upload link is ready. You can add your digitals below.");
-        await loadDigitals(fallbackModel);
+
+        setSuccess("Your upload link is ready. Upload your digitals below.");
+      } catch (err) {
+        console.error("Upload portal load error:", err);
+        setModel(normalizeModel());
+        setSuccess("Your upload link is ready. Upload your digitals below.");
       } finally {
         setLoading(false);
       }
@@ -101,22 +91,53 @@ export default function DigitalsUpload() {
   }, [id, loadDigitals, normalizeModel]);
 
   const handleUpload = async () => {
-    if (!selectedFiles.length || !id) return;
+    if (!selectedFiles.length) {
+      setError("Please select at least one file to upload.");
+      return;
+    }
+
+    if (!id) {
+      setError("Upload error: Missing model ID. Please reload and try again.");
+      return;
+    }
 
     setUploading(true);
     setError("");
     setSuccess("");
 
     try {
+      const uploadedPaths = [];
+      const failedFiles = [];
+
       for (const file of selectedFiles) {
-        await uploadImage(file, folder);
+        try {
+          await uploadImage(file, folder);
+          uploadedPaths.push(file.name);
+        } catch (fileErr) {
+          failedFiles.push(`${file.name}: ${fileErr.message}`);
+          console.error("File upload error:", fileErr);
+        }
       }
 
-      setSelectedFiles([]);
-      await loadDigitals(model);
-      setSuccess("Digitals uploaded successfully.");
+      if (uploadedPaths.length > 0) {
+        try {
+          await loadDigitals(model);
+        } catch {
+          // Silently continue - files were uploaded even if we can't reload list
+        }
+        setSelectedFiles([]);
+      }
+
+      if (failedFiles.length > 0 && uploadedPaths.length === 0) {
+        setError(`Upload failed: ${failedFiles[0]}`);
+      } else if (failedFiles.length > 0) {
+        setSuccess(`${uploadedPaths.length} file(s) uploaded. ${failedFiles.length} failed: ${failedFiles.join(", ")}`);
+      } else {
+        setSuccess(`${uploadedPaths.length} file(s) uploaded successfully!`);
+      }
     } catch (err) {
-      setError(err.message || "Upload failed. Please try again.");
+      console.error("Upload handler error:", err);
+      setError(err.message || "Upload failed. Please try again or contact support.");
     } finally {
       setUploading(false);
     }
@@ -206,7 +227,7 @@ export default function DigitalsUpload() {
           </p>
         </div>
 
-        {isEligible && (
+        {(isEligible || !model?.name) && (
           <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 18, marginBottom: 18 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888", marginBottom: 10 }}>Upload files</div>
             <input
