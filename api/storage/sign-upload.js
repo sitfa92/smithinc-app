@@ -8,10 +8,22 @@ const candidateBuckets = [configuredBucket, "model-images", "models", "images"].
 
 const ALLOWED_ORIGINS = new Set([
   "https://meet-serenity.online",
+  "https://www.meet-serenity.online",
   "https://smithinc-app.vercel.app",
+  "capacitor://localhost",
+  "ionic://localhost",
+  "http://localhost",
   "http://localhost:5173",
   "http://localhost:3000",
 ]);
+
+const PREVIEW_ORIGIN_PATTERN = /^https:\/\/[a-z0-9-]+-sitfa92s-projects\.vercel\.app$/;
+
+function isAllowedOrigin(rawOrigin = "") {
+  if (!rawOrigin) return true;
+  const origin = String(rawOrigin).split("/").slice(0, 3).join("/").toLowerCase();
+  return ALLOWED_ORIGINS.has(origin) || PREVIEW_ORIGIN_PATTERN.test(origin);
+}
 
 const allowedMimeTypes = new Set([
   "image/jpeg",
@@ -33,8 +45,8 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: "Server configuration error. Please contact support." });
   }
 
-  const origin = (req.headers.origin || req.headers.referer || "").split("/").slice(0, 3).join("/");
-  if (origin && !ALLOWED_ORIGINS.has(origin)) {
+  const origin = req.headers.origin || req.headers.referer || "";
+  if (!isAllowedOrigin(origin)) {
     console.warn("Blocked request from origin:", origin);
     return res.status(403).json({ error: "Forbidden" });
   }

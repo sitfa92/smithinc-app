@@ -7,10 +7,22 @@ const candidateBuckets = [configuredBucket, "model-images", "models", "images"].
 
 const ALLOWED_ORIGINS = new Set([
   "https://meet-serenity.online",
+  "https://www.meet-serenity.online",
   "https://smithinc-app.vercel.app",
+  "capacitor://localhost",
+  "ionic://localhost",
+  "http://localhost",
   "http://localhost:5173",
   "http://localhost:3000",
 ]);
+
+const PREVIEW_ORIGIN_PATTERN = /^https:\/\/[a-z0-9-]+-sitfa92s-projects\.vercel\.app$/;
+
+function isAllowedOrigin(rawOrigin = "") {
+  if (!rawOrigin) return true;
+  const origin = String(rawOrigin).split("/").slice(0, 3).join("/").toLowerCase();
+  return ALLOWED_ORIGINS.has(origin) || PREVIEW_ORIGIN_PATTERN.test(origin);
+}
 
 const admin = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
 
@@ -26,8 +38,7 @@ export default async function handler(req, res) {
   }
 
   const origin = req.headers.origin || req.headers.referer || "";
-  const originBase = origin.split("/").slice(0, 3).join("/");
-  if (origin && !ALLOWED_ORIGINS.has(originBase)) {
+  if (!isAllowedOrigin(origin)) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
