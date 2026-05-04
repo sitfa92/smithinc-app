@@ -16,7 +16,17 @@ create table if not exists public.call_logs (
 alter table public.call_logs enable row level security;
 
 -- Staff (authenticated users) can read all logs
-create policy "call_logs_staff_read"
-  on public.call_logs
-  for select
-  using (auth.role() = 'authenticated');
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public'
+      and tablename  = 'call_logs'
+      and policyname = 'call_logs_staff_read'
+  ) then
+    create policy "call_logs_staff_read"
+      on public.call_logs
+      for select
+      using (auth.role() = 'authenticated');
+  end if;
+end $$;
