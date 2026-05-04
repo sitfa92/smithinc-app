@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: smithinc-voice-bot
+    runtime: node
+    rootDir: ai-voice-bot
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 5050
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: BOT_NAME
+        value: Serenity
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
