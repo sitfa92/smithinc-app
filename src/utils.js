@@ -25,15 +25,15 @@ export const PIPELINE_STAGES = [
 ];
 
 export const PIPELINE_STAGE_LABELS = {
-  submitted: "Submitted",
-  reviewing: "Reviewing",
-  development: "Development",
+  submitted:       "New Submission",
+  reviewing:       "Under Review",
+  development:     "In Development",
   digitals_pending: "Digitals Pending",
-  ready_to_pitch: "Ready to Pitch",
-  pitched: "Pitched",
-  in_talks: "In Talks",
-  signed: "Signed",
-  rejected: "Rejected",
+  ready_to_pitch:  "Ready to Pitch",
+  pitched:         "Pitched",
+  in_talks:        "In Talks",
+  signed:          "Signed",
+  rejected:        "Not a Fit",
 };
 
 export const PRIORITY_LEVELS = ["low", "medium", "high"];
@@ -163,7 +163,7 @@ export const buildPrefilledLoginLink = (email) =>
 export const canAccessRoute = (role, routeKey) => {
   if (role === "admin") return true;
   if (role === "va") {
-    return ["dashboard", "models", "model-pipeline", "bookings", "clients", "integrations", "workflows"].includes(routeKey);
+    return ["dashboard", "models", "model-pipeline", "bookings", "partners", "partner-pipeline", "partner-submissions", "brand-ambassadors", "brand-ambassador-pipeline", "brand-ambassador-submissions", "integrations", "workflows"].includes(routeKey);
   }
   if (role === "agent") {
     return ["dashboard", "models", "model-pipeline", "submissions", "analytics"].includes(routeKey);

@@ -8,6 +8,7 @@ import LuxuryPhotoCarousel from "../components/LuxuryPhotoCarousel";
 export default function Models() {
   const { role } = useAuth();
   const [models, setModels] = React.useState([]);
+  const [imageLoadFailed, setImageLoadFailed] = React.useState({});
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [saveLoading, setSaveLoading] = React.useState(false);
@@ -21,8 +22,18 @@ export default function Models() {
   });
 
   const canAddModels = ["admin", "agent", "user"].includes(role);
+  const canViewTemplates = role === "admin" || role === "va";
+
+  const MODEL_FOLLOWUP_TEMPLATES = [
+    { label: "Request Digitals",     template: (n) => `Hi ${n}, thank you for applying to SmithInc. The Fashion Agency. To move your application forward, please send your digital photos — full length, close-up, and profile — along with your current measurements (height, bust, waist, hips, shoe size, and location).` },
+    { label: "Request Measurements", template: (n) => `Hi ${n}, we are reviewing your profile at SmithInc. Please send your current measurements: height, bust, waist, hips, shoe size, and location so we can continue.` },
+    { label: "Book Eval Call",       template: (n) => `Hi ${n}, we would like to schedule a brief evaluation call to discuss your application. Please reply with your availability and we will confirm a time.` },
+    { label: "Decline — Not a Fit",  template: (n) => `Hi ${n}, thank you for your interest in SmithInc. The Fashion Agency. After careful review, we have decided not to move forward at this time. We appreciate you applying and wish you well.` },
+    { label: "Welcome — Signed",     template: (n) => `Hi ${n}, welcome to SmithInc. The Fashion Agency. We are pleased to confirm your signing. Our team will be in touch shortly with your onboarding details.` },
+  ];
 
   const [expandedDigitals, setExpandedDigitals] = React.useState({});   // { [modelId]: { open, loading, files } }
+  const [copiedTpl, setCopiedTpl] = React.useState({});
 
   const toggleDigitals = async (model) => {
     const modelId = model?.id;
@@ -55,12 +66,45 @@ export default function Models() {
         .limit(500);
       if (error) throw error;
       setModels(data || []);
+      setImageLoadFailed({});
     } catch (err) {
       setError(err.message || "Failed to load models");
     } finally {
       setLoading(false);
     }
   };
+
+  const getModelImageSrc = React.useCallback((imageUrl) => {
+    const raw = String(imageUrl || "").trim();
+    if (!raw) return "";
+
+    // Some older records stored signed URLs that expire. Convert to public URL shape.
+    if (/^https?:\/\//i.test(raw)) {
+      const signMarker = "/storage/v1/object/sign/";
+      const signIndex = raw.indexOf(signMarker);
+      if (signIndex >= 0) {
+        const signedPath = raw.slice(signIndex + signMarker.length).split("?")[0];
+        return `${raw.slice(0, signIndex)}/storage/v1/object/public/${signedPath}`;
+      }
+      return raw;
+    }
+
+    const cleanPath = raw.replace(/^\/+/, "");
+    if (!cleanPath) return "";
+
+    const bucketCandidates = ["model-images", "models", "images"];
+    if (cleanPath.includes("/")) {
+      const [firstSegment, ...rest] = cleanPath.split("/");
+      if (bucketCandidates.includes(firstSegment) && rest.length) {
+        const fromBucketPath = rest.join("/");
+        const { data } = supabase.storage.from(firstSegment).getPublicUrl(fromBucketPath);
+        return data?.publicUrl || "";
+      }
+    }
+
+    const { data } = supabase.storage.from("model-images").getPublicUrl(cleanPath);
+    return data?.publicUrl || "";
+  }, []);
 
   React.useEffect(() => {
     fetchModels();
@@ -184,16 +228,20 @@ export default function Models() {
       {!loading && models.map(model => {
         const [bg,clr] = statusStyle[model.status] || [C.ivory,C.slate];
         const dState = expandedDigitals[model.id];
+        const imageSrc = getModelImageSrc(model.image_url);
+        const showImage = Boolean(imageSrc) && !imageLoadFailed[model.id];
         return (
           <div key={model.id} style={card}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
               {/* Avatar + info */}
               <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
-                {model.image_url ? (
+                {showImage ? (
                   <img
-                    src={model.image_url}
+                    src={imageSrc}
                     alt={model.name}
                     loading="lazy"
+                    decoding="async"
+                    onError={() => setImageLoadFailed((prev) => ({ ...prev, [model.id]: true }))}
                     style={{ width:52, height:52, borderRadius:10, objectFit:"cover", flexShrink:0, border:`1px solid ${C.smoke}`, background:C.ivory }}
                   />
                 ) : (
@@ -239,6 +287,33 @@ export default function Models() {
                 )}
               </div>
             </div>
+
+            {/* Follow-up templates for admin / support lead */}
+            {canViewTemplates && (
+              <div style={{ marginTop:10, paddingTop:10, borderTop:`1px solid ${C.smoke}` }}>
+                <p style={{ margin:"0 0 6px", fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust }}>Follow-up Templates</p>
+                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                  {MODEL_FOLLOWUP_TEMPLATES.map(({ label, template }) => {
+                    const tplKey = `${model.id}-${label}`;
+                    const copied = !!copiedTpl[tplKey];
+                    return (
+                      <button
+                        key={label}
+                        onClick={() => {
+                          navigator.clipboard.writeText(template(model.name || "there"));
+                          setCopiedTpl(prev => ({ ...prev, [tplKey]: true }));
+                          setTimeout(() => setCopiedTpl(prev => ({ ...prev, [tplKey]: false })), 2000);
+                        }}
+                        title={`Copy "${label}" message`}
+                        style={{ padding:"5px 10px", background: copied ? C.okBg : C.ivory, color: copied ? C.ok : C.slate, border:`1px solid ${copied ? "rgba(26,102,54,0.3)" : C.smoke}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+                      >
+                        {copied ? "✓ Copied" : `📋 ${label}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Inline digitals toggle */}
             <div style={{ marginTop:10, borderTop:`1px solid ${C.smoke}`, paddingTop:10, display:"flex", alignItems:"center", gap:8 }}>

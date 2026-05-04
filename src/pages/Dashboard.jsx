@@ -5,6 +5,9 @@ import { DEFAULT_ROLE_BY_EMAIL, runAuthenticatedCurrentDataSync } from "../utils
 import { sendModelEventEmail } from "../emailService";
 import { MetricCard } from "../analyticsUtils";
 
+const MJ_VA_EMAIL = "marthajohn223355@gmail.com";
+const CHIZZY_AGENT_EMAIL = "chizzyboi72@gmail.com";
+
 export default function Dashboard() {
   const { user, logout, role, roleByEmail } = useAuth();
   const [models, setModels] = React.useState([]);
@@ -20,6 +23,8 @@ export default function Dashboard() {
   const [alertsTableReady, setAlertsTableReady] = React.useState(true);
   const [eventsTableReady, setEventsTableReady] = React.useState(true);
   const [syncingTasks, setSyncingTasks] = React.useState(false);
+  const [taskFilter, setTaskFilter] = React.useState("all");
+  const [roleKpiRange, setRoleKpiRange] = React.useState("30d");
   const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false, syncedAt: "" });
   const [savingEvent, setSavingEvent] = React.useState(false);
   const [updatingAlertId, setUpdatingAlertId] = React.useState("");
@@ -27,7 +32,9 @@ export default function Dashboard() {
   const [eventForm, setEventForm] = React.useState({
     title: "",
     event_at: "",
-    event_type: "internal",
+    event_type: "editorial",
+    rate: "",
+    submission_deadline: "",
     notes: "",
     notify_target: "none",
     target_model_id: "",
@@ -140,7 +147,7 @@ alter table public.alerts disable row level security;`;
           title: `Review model submission: ${model.name || "Unnamed"}`,
           description: "New model submission requires review and decision.",
           role: "agent",
-          assigned_email: assigneeByRole.agent || null,
+          assigned_email: CHIZZY_AGENT_EMAIL || assigneeByRole.agent || null,
           source_type: "model",
           source_id: String(model.id),
           status: "pending",
@@ -157,7 +164,7 @@ alter table public.alerts disable row level security;`;
           title: `Confirm booking request: ${booking.name || "Unknown"}`,
           description: "New booking request requires follow-up and confirmation.",
           role: "va",
-          assigned_email: assigneeByRole.va || null,
+          assigned_email: MJ_VA_EMAIL || assigneeByRole.va || null,
           source_type: "booking",
           source_id: String(booking.id),
           status: "pending",
@@ -169,13 +176,16 @@ alter table public.alerts disable row level security;`;
     clients
       .filter((c) => (c.status || "").toLowerCase() === "lead")
       .forEach((client) => {
+        const isBrandAmbassador = (client.source || "") === "brand_ambassador";
         tasks.push({
           task_key: `client-onboard-${client.id}`,
-          title: `Qualify new client lead: ${client.name || "Unnamed"}`,
-          description: "New lead in client list needs onboarding decision.",
-          role: "admin",
-          assigned_email: assigneeByRole.admin || null,
-          source_type: "client",
+          title: `${isBrandAmbassador ? "Qualify new brand ambassador lead" : "Qualify new partner lead"}: ${client.name || "Unnamed"}`,
+          description: isBrandAmbassador
+            ? "New lead in brand ambassador list needs onboarding decision."
+            : "New lead in partner list needs onboarding decision.",
+          role: "va",
+          assigned_email: MJ_VA_EMAIL || assigneeByRole.va || null,
+          source_type: isBrandAmbassador ? "brand_ambassador" : "partner",
           source_id: String(client.id),
           status: "pending",
           due_at: client.created_at || new Date().toISOString(),
@@ -240,7 +250,7 @@ alter table public.alerts disable row level security;`;
       const [modelsRes, bookingsRes, clientsRes] = await Promise.all([
         supabase.from("models").select("id, name, email, status, submitted_at, created_at").order("submitted_at", { ascending: false }),
         supabase.from("bookings").select("id, name, status, preferred_date, created_at").order("created_at", { ascending: false }),
-        supabase.from("clients").select("id, name, status, created_at").order("created_at", { ascending: false }),
+        supabase.from("clients").select("id, name, status, source, created_at").order("created_at", { ascending: false }),
       ]);
 
       if (modelsRes.error) throw modelsRes.error;
@@ -317,11 +327,17 @@ alter table public.alerts disable row level security;`;
     setSavingEvent(true);
     setEventNotice("");
     try {
+      const enrichedNotes = [
+        eventForm.notes.trim(),
+        eventForm.rate.trim() ? `Rate: ${eventForm.rate.trim()}` : "",
+        eventForm.submission_deadline ? `Submission deadline: ${new Date(eventForm.submission_deadline).toLocaleString()}` : "",
+      ].filter(Boolean).join("\n");
+
       const payload = {
         title: eventForm.title.trim(),
         event_at: new Date(eventForm.event_at).toISOString(),
         event_type: eventForm.event_type,
-        notes: eventForm.notes.trim(),
+        notes: enrichedNotes,
         created_by: (user?.email || "").toLowerCase(),
       };
       const { error: insertError } = await supabase.from("calendar_events").insert([payload]);
@@ -344,14 +360,14 @@ alter table public.alerts disable row level security;`;
       }
 
       if (eventForm.notify_target === "none") {
-        setEventNotice("Event saved to your calendar.");
+        setEventNotice("Casting call saved to your calendar.");
       } else if (recipients.length === 0) {
-        setEventNotice("Event saved, but no approved models were selected for email.");
+        setEventNotice("Casting call saved, but no approved models were selected for email.");
       } else {
-        setEventNotice(`Event saved and emailed to ${sentCount} of ${recipients.length} model${recipients.length === 1 ? "" : "s"}.`);
+        setEventNotice(`Casting call saved and emailed to ${sentCount} of ${recipients.length} model${recipients.length === 1 ? "" : "s"}.`);
       }
 
-      setEventForm({ title: "", event_at: "", event_type: "internal", notes: "", notify_target: "none", target_model_id: "" });
+      setEventForm({ title: "", event_at: "", event_type: "editorial", rate: "", submission_deadline: "", notes: "", notify_target: "none", target_model_id: "" });
       await fetchOpsAndEvents();
     } catch (err) {
       alert(err.message || "Failed to save calendar event");
@@ -372,7 +388,7 @@ alter table public.alerts disable row level security;`;
         loading: false,
         error: false,
         syncedAt: json.synced_at || "",
-        message: `Sync complete. Models: ${json.models_count}, bookings: ${json.bookings_count}, clients: ${json.clients_count}, leads: ${json.leads_count}, enrollments: ${json.enrollments_count}, tasks synced: ${json.tasks_synced}.`,
+          message: `Sync complete. Models: ${json.models_count}, bookings: ${json.bookings_count}, partners: ${json.clients_count}, leads: ${json.leads_count}, enrollments: ${json.enrollments_count}, tasks synced: ${json.tasks_synced}.`,
       });
     } catch (err) {
       setCurrentDataSyncState({
@@ -403,6 +419,66 @@ alter table public.alerts disable row level security;`;
     pending: opsTasks.filter((t) => t.status === "pending").length,
     done: opsTasks.filter((t) => t.status === "done").length,
   };
+
+  const inRange = React.useCallback((value) => {
+    if (roleKpiRange === "all") return true;
+    const ts = new Date(value || "").getTime();
+    if (!ts || Number.isNaN(ts)) return false;
+    const days = roleKpiRange === "7d" ? 7 : 30;
+    return Date.now() - ts <= days * 24 * 60 * 60 * 1000;
+  }, [roleKpiRange]);
+
+  const isMjViewer = userEmail === MJ_VA_EMAIL.toLowerCase() || role === "va";
+  const isChizzyViewer = userEmail === CHIZZY_AGENT_EMAIL.toLowerCase() || role === "agent";
+
+  const mjTasks = React.useMemo(() => opsTasks.filter((task) => {
+    const assigned = (task.assigned_email || "").toLowerCase();
+    const isOwned = assigned === MJ_VA_EMAIL.toLowerCase() || task.role === "va";
+    return isOwned && inRange(task.updated_at || task.created_at || task.due_at);
+  }), [opsTasks, inRange]);
+  const chizzyTasks = React.useMemo(() => opsTasks.filter((task) => {
+    const assigned = (task.assigned_email || "").toLowerCase();
+    const isOwned = assigned === CHIZZY_AGENT_EMAIL.toLowerCase() || task.role === "agent";
+    return isOwned && inRange(task.updated_at || task.created_at || task.due_at);
+  }), [opsTasks, inRange]);
+
+  const filteredBookings = React.useMemo(() => bookings.filter((b) => inRange(b.preferred_date || b.created_at)), [bookings, inRange]);
+  const filteredClients = React.useMemo(() => clients.filter((c) => inRange(c.created_at)), [clients, inRange]);
+  const filteredModels = React.useMemo(() => models.filter((m) => inRange(m.submitted_at || m.created_at)), [models, inRange]);
+
+  const partnerLeads = React.useMemo(() => filteredClients.filter((c) => (c.status || "").toLowerCase() === "lead" && (c.source || "") !== "brand_ambassador").length, [filteredClients]);
+  const ambassadorLeads = React.useMemo(() => filteredClients.filter((c) => (c.status || "").toLowerCase() === "lead" && (c.source || "") === "brand_ambassador").length, [filteredClients]);
+  const modelsPending = React.useMemo(() => filteredModels.filter((m) => (m.status || "").toLowerCase() === "pending").length, [filteredModels]);
+  const modelsApproved = React.useMemo(() => filteredModels.filter((m) => (m.status || "").toLowerCase() === "approved").length, [filteredModels]);
+  const modelsRejected = React.useMemo(() => filteredModels.filter((m) => (m.status || "").toLowerCase() === "rejected").length, [filteredModels]);
+  const reviewedModels = modelsApproved + modelsRejected;
+  const approvalRate = reviewedModels > 0 ? `${Math.round((modelsApproved / reviewedModels) * 100)}%` : "0%";
+
+  const roleKpiSections = [];
+  if (isMjViewer || canManageAllTasks) {
+    roleKpiSections.push({
+      key: "mj",
+      title: "Operational Support Lead KPIs",
+      items: [
+        { label: "VA Open Tasks", value: mjTasks.filter((t) => (t.status || "pending") !== "done").length },
+          { label: "Bookings Pending", value: filteredBookings.filter((b) => (b.status || "").toLowerCase() === "pending").length },
+        { label: "Partner Leads", value: partnerLeads },
+        { label: "Ambassador Leads", value: ambassadorLeads },
+      ],
+    });
+  }
+  if (isChizzyViewer || canManageAllTasks) {
+    roleKpiSections.push({
+      key: "chizzy",
+      title: "Signing Agent Overview",
+      items: [
+        { label: "Agent Open Tasks", value: chizzyTasks.filter((t) => (t.status || "pending") !== "done").length },
+        { label: "Models Pending", value: modelsPending },
+        { label: "Models Approved", value: modelsApproved },
+        { label: "Approval Rate", value: approvalRate },
+      ],
+    });
+  }
 
   const markAlertRead = async (alertId) => {
     if (!alertsTableReady) return;
@@ -491,7 +567,7 @@ alter table public.alerts disable row level security;`;
       {/* Header */}
       <div style={{ marginBottom:28 }}>
         <h1 style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:"clamp(26px,4vw,38px)", fontWeight:500, color:C.ink, letterSpacing:"-0.02em", margin:0 }}>
-          Central Operations
+          Brand Ambassador Tab
         </h1>
         <p style={{ color:C.dust, marginTop:6, fontSize:13 }}>
           {user?.email || "Unknown user"} · <span style={{ textTransform:"uppercase", letterSpacing:"0.06em", fontSize:11 }}>{role}</span>
@@ -507,12 +583,83 @@ alter table public.alerts disable row level security;`;
           Last current-data sync: {new Date(currentDataSyncState.syncedAt).toLocaleString()}
         </p>
       )}
+      {/* MJ Operations Command Center */}
+      {(isMjViewer || canManageAllTasks) && !loading && (
+        <div style={{ ...card, borderTop:`3px solid ${C.gold}`, marginBottom:24 }}>
+          <div style={{ marginBottom:14 }}>
+            <p style={{ margin:"0 0 2px", fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:20, fontWeight:500, color:C.ink }}>Operations Command Center</p>
+            <p style={{ margin:0, fontSize:12, color:C.dust }}>MJ · Operational Support Lead — app-side communication, onboarding, and follow-up.</p>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:16 }}>
+            {[
+              { label:"Bookings Pending", value:filteredBookings.filter((b) => (b.status||"").toLowerCase()==="pending").length, color:C.warn, bg:C.warnBg },
+              { label:"Partner Leads",   value:partnerLeads, color:C.info, bg:C.infoBg },
+              { label:"Ambassador Leads",value:ambassadorLeads, color:C.ok, bg:C.okBg },
+              { label:"Open Tasks",      value:mjTasks.filter((t)=>(t.status||"pending")!=="done").length, color:C.ink, bg:C.ivory },
+            ].map(item => (
+              <div key={item.label} style={{ border:`1px solid ${C.smoke}`, borderRadius:10, padding:"12px 14px", background:item.bg }}>
+                <p style={{ margin:"0 0 4px", fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:item.color }}>{item.label}</p>
+                <p style={{ margin:0, fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:28, fontWeight:500, color:C.ink, lineHeight:1 }}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            <a href="/bookings" style={{ padding:"9px 16px", background:C.ink, color:C.white, borderRadius:8, fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", textDecoration:"none", fontFamily:"'Inter',sans-serif" }}>Bookings →</a>
+            <a href="/submissions" style={{ padding:"9px 16px", background:C.ivory, color:C.ink, border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", textDecoration:"none", fontFamily:"'Inter',sans-serif" }}>Submissions →</a>
+            <a href="/partners" style={{ padding:"9px 16px", background:C.ivory, color:C.ink, border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", textDecoration:"none", fontFamily:"'Inter',sans-serif" }}>Partners →</a>
+            <a href="/brand-ambassadors" style={{ padding:"9px 16px", background:C.ivory, color:C.ink, border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", textDecoration:"none", fontFamily:"'Inter',sans-serif" }}>Brand Ambassadors →</a>
+          </div>
+        </div>
+      )}
+
+      {/* Chizzy Signing Command Center */}
+      {isChizzyViewer && !loading && (
+        <div style={{ ...card, borderTop:`3px solid ${C.ink}`, marginBottom:24 }}>
+          <div style={{ marginBottom:14 }}>
+            <p style={{ margin:"0 0 2px", fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:20, fontWeight:500, color:C.ink }}>Signing Command Center</p>
+            <p style={{ margin:0, fontSize:12, color:C.dust }}>Review and qualify model submissions for SmithInc. The Fashion Agency.</p>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:16 }}>
+            {[
+              { label:"Awaiting Review", value:modelsPending, color:modelsPending > 0 ? C.warn : C.dust, bg:modelsPending > 0 ? C.warnBg : C.ivory },
+              { label:"Approved", value:modelsApproved, color:C.ok, bg:C.okBg },
+              { label:"Approval Rate", value:approvalRate, color:C.ink, bg:C.white },
+              { label:"Open Tasks", value:chizzyTasks.filter(t=>(t.status||"pending")!=="done").length, color:C.info, bg:C.infoBg },
+            ].map(item => (
+              <div key={item.label} style={{ border:`1px solid ${C.smoke}`, borderRadius:10, padding:"12px 14px", background:item.bg }}>
+                <p style={{ margin:"0 0 4px", fontSize:10, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:item.color }}>{item.label}</p>
+                <p style={{ margin:0, fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:28, fontWeight:500, color:C.ink, lineHeight:1 }}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom: modelsPending > 0 ? 16 : 0 }}>
+            <a href="/submissions" style={{ padding:"9px 16px", background:C.ink, color:C.white, borderRadius:8, fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", textDecoration:"none", fontFamily:"'Inter',sans-serif" }}>Review Submissions →</a>
+            <a href="/model-pipeline" style={{ padding:"9px 16px", background:C.ivory, color:C.ink, border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:11, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", textDecoration:"none", fontFamily:"'Inter',sans-serif" }}>Signing Pipeline →</a>
+          </div>
+          {modelsPending > 0 && (
+            <div>
+              <p style={{ margin:"0 0 8px", fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color:C.dust }}>Pending review</p>
+              {models.filter(m=>m.status==="pending").slice(0,3).map(m => (
+                <div key={m.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"9px 0", borderBottom:`1px solid ${C.smoke}` }}>
+                  <div>
+                    <p style={{ margin:0, fontSize:13, fontWeight:600, color:C.ink }}>{m.name}</p>
+                    <p style={{ margin:0, fontSize:12, color:C.dust }}>{m.email} · {new Date(m.submitted_at||m.created_at).toLocaleDateString()}</p>
+                  </div>
+                  <span style={{ padding:"3px 9px", borderRadius:99, background:C.warnBg, color:C.warn, fontSize:10, fontWeight:700, letterSpacing:"0.06em", textTransform:"uppercase" }}>Pending</span>
+                </div>
+              ))}
+              {modelsPending > 3 && <p style={{ margin:"8px 0 0", fontSize:12, color:C.dust }}>+{modelsPending - 3} more pending submissions.</p>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Metric Grid */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:14, marginBottom:28 }}>
         {[
           { label:"Models",        value:models.length },
           { label:"Bookings",      value:bookings.length },
-          { label:"Clients",       value:clients.length },
+          { label:"Partners",      value:clients.length },
           { label:"Tasks Pending", value:taskSummary.pending },
           { label:"Tasks Done",    value:taskSummary.done },
           { label:"Unread Alerts", value:unreadAlerts },
@@ -524,11 +671,62 @@ alter table public.alerts disable row level security;`;
         ))}
       </div>
 
+      {/* Role KPIs */}
+      {roleKpiSections.length > 0 && (
+        <div style={{ display:"grid", gap:16, marginBottom:28 }}>
+          {roleKpiSections.map((section) => (
+            <div key={section.key} style={{ ...card, marginBottom:0 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:14 }}>
+                <h3 style={{ ...cardH, marginBottom:0 }}>{section.title}</h3>
+                <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                  {[
+                    { value: "7d", label: "7d" },
+                    { value: "30d", label: "30d" },
+                    { value: "all", label: "All" },
+                  ].map((opt) => {
+                    const active = roleKpiRange === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setRoleKpiRange(opt.value)}
+                        style={{
+                          padding: "5px 10px",
+                          borderRadius: 999,
+                          border: `1px solid ${active ? C.ink : C.smoke}`,
+                          background: active ? C.ink : C.white,
+                          color: active ? C.white : C.slate,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          cursor: "pointer",
+                          fontFamily: "'Inter',sans-serif",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:12 }}>
+                {section.items.map((item) => (
+                  <div key={item.label} style={{ border:`1px solid ${C.smoke}`, borderRadius:10, padding:"14px 14px", background:C.white }}>
+                    <p style={{ margin:"0 0 6px", fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust }}>{item.label}</p>
+                    <p style={{ margin:0, fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:30, fontWeight:500, color:C.ink, lineHeight:1 }}>{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Charts */}
       {!loading && (models.length > 0 || bookings.length > 0 || clients.length > 0) && (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:16, marginBottom:28 }}>
           <div style={{ ...card, marginBottom:0 }}>
-            <h3 style={{ ...cardH, marginBottom:16 }}>Booking Pipeline</h3>
+            <h3 style={{ ...cardH, marginBottom:16 }}>Brand Ambassador Pipeline</h3>
             <SvgBar data={[
               { label:"Pending",   v:bookings.filter(b=>b.status==="pending").length,   color:C.warn },
               { label:"Confirmed", v:bookings.filter(b=>b.status==="confirmed").length, color:C.info },
@@ -545,7 +743,7 @@ alter table public.alerts disable row level security;`;
             ]} />
           </div>
           <div style={{ ...card, marginBottom:0 }}>
-            <h3 style={{ ...cardH, marginBottom:16 }}>Client Pipeline</h3>
+            <h3 style={{ ...cardH, marginBottom:16 }}>Partner Pipeline</h3>
             <SvgBar data={[
               { label:"Lead",      v:clients.filter(c=>c.status==="lead").length,      color:C.warn },
               { label:"Active",    v:clients.filter(c=>c.status==="active").length,    color:C.ok },
@@ -635,33 +833,65 @@ alter table public.alerts disable row level security;`;
         {/* Tasks */}
         <div style={card}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:12 }}>
-            <h3 style={cardH}>Role-Based Intake Tasks</h3>
+            <h3 style={cardH}>Intake Tasks</h3>
             <button onClick={syncIncomingTasks} disabled={!tasksTableReady||syncingTasks} style={btn(C.ink,C.white,{opacity:(!tasksTableReady||syncingTasks)?0.55:1,cursor:(!tasksTableReady||syncingTasks)?"not-allowed":"pointer",padding:"8px 14px"})}>
               {syncingTasks ? "Syncing…" : "Sync Tasks"}
             </button>
           </div>
-          <p style={{ color:C.dust, fontSize:13, marginBottom:12, lineHeight:1.6 }}>Pending models → Agent. Pending bookings → VA. Client leads → Admin.</p>
-          {taskListForViewer.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No tasks assigned yet.</p>}
-          {taskListForViewer.slice(0,12).map(task => {
-            const assigned = (task.assigned_email||"unassigned").toLowerCase();
-            const canEditTask = canManageAllTasks || assigned === userEmail;
-            const sColor = { pending:[C.warnBg,C.warn], in_progress:[C.infoBg,C.info], done:[C.okBg,C.ok] }[task.status] || [C.ivory,C.slate];
-            return (
-              <div key={task.id} style={{ border:`1px solid ${C.smoke}`, borderRadius:10, padding:"12px 14px", marginBottom:10 }}>
-                <p style={{ margin:"0 0 4px", fontWeight:600, fontSize:14, color:C.ink }}>{task.title}</p>
-                <p style={{ margin:"0 0 8px", color:C.dust, fontSize:12 }}>Role: {task.role} · Assigned: {task.assigned_email||"Unassigned"}</p>
-                <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                  <span style={{ padding:"3px 10px", borderRadius:99, background:sColor[0], color:sColor[1], fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>{task.status||"pending"}</span>
-                  <select value={task.status||"pending"} onChange={(e)=>updateTaskStatus(task.id,e.target.value)} disabled={!canEditTask||!tasksTableReady}
-                    style={{ padding:"6px 10px", border:`1px solid ${C.smoke}`, borderRadius:6, fontSize:12, color:C.slate, background:C.white, outline:"none", cursor:canEditTask?"pointer":"not-allowed" }}>
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="done">Done</option>
-                  </select>
+          <p style={{ color:C.dust, fontSize:13, marginBottom:12, lineHeight:1.6 }}>Models → Chizzy. Talent, partners &amp; brand ambassadors → MJ.</p>
+          <div style={{ marginBottom:14 }}>
+            <select
+              value={taskFilter}
+              onChange={(e) => setTaskFilter(e.target.value)}
+              style={{ padding:"9px 13px", fontSize:13, color:C.ink, background:C.white, border:`1px solid ${C.smoke}`, borderRadius:8, outline:"none", fontFamily:"'Inter',sans-serif", minWidth:260 }}
+            >
+              <option value="all">All Tasks</option>
+              <option value="chizzy">Chizzy — Models</option>
+              <option value="mj">MJ — Talent, Partners &amp; Brand Ambassadors</option>
+            </select>
+          </div>
+          {(() => {
+            const filtered = taskListForViewer.filter(task => {
+              if ((task.status || "pending") === "done") return false;
+              if (taskFilter === "all") return true;
+              const ae = (task.assigned_email || "").toLowerCase();
+              if (taskFilter === "chizzy") return ae === CHIZZY_AGENT_EMAIL.toLowerCase();
+              if (taskFilter === "mj") return ae === MJ_VA_EMAIL.toLowerCase();
+              return true;
+            });
+            const roleLabel = (task) => {
+              const ae = (task.assigned_email || "").toLowerCase();
+              if (ae === CHIZZY_AGENT_EMAIL.toLowerCase()) return "Chizzy — Models";
+              if (ae === MJ_VA_EMAIL.toLowerCase()) {
+                const st = task.source_type || "";
+                if (st === "brand_ambassador") return "MJ — Brand Ambassadors";
+                if (st === "partner") return "MJ — Partners";
+                return "MJ — Talent";
+              }
+              return task.assigned_email || "Unassigned";
+            };
+            if (filtered.length === 0) return <p style={{ color:C.dust, fontSize:13 }}>No tasks assigned yet.</p>;
+            return filtered.slice(0, 20).map(task => {
+              const assigned = (task.assigned_email||"unassigned").toLowerCase();
+              const canEditTask = canManageAllTasks || assigned === userEmail;
+              const sColor = { pending:[C.warnBg,C.warn], in_progress:[C.infoBg,C.info], done:[C.okBg,C.ok] }[task.status] || [C.ivory,C.slate];
+              return (
+                <div key={task.id} style={{ border:`1px solid ${C.smoke}`, borderRadius:10, padding:"12px 14px", marginBottom:10 }}>
+                  <p style={{ margin:"0 0 4px", fontWeight:600, fontSize:14, color:C.ink }}>{task.title}</p>
+                  <p style={{ margin:"0 0 8px", color:C.dust, fontSize:12 }}>Assigned to: {roleLabel(task)}</p>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                    <span style={{ padding:"3px 10px", borderRadius:99, background:sColor[0], color:sColor[1], fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>{task.status||"pending"}</span>
+                    <select value={task.status||"pending"} onChange={(e)=>updateTaskStatus(task.id,e.target.value)} disabled={!canEditTask||!tasksTableReady}
+                      style={{ padding:"6px 10px", border:`1px solid ${C.smoke}`, borderRadius:6, fontSize:12, color:C.slate, background:C.white, outline:"none", cursor:canEditTask?"pointer":"not-allowed" }}>
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="done">Done</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
 
         {/* Team Progress */}
@@ -681,42 +911,46 @@ alter table public.alerts disable row level security;`;
           ))}
         </div>
 
-        {/* Calendar */}
+        {/* Casting Calls */}
         <div style={card}>
-          <h3 style={cardH}>Calendar & Events</h3>
+          <h3 style={cardH}>Casting Calls</h3>
           {eventsTableReady && (
             <form onSubmit={addCalendarEvent} style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
-              <input placeholder="Event title" value={eventForm.title} onChange={(e)=>setEventForm(p=>({...p,title:e.target.value}))} style={{...inp2,gridColumn:"1/-1"}} />
+              <input placeholder="Casting call title" value={eventForm.title} onChange={(e)=>setEventForm(p=>({...p,title:e.target.value}))} style={{...inp2,gridColumn:"1/-1"}} />
               <input type="datetime-local" value={eventForm.event_at} onChange={(e)=>setEventForm(p=>({...p,event_at:e.target.value}))} style={inp2} />
               <select value={eventForm.event_type} onChange={(e)=>setEventForm(p=>({...p,event_type:e.target.value}))} style={{ ...inp2, appearance:"none" }}>
-                <option value="internal">Internal</option>
-                <option value="shoot">Shoot</option>
-                <option value="meeting">Meeting</option>
-                <option value="deadline">Deadline</option>
+                <option value="editorial">Editorial</option>
+                <option value="runway">Runway</option>
+                <option value="beauty">Beauty</option>
+                <option value="ecommerce">Ecommerce</option>
+                <option value="fit-model">Fit Model</option>
+                <option value="other">Other</option>
               </select>
+              <input placeholder="Rate (optional)" value={eventForm.rate} onChange={(e)=>setEventForm(p=>({...p,rate:e.target.value}))} style={inp2} />
+              <input type="datetime-local" value={eventForm.submission_deadline} onChange={(e)=>setEventForm(p=>({...p,submission_deadline:e.target.value}))} style={inp2} />
               <div style={{ gridColumn:"1/-1" }}>
                 <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust, marginBottom:6 }}>
-                  Send event email to
+                    Send casting call to
                 </div>
                 <select value={eventForm.notify_target} onChange={(e)=>setEventForm(p=>({...p,notify_target:e.target.value}))} style={{ ...inp2, appearance:"none" }}>
-                  <option value="none">Calendar only — do not email</option>
+                    <option value="none">Save only — do not email</option>
                   <option value="approved">All approved models</option>
                   {approvedMailableModels.map((model) => (
                     <option key={model.id} value={`model:${model.id}`}>{model.name} · {model.email}</option>
                   ))}
                 </select>
                 <div style={{ color:C.dust, fontSize:12, marginTop:6 }}>
-                  Choose one model by name, or send the event to all approved models.
+                    Choose one model by name, or send the casting call to all approved models.
                 </div>
               </div>
-              <input placeholder="Notes, location, or link (optional)" value={eventForm.notes} onChange={(e)=>setEventForm(p=>({...p,notes:e.target.value}))} style={{...inp2,gridColumn:"1/-1"}} />
+              <input placeholder="Role notes, location, rates, or submission link (optional)" value={eventForm.notes} onChange={(e)=>setEventForm(p=>({...p,notes:e.target.value}))} style={{...inp2,gridColumn:"1/-1"}} />
               <button type="submit" disabled={savingEvent} style={btn(C.ink,C.white,{gridColumn:"1/-1",opacity:savingEvent?0.55:1,cursor:savingEvent?"not-allowed":"pointer"})}>
-                {savingEvent ? "Saving…" : "Add Event"}
+                  {savingEvent ? "Saving…" : "Send Casting Call"}
               </button>
             </form>
           )}
           {eventNotice && <p style={{ color:C.ok, fontSize:13, marginTop:-4, marginBottom:12 }}>{eventNotice}</p>}
-          {mergedCalendar.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No upcoming events yet.</p>}
+          {mergedCalendar.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No upcoming casting calls yet.</p>}
           {mergedCalendar.map(ev => (
             <div key={ev.id} style={{ display:"flex", gap:12, alignItems:"baseline", marginBottom:8, paddingBottom:8, borderBottom:`1px solid ${C.smoke}` }}>
               <span style={{ fontSize:12, color:C.dust, whiteSpace:"nowrap" }}>{new Date(ev.event_at).toLocaleString()}</span>

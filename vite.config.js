@@ -8,6 +8,8 @@ export default defineConfig({
     target: 'esnext',
     minify: 'oxc',
     cssCodeSplit: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -19,6 +21,9 @@ export default defineConfig({
           }
           if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-') || id.includes('node_modules/victory-vendor')) {
             return 'charts'
+          }
+          if (id.includes('node_modules/@fontsource')) {
+            return 'fonts'
           }
         },
       },

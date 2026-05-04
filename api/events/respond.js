@@ -61,11 +61,13 @@ export default async function handler(req, res) {
   const {
     modelName = "there",
     modelEmail = "",
-    eventTitle = "Event",
-    eventType = "meeting",
+    eventTitle = "Casting call",
+    eventType = "casting",
     eventAt = "",
-    action = "confirm",
+    action = "available",
     requestedTime = "",
+    phone = "",
+    instagram = "",
     message = "",
   } = req.body || {};
 
@@ -74,28 +76,37 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing or invalid model email" });
   }
 
-  const normalizedAction = ["confirm", "reschedule", "cancel"].includes(action) ? action : "confirm";
+  const actionAlias = {
+    confirm: "available",
+    reschedule: "maybe",
+    cancel: "unavailable",
+  };
+  const normalizedAction = ["available", "maybe", "unavailable"].includes(action)
+    ? action
+    : actionAlias[action] || "available";
   const requestedLabel = requestedTime ? formatDate(requestedTime) : "Not provided";
   const titleByAction = {
-    confirm: "Model confirmed event",
-    reschedule: "Model requested reschedule",
-    cancel: "Model cancelled event",
+    available: "Model available for casting",
+    maybe: "Model submitted tentative availability",
+    unavailable: "Model unavailable for casting",
   };
   const levelByAction = {
-    confirm: "success",
-    reschedule: "warning",
-    cancel: "error",
+    available: "success",
+    maybe: "warning",
+    unavailable: "error",
   };
 
   const internalTitle = `${titleByAction[normalizedAction]}: ${modelName}`;
   const internalMessage = [
-    `${modelName} responded to an event invitation.`,
-    `Action: ${normalizedAction}`,
-    `Event: ${eventTitle}`,
-    `Type: ${eventType}`,
+    `${modelName} submitted a casting call response.`,
+    `Response: ${normalizedAction}`,
+    `Casting call: ${eventTitle}`,
+    `Category: ${eventType}`,
     `Scheduled for: ${formatDate(eventAt)}`,
     `Model email: ${cleanEmail}`,
-    normalizedAction === "reschedule" ? `Requested new time: ${requestedLabel}` : null,
+    phone ? `Phone: ${phone}` : null,
+    instagram ? `Instagram: ${instagram}` : null,
+    normalizedAction === "maybe" ? `Preferred/alternate time: ${requestedLabel}` : null,
     message ? `Message: ${message}` : null,
   ].filter(Boolean).join("\n");
 
@@ -107,7 +118,7 @@ export default async function handler(req, res) {
           message: internalMessage,
           audience_role: "admin",
           audience_email: null,
-          source_type: "model_event_response",
+          source_type: "model_casting_response",
           source_id: `${cleanEmail}:${eventTitle}`,
           level: levelByAction[normalizedAction],
           status: "unread",
@@ -131,7 +142,7 @@ export default async function handler(req, res) {
       <table width="100%" style="max-width:560px;" cellpadding="0" cellspacing="0" role="presentation">
         <tr><td style="background:#000;padding:20px 28px;border-radius:8px 8px 0 0;">
           <p style="margin:0;color:#fff;font-size:15px;font-weight:700;letter-spacing:3px;">SMITH INC</p>
-          <p style="margin:4px 0 0;color:#aaa;font-size:11px;letter-spacing:1px;text-transform:uppercase;">Model Event Response</p>
+          <p style="margin:4px 0 0;color:#aaa;font-size:11px;letter-spacing:1px;text-transform:uppercase;">Casting Call Submission</p>
         </td></tr>
         <tr><td style="background:#fff;padding:28px;border-radius:0 0 8px 8px;">
           <h2 style="margin:0 0 16px;font-size:17px;color:#111;">${escapeHtml(internalTitle)}</h2>

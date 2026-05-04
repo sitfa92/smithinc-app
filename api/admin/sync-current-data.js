@@ -13,6 +13,7 @@ const DEFAULT_ROLE_BY_EMAIL = {
   "marthajohn223355@gmail.com": "va",
   "chizzyboi72@gmail.com": "agent",
 };
+const MJ_VA_EMAIL = "marthajohn223355@gmail.com";
 
 const isTableMissingError = (err) =>
   err?.code === "42P01" ||
@@ -139,13 +140,16 @@ function buildIntakeTasks(models, bookings, clients, assigneeByRole) {
   (clients || [])
     .filter((client) => (client.status || "").toLowerCase() === "lead")
     .forEach((client) => {
+      const isBrandAmbassador = (client.source || "") === "brand_ambassador";
       tasks.push({
         task_key: `client-onboard-${client.id}`,
-        title: `Qualify new client lead: ${client.name || "Unnamed"}`,
-        description: "New lead in client list needs onboarding decision.",
-        role: "admin",
-        assigned_email: assigneeByRole.admin || null,
-        source_type: "client",
+        title: `${isBrandAmbassador ? "Qualify new brand ambassador lead" : "Qualify new partner lead"}: ${client.name || "Unnamed"}`,
+        description: isBrandAmbassador
+          ? "New lead in brand ambassador list needs onboarding decision."
+          : "New lead in partner list needs onboarding decision.",
+        role: "va",
+        assigned_email: MJ_VA_EMAIL || assigneeByRole.va || null,
+        source_type: isBrandAmbassador ? "brand_ambassador" : "partner",
         source_id: String(client.id),
         status: "pending",
         due_at: client.created_at || now,
@@ -189,7 +193,7 @@ export default async function handler(req, res) {
     const [modelsRes, bookingsRes, clientsRes, leadsRes, enrollmentsRes] = await Promise.all([
       admin.from("models").select("id, name, status, submitted_at, created_at"),
       admin.from("bookings").select("id, name, status, preferred_date, created_at"),
-      admin.from("clients").select("id, name, status, created_at"),
+      admin.from("clients").select("id, name, status, source, created_at"),
       admin.from("leads").select("id", { count: "exact", head: true }),
       admin.from("program_enrollments").select("id", { count: "exact", head: true }),
     ]);

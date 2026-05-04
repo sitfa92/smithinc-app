@@ -36,7 +36,7 @@ export default function ModelSignup() {
         success: "Thank you for applying to Meet Serenity.",
       };
 
-  const [form, setForm] = React.useState({ name:"", email:"", instagram:"" });
+  const [form, setForm] = React.useState({ name:"", email:"", instagram:"", referral_source:"", referral_name:"" });
   const [image, setImage] = React.useState(null);
   const [imagePreview, setImagePreview] = React.useState("");
   const [imageMeta, setImageMeta] = React.useState(null);
@@ -195,8 +195,13 @@ export default function ModelSignup() {
       try { imageUrl = await uploadImage(image); }
       catch (uploadErr) { throw new Error(`Image upload failed: ${uploadErr.message}`); }
 
+      const referralNote = [
+        form.referral_source ? `How they heard: ${form.referral_source}` : "",
+        form.referral_name.trim() ? `Referred by: ${form.referral_name.trim()}` : "",
+      ].filter(Boolean).join(" | ");
+
       const base = { name:form.name.trim(), email:form.email.trim(), instagram:form.instagram.trim(), image_url:imageUrl, status:"pending", submitted_at:new Date().toISOString() };
-      const payload = { ...base, pipeline_stage:"submitted", priority_level:"medium", scouting_notes:"", internal_notes:"", agency_name:"", last_updated:new Date().toISOString() };
+      const payload = { ...base, pipeline_stage:"submitted", priority_level:"medium", scouting_notes:referralNote, internal_notes:"", agency_name:"", last_updated:new Date().toISOString() };
 
       let { error: supabaseError } = await supabase.from("models").insert([payload]);
       if (supabaseError && isMissingColumnError(supabaseError)) {
@@ -214,7 +219,7 @@ export default function ModelSignup() {
       sendBackendWebhook("model_signup", { name:form.name.trim(), instagram:form.instagram.trim(), height:"", status:"pending" });
 
       setSuccess(true);
-      setForm({ name:"", email:"", instagram:"" });
+      setForm({ name:"", email:"", instagram:"", referral_source:"", referral_name:"" });
       setImage(null); setImagePreview(""); setImageMeta(null);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
@@ -341,6 +346,29 @@ export default function ModelSignup() {
                 </div>
 
                 {error && <div style={{ background:"#fef2f2", border:"1px solid rgba(155,28,28,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#9b1c1c", fontSize:13 }}>{error}</div>}
+
+                <div style={{ borderTop:"1px solid #e8e4dc", margin:"20px 0 18px", paddingTop:18 }}>
+                  <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#888", marginBottom:14 }}>How did you find us?</div>
+                  <div className="lx-field">
+                    <label className="lx-label">How did you hear about us?</label>
+                    <select value={form.referral_source} onChange={(e)=>setForm({...form,referral_source:e.target.value})} disabled={loading} style={inp}>
+                      <option value="">Select an option…</option>
+                      <option value="Instagram">Instagram</option>
+                      <option value="TikTok">TikTok</option>
+                      <option value="Google">Google</option>
+                      <option value="Referred by a friend or contact">Referred by a friend or contact</option>
+                      <option value="Event">Event</option>
+                      <option value="Word of mouth">Word of mouth</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {(form.referral_source === "Referred by a friend or contact" || form.referral_source === "Other" || form.referral_source === "Word of mouth") && (
+                    <div className="lx-field">
+                      <label className="lx-label">Referred by (name or @handle)</label>
+                      <input value={form.referral_name} placeholder="e.g. Jane Smith or @janedoe" onChange={(e)=>setForm({...form,referral_name:e.target.value})} disabled={loading} style={inp} />
+                    </div>
+                  )}
+                </div>
 
                 <button disabled={loading} className={`lx-btn lx-btn-primary lx-btn-full${loading?" lx-btn-disabled":""}`} style={{ marginTop:8, padding:"14px 22px", fontSize:12 }}>
                   {loading ? "Submitting…" : content.button}

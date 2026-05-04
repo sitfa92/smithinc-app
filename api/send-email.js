@@ -105,34 +105,30 @@ const templates = {
     };
   },
 
-  "model-event": ({ name = "there", email = "", eventTitle = "Upcoming event", eventType = "event", eventAt = "", notes = "" }) => ({
-    subject: `New event invitation — ${eventTitle}`,
+  "model-event": ({ name = "there", email = "", eventTitle = "Casting call", eventType = "casting", eventAt = "", notes = "" }) => ({
+    subject: `Casting call invitation — ${eventTitle}`,
     html: (() => {
-      const confirmUrl = buildEventResponseLink({ name, email, eventTitle, eventType, eventAt, action: "confirm" });
-      const rescheduleUrl = buildEventResponseLink({ name, email, eventTitle, eventType, eventAt, action: "reschedule" });
-      const cancelUrl = buildEventResponseLink({ name, email, eventTitle, eventType, eventAt, action: "cancel" });
+      const submitUrl = buildEventResponseLink({ name, email, eventTitle, eventType, eventAt, action: "available" });
       return shell(`
-        <h2 style="margin:0 0 20px;font-size:20px;color:#111;">You're invited</h2>
+        <h2 style="margin:0 0 20px;font-size:20px;color:#111;">Casting call invitation</h2>
         <p style="margin:0 0 12px;color:#444;line-height:1.7;">Hi <strong>${name}</strong>,</p>
         <p style="margin:0 0 16px;color:#444;line-height:1.7;">
-          You have a new ${eventType || "event"} scheduled with Smith Inc.
+          You have a new ${eventType || "casting"} casting call from Smith Inc.
         </p>
         <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border:1px solid #eee;border-radius:6px;overflow:hidden;">
-          <tr><td style="padding:10px 16px;background:#fafafa;border-bottom:1px solid #eee;font-size:13px;color:#888;">Event</td><td style="padding:10px 16px;background:#fafafa;border-bottom:1px solid #eee;font-size:13px;color:#111;">${eventTitle}</td></tr>
-          <tr><td style="padding:10px 16px;background:#fff;border-bottom:1px solid #eee;font-size:13px;color:#888;">Type</td><td style="padding:10px 16px;background:#fff;border-bottom:1px solid #eee;font-size:13px;color:#111;">${eventType || "Event"}</td></tr>
+          <tr><td style="padding:10px 16px;background:#fafafa;border-bottom:1px solid #eee;font-size:13px;color:#888;">Casting call</td><td style="padding:10px 16px;background:#fafafa;border-bottom:1px solid #eee;font-size:13px;color:#111;">${eventTitle}</td></tr>
+          <tr><td style="padding:10px 16px;background:#fff;border-bottom:1px solid #eee;font-size:13px;color:#888;">Category</td><td style="padding:10px 16px;background:#fff;border-bottom:1px solid #eee;font-size:13px;color:#111;">${eventType || "Casting"}</td></tr>
           <tr><td style="padding:10px 16px;background:#fafafa;font-size:13px;color:#888;">Date & time</td><td style="padding:10px 16px;background:#fafafa;font-size:13px;color:#111;">${formatDateTime(eventAt)}</td></tr>
         </table>
         ${notes ? `<p style="margin:0 0 18px;color:#444;line-height:1.7;"><strong>Details:</strong><br>${String(notes).replace(/\n/g, "<br>")}</p>` : ""}
-        <p style="margin:0 0 12px;color:#444;line-height:1.7;">Please use one of the options below to confirm, request a reschedule, or cancel:</p>
+        <p style="margin:0 0 12px;color:#444;line-height:1.7;">Please submit your casting response using the button below:</p>
         <p style="margin:0 0 10px;display:flex;gap:8px;flex-wrap:wrap;">
-          <a href="${confirmUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:11px 16px;border-radius:8px;font-size:13px;font-weight:600;">Confirm</a>
-          <a href="${rescheduleUrl}" style="display:inline-block;background:#fef8ec;color:#92560a;text-decoration:none;padding:11px 16px;border-radius:8px;font-size:13px;font-weight:600;border:1px solid rgba(146,86,10,0.2);">Reschedule</a>
-          <a href="${cancelUrl}" style="display:inline-block;background:#fef2f2;color:#9b1c1c;text-decoration:none;padding:11px 16px;border-radius:8px;font-size:13px;font-weight:600;border:1px solid rgba(155,28,28,0.2);">Cancel</a>
+          <a href="${submitUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:11px 16px;border-radius:8px;font-size:13px;font-weight:600;">Submit Casting Response</a>
         </p>
-        <p style="margin:0;color:#666;font-size:12px;line-height:1.7;">If the buttons do not work, reply to this email and the team will update your event status.</p>
+        <p style="margin:0;color:#666;font-size:12px;line-height:1.7;">If the button does not work, reply to this email and the team will manually log your response.</p>
       `);
     })(),
-    text: `Hi ${name},\n\nYou have a new ${eventType || "event"} scheduled with Smith Inc.\nEvent: ${eventTitle}\nDate & time: ${formatDateTime(eventAt)}${notes ? `\nDetails: ${notes}` : ""}\n\nConfirm: ${buildEventResponseLink({ name, email, eventTitle, eventType, eventAt, action: "confirm" })}\nReschedule: ${buildEventResponseLink({ name, email, eventTitle, eventType, eventAt, action: "reschedule" })}\nCancel: ${buildEventResponseLink({ name, email, eventTitle, eventType, eventAt, action: "cancel" })}\n\n— The Smith Inc Team`,
+    text: `Hi ${name},\n\nYou have a new ${eventType || "casting"} casting call from Smith Inc.\nCasting call: ${eventTitle}\nDate & time: ${formatDateTime(eventAt)}${notes ? `\nDetails: ${notes}` : ""}\n\nSubmit response: ${buildEventResponseLink({ name, email, eventTitle, eventType, eventAt, action: "available" })}\n\n— The Smith Inc Team`,
   }),
 
   "booking-confirmation": ({ name = "there", company = "", serviceType = "", preferredDate = "" }) => ({

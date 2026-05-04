@@ -1,15 +1,13 @@
 import React from "react";
 import { supabase } from "../supabase";
 import { sendBookingConfirmedEmail } from "../emailService";
-import { isMissingColumnError, sendZapierEvent, createInAppAlerts, sendInternalTeamEmailAlert } from "../utils";
+import { sendZapierEvent, createInAppAlerts, sendInternalTeamEmailAlert } from "../utils";
 
 export default function AdminBookings() {
   const [bookings, setBookings] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState({});
-  const [zoomDrafts, setZoomDrafts] = React.useState({});
-  const [zoomAvailable, setZoomAvailable] = React.useState(true);
 
   React.useEffect(() => {
     fetchBookings();
@@ -24,7 +22,6 @@ export default function AdminBookings() {
         const cached = JSON.parse(raw);
         if (cached?.data && Date.now() - cached.ts < 60000) {
           setBookings(cached.data);
-          setZoomAvailable(cached.zoomAvailable !== false);
           setLoading(false);
           return;
         }
@@ -35,31 +32,17 @@ export default function AdminBookings() {
 
     try {
       setError("");
-      let nextZoomAvailable = true;
-      let { data, error: supabaseError } = await supabase
+      const { data, error: supabaseError } = await supabase
         .from("bookings")
-        .select("id, name, email, company, service_type, preferred_date, message, status, zoom_link, created_at")
+        .select("id, name, email, company, service_type, preferred_date, message, status, created_at")
         .order("created_at", { ascending: false })
         .limit(500);
-
-      if (supabaseError && isMissingColumnError(supabaseError)) {
-        const fallback = await supabase
-          .from("bookings")
-          .select("id, name, email, company, service_type, preferred_date, message, status, created_at")
-          .order("created_at", { ascending: false })
-          .limit(500);
-        data = fallback.data;
-        supabaseError = fallback.error;
-        nextZoomAvailable = false;
-      }
-
-      setZoomAvailable(nextZoomAvailable);
 
       if (supabaseError) throw supabaseError;
       const nextBookings = data || [];
       setBookings(nextBookings);
       try {
-        window.sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: nextBookings, zoomAvailable: nextZoomAvailable }));
+        window.sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: nextBookings }));
       } catch {
         // ignore cache issues
       }
@@ -93,7 +76,6 @@ export default function AdminBookings() {
           service_type: booking.service_type,
           preferred_date: booking.preferred_date,
           status: newStatus,
-          zoom_link: booking.zoom_link || null,
         });
 
         createInAppAlerts([
@@ -126,7 +108,7 @@ export default function AdminBookings() {
       setBookings((prev) => {
         const next = prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b));
         try {
-          window.sessionStorage.setItem("admin-bookings-v1", JSON.stringify({ ts: Date.now(), data: next, zoomAvailable }));
+          window.sessionStorage.setItem("admin-bookings-v1", JSON.stringify({ ts: Date.now(), data: next }));
         } catch {
           // ignore cache issues
         }
@@ -136,33 +118,6 @@ export default function AdminBookings() {
       alert(`Failed to update booking: ${err.message}`);
     } finally {
       setActionLoading((prev) => ({ ...prev, [bookingId]: false }));
-    }
-  };
-
-  const saveZoomLink = async (bookingId) => {
-    const zoomLink = (zoomDrafts[bookingId] || "").trim();
-    if (!zoomLink) return;
-
-    try {
-      const { error: supabaseError } = await supabase
-        .from("bookings")
-        .update({ zoom_link: zoomLink })
-        .eq("id", bookingId);
-
-      if (supabaseError) throw supabaseError;
-
-      setBookings((prev) => {
-        const next = prev.map((b) => (b.id === bookingId ? { ...b, zoom_link: zoomLink } : b));
-        try {
-          window.sessionStorage.setItem("admin-bookings-v1", JSON.stringify({ ts: Date.now(), data: next, zoomAvailable }));
-        } catch {
-          // ignore cache issues
-        }
-        return next;
-      });
-      setZoomDrafts((prev) => ({ ...prev, [bookingId]: "" }));
-    } catch (err) {
-      alert(err.message || "Failed to save Zoom link. Ensure bookings table has zoom_link column.");
     }
   };
 
@@ -179,13 +134,7 @@ export default function AdminBookings() {
       <h1 style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:"clamp(26px,4vw,38px)", fontWeight:500, color:C.ink, letterSpacing:"-0.02em", margin:"0 0 4px" }}>
         Booking Requests
       </h1>
-      <p style={{ color:C.dust, fontSize:13, marginBottom:24 }}>Manage and confirm incoming client booking requests.</p>
-
-      {!zoomAvailable && (
-        <div style={{ background:C.infoBg, border:`1px solid rgba(30,58,95,0.2)`, borderRadius:10, padding:"12px 16px", marginBottom:20, color:C.info, fontSize:13 }}>
-          Zoom links are temporarily hidden until the optional bookings field is available.
-        </div>
-      )}
+      <p style={{ color:C.dust, fontSize:13, marginBottom:24 }}>Manage and confirm incoming partner booking requests.</p>
 
       {loading && <p style={{ color:C.dust }}>Loading bookings…</p>}
       {error && <div style={{ background:C.errBg, border:`1px solid rgba(155,28,28,0.2)`, borderRadius:10, padding:"12px 16px", marginBottom:20, color:C.err, fontSize:13 }}>Error: {error}</div>}
@@ -204,17 +153,6 @@ export default function AdminBookings() {
               <p style={{ margin:"0 0 4px", color:C.dust, fontSize:13 }}><span style={{ color:C.slate, fontWeight:500 }}>Service:</span> {booking.service_type}</p>
               {booking.preferred_date && <p style={{ margin:"0 0 4px", color:C.dust, fontSize:13 }}><span style={{ color:C.slate, fontWeight:500 }}>Date:</span> {new Date(booking.preferred_date).toLocaleDateString()}</p>}
               {booking.message && <p style={{ margin:"10px 0 0", padding:"10px 12px", background:C.ivory, borderRadius:8, color:C.slate, fontSize:13 }}>{booking.message}</p>}
-              {booking.zoom_link && (
-                <p style={{ margin:"8px 0 0", fontSize:13, color:C.dust }}>
-                  <span style={{ color:C.slate, fontWeight:500 }}>Zoom:</span>{" "}
-                  <a href={booking.zoom_link} target="_blank" rel="noreferrer" style={{ color:C.ink }}>{booking.zoom_link}</a>
-                </p>
-              )}
-              <div style={{ display:"flex", gap:8, marginTop:12, flexWrap:"wrap" }}>
-                <input placeholder="Attach Zoom link…" value={zoomDrafts[booking.id]||""} onChange={(e)=>setZoomDrafts(p=>({...p,[booking.id]:e.target.value}))}
-                  style={{ flex:"1 1 220px", padding:"9px 12px", border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:13, background:C.white, color:C.ink, outline:"none", fontFamily:"'Inter',sans-serif" }} />
-                <button onClick={()=>saveZoomLink(booking.id)} style={btnS(C.ink,C.white)}>Save Zoom</button>
-              </div>
               <p style={{ margin:"8px 0 0", color:C.dust, fontSize:12 }}>Received: {new Date(booking.created_at).toLocaleString()}</p>
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:8, alignItems:"flex-end" }}>

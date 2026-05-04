@@ -37,6 +37,16 @@ const ALLOWED_FIELDS = new Set([
   "priority_level",
   "status",
   "last_updated",
+  "champ_c_score",
+  "champ_h_score",
+  "champ_m_score",
+  "champ_p_score",
+  "champ_c_notes",
+  "champ_h_notes",
+  "champ_m_notes",
+  "champ_p_notes",
+  "champ_total",
+  "champ_recommendation",
 ]);
 
 export default async function handler(req, res) {

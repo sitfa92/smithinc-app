@@ -254,7 +254,7 @@ export default function WorkflowDashboard() {
 
       <div className="dashboard-header">
         <h1>Zapier Workflow Dashboard</h1>
-        <p>Real-time tracking of HoneyBook leads, clients, and program enrollments</p>
+        <p>Real-time tracking of webhook leads, partners, and program enrollments</p>
       </div>
 
       <div className="stats-grid">
@@ -263,7 +263,7 @@ export default function WorkflowDashboard() {
           <div className="value">{stats.totalLeads}</div>
         </div>
         <div className="stat-card">
-          <h3>Converted Clients</h3>
+          <h3>Converted Partners</h3>
           <div className="value">{stats.totalClients}</div>
         </div>
         <div className="stat-card">
@@ -303,7 +303,7 @@ export default function WorkflowDashboard() {
           className={`tab-button ${activeTab === "clients" ? "active" : ""}`}
           onClick={() => setActiveTab("clients")}
         >
-          Clients ({clients.length})
+          Partners ({clients.length})
         </button>
         <button
           className={`tab-button ${activeTab === "enrollments" ? "active" : ""}`}
@@ -401,7 +401,7 @@ export default function WorkflowDashboard() {
             <div className="table-container">
               {clients.length === 0 ? (
                 <div className="empty-state">
-                  <p>No converted clients yet</p>
+                  <p>No converted partners yet</p>
                 </div>
               ) : (
                 <table>

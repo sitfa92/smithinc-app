@@ -13,10 +13,12 @@ export default function Integrations() {
   const [opsTasksSource, setOpsTasksSource] = React.useState("fallback");
   const [manyChatStatus, setManyChatStatus] = React.useState({ loading: true, configured: false, widgetConfigured: false });
   const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false, syncedAt: "" });
+  const [perplexityPrompt, setPerplexityPrompt] = React.useState("");
+  const [perplexityState, setPerplexityState] = React.useState({ loading: false, error: "", answer: "", citations: [] });
 
   React.useEffect(() => {
     const fetchBookings = async () => {
-      const { data } = await supabase.from("bookings").select("id, name, status, preferred_date, zoom_link, created_at").order("created_at", { ascending: false });
+      const { data } = await supabase.from("bookings").select("id, name, status, preferred_date, created_at").order("created_at", { ascending: false });
       const list = data || [];
       setBookings(list);
       return list;
@@ -119,19 +121,63 @@ export default function Integrations() {
         loading: false,
         error: false,
         syncedAt: json.synced_at || "",
-        message: `Sync complete. Models: ${json.models_count}, bookings: ${json.bookings_count}, clients: ${json.clients_count}, leads: ${json.leads_count}, enrollments: ${json.enrollments_count}, tasks synced: ${json.tasks_synced}.`,
+        message: `Sync complete. Models: ${json.models_count}, bookings: ${json.bookings_count}, partners: ${json.clients_count}, leads: ${json.leads_count}, enrollments: ${json.enrollments_count}, tasks synced: ${json.tasks_synced}.`,
       });
     } catch (err) {
       setCurrentDataSyncState({ loading: false, error: true, syncedAt: "", message: err.message || "Sync failed" });
     }
   };
 
+  const runPerplexityQuery = async () => {
+    const prompt = perplexityPrompt.trim();
+    if (!prompt) {
+      setPerplexityState((prev) => ({ ...prev, error: "Enter a prompt first." }));
+      return;
+    }
+
+    setPerplexityState({ loading: true, error: "", answer: "", citations: [] });
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError) throw sessionError;
+      if (!session?.access_token) {
+        throw new Error("Your session expired. Please log in again.");
+      }
+
+      const resp = await fetch("/api/perplexity/query", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ prompt }),
+      });
+
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json.ok) {
+        throw new Error(json.error || "Perplexity query failed");
+      }
+
+      setPerplexityState({
+        loading: false,
+        error: "",
+        answer: json.answer || "No answer returned.",
+        citations: Array.isArray(json.citations) ? json.citations : [],
+      });
+    } catch (err) {
+      setPerplexityState({ loading: false, error: err.message || "Perplexity query failed", answer: "", citations: [] });
+    }
+  };
+
   const upcoming = bookings.filter((b) => b.preferred_date).slice(0, 5);
-  const zoomMeetings = bookings.filter((b) => b.zoom_link).slice(0, 5);
   const calendlyUrl = "https://calendly.com/meetserenity";
   const embedModelSignup = `${window.location.origin}/model-signup`;
   const embedBooking = `${window.location.origin}/book`;
   const canRunCurrentDataSync = role === "admin";
+  const canUsePerplexity = ["admin", "va", "agent"].includes(role);
 
   const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2", info:"#1e3a5f", infoBg:"#eff6ff", gold:"#c9a84c" };
   const sec = (extra={}) => ({ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:"20px 22px", marginBottom:16, boxShadow:"0 1px 4px rgba(17,17,17,0.04)", ...extra });
@@ -157,15 +203,6 @@ export default function Integrations() {
         ))}
       </div>
 
-      {/* Zoom */}
-      <div style={sec()}>
-        <p style={secTitle}>Zoom Meetings</p>
-        {zoomMeetings.length === 0 && <p style={{ color:C.dust, fontSize:13, margin:0 }}>No Zoom links attached yet.</p>}
-        {zoomMeetings.map(meeting => (
-          <p key={meeting.id} style={{ margin:"6px 0", color:C.dust, fontSize:13 }}>{meeting.name}: <a href={meeting.zoom_link} target="_blank" rel="noreferrer" style={{ color:C.ink }}>Join Meeting</a></p>
-        ))}
-      </div>
-
       {/* Zapier */}
       <div style={sec()}>
         <p style={secTitle}>Zapier Automations</p>
@@ -185,6 +222,55 @@ export default function Integrations() {
           </div>
         )}
       </div>
+
+      {/* Perplexity */}
+      {canUsePerplexity && (
+        <div style={{ ...sec(), border:`1px solid rgba(30,58,95,0.28)` }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+            <p style={secTitle}>Perplexity Assistant</p>
+            {chip("Research", "rgba(30,58,95,0.12)", "#1e3a5f")}
+          </div>
+          <p style={{ color:C.dust, fontSize:13, margin:"0 0 10px" }}>Run web-backed research prompts for outreach ideas, market scans, campaign references, and operations support.</p>
+          <p style={{ color:C.dust, fontSize:12, margin:"0 0 10px" }}>Requires Vercel env var: <code>PERPLEXITY_API_KEY</code> (optional model override: <code>PERPLEXITY_MODEL</code>).</p>
+          <textarea
+            value={perplexityPrompt}
+            onChange={(e) => setPerplexityPrompt(e.target.value)}
+            placeholder="Ask Perplexity: e.g. Summarize current beauty campaign trends in East Africa for May 2026 with source links."
+            rows={4}
+            style={{ width:"100%", resize:"vertical", padding:"10px 12px", border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:13, color:C.ink, background:C.white, outline:"none", fontFamily:"'Inter',sans-serif", boxSizing:"border-box" }}
+          />
+          <div style={{ marginTop:10, display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+            {btn(perplexityState.loading ? "Asking…" : "Ask Perplexity", runPerplexityQuery, perplexityState.loading, perplexityState.loading)}
+            <button
+              onClick={() => setPerplexityState({ loading: false, error: "", answer: "", citations: [] })}
+              style={{ padding:"9px 16px", background:C.white, color:C.slate, border:`1px solid ${C.smoke}`, borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+            >
+              Clear
+            </button>
+          </div>
+          {perplexityState.error && (
+            <p style={{ margin:"10px 0 0", color:C.err, fontSize:13 }}>{perplexityState.error}</p>
+          )}
+          {perplexityState.answer && (
+            <div style={{ marginTop:12, background:C.ivory, border:`1px solid ${C.smoke}`, borderRadius:8, padding:"12px 14px" }}>
+              <p style={{ margin:"0 0 8px", fontWeight:600, color:C.slate, fontSize:13 }}>Response</p>
+              <p style={{ margin:0, color:C.ink, fontSize:13, lineHeight:1.65, whiteSpace:"pre-wrap" }}>{perplexityState.answer}</p>
+              {perplexityState.citations.length > 0 && (
+                <div style={{ marginTop:10 }}>
+                  <p style={{ margin:"0 0 6px", fontWeight:600, color:C.slate, fontSize:12 }}>Sources</p>
+                  <ul style={{ margin:0, paddingLeft:18 }}>
+                    {perplexityState.citations.slice(0, 8).map((url, idx) => (
+                      <li key={`${url}-${idx}`} style={{ marginBottom:4 }}>
+                        <a href={url} target="_blank" rel="noreferrer" style={{ color:C.ink, fontSize:12 }}>{url}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Current Data Sync */}
       {canRunCurrentDataSync && (
@@ -240,7 +326,7 @@ export default function Integrations() {
           <li><code>SUPABASE_SERVICE_ROLE_KEY</code> — service-role key (already required by pipeline endpoint)</li>
         </ul>
         <p style={{ margin:"0 0 6px", color:C.slate, fontWeight:600, fontSize:13 }}>Expected POST body from ManyChat</p>
-        <pre style={{ background:C.ivory, border:`1px solid ${C.smoke}`, padding:"12px 14px", borderRadius:8, fontSize:11, overflowX:"auto", margin:"0 0 12px", color:C.slate }}>{`{\n  "secret": "<MANYCHAT_WEBHOOK_SECRET>",\n  "name": "{{first_name}} {{last_name}}",\n  "email": "{{email}}",\n  "instagram": "{{instagram}}",\n  "interest": "model"   // or "client"\n}`}</pre>
+        <pre style={{ background:C.ivory, border:`1px solid ${C.smoke}`, padding:"12px 14px", borderRadius:8, fontSize:11, overflowX:"auto", margin:"0 0 12px", color:C.slate }}>{`{\n  "secret": "<MANYCHAT_WEBHOOK_SECRET>",\n  "name": "{{first_name}} {{last_name}}",\n  "email": "{{email}}",\n  "instagram": "{{instagram}}",\n  "interest": "model"   // or "partner"\n}`}</pre>
         <p style={{ margin:"0 0 10px", color:C.dust, fontSize:13 }}>Leads captured via ManyChat appear with a purple <strong>ManyChat</strong> badge in Submissions and Model Pipeline.</p>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
           <div style={{ background:"rgba(123,47,247,0.06)", borderRadius:8, padding:"12px 14px" }}>
@@ -258,45 +344,41 @@ export default function Integrations() {
         </div>
       </div>
 
-      {/* HoneyBook */}
+      {/* CRM Webhook */}
       <div style={{ ...sec(), border:`1px solid rgba(231,111,81,0.4)` }}>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-          <p style={secTitle}>HoneyBook</p>
-          {chip("CRM Sync", "rgba(231,111,81,0.12)", "#c0392b")}
+          <p style={secTitle}>CRM Webhook (Zapier)</p>
+          {chip("CRM Intake", "rgba(231,111,81,0.12)", "#c0392b")}
         </div>
-        <p style={{ color:C.dust, fontSize:13, margin:"0 0 12px" }}>Connect HoneyBook via Zapier to automatically sync contacts, projects, invoices, contracts, and payments into your Clients table.</p>
+        <p style={{ color:C.dust, fontSize:13, margin:"0 0 12px" }}>Use this endpoint to send CRM and intake events into the app through Zapier, without a direct vendor lock-in dependency.</p>
         <div style={{ background:"rgba(231,111,81,0.06)", borderRadius:8, padding:"12px 14px", marginBottom:12 }}>
           <p style={{ margin:"0 0 5px", fontWeight:600, color:C.slate, fontSize:13 }}>Webhook endpoint (paste into Zapier → Webhooks POST)</p>
-          <code style={{ display:"block", wordBreak:"break-all", color:"#c0392b", fontSize:12 }}>{window.location.origin}/api/honeybook/sync</code>
+          <code style={{ display:"block", wordBreak:"break-all", color:"#c0392b", fontSize:12 }}>{window.location.origin}/api/zapier/webhook</code>
         </div>
-        <p style={{ margin:"0 0 6px", color:C.slate, fontWeight:600, fontSize:13 }}>Setup steps (one Zap per trigger)</p>
+        <p style={{ margin:"0 0 6px", color:C.slate, fontWeight:600, fontSize:13 }}>Setup steps</p>
         <ol style={{ margin:"0 0 12px", paddingLeft:18, color:C.dust, fontSize:13, lineHeight:1.8 }}>
-          <li>In Zapier: Trigger = <strong>HoneyBook</strong> (choose an event below)</li>
+          <li>In Zapier: choose your trigger app and event</li>
           <li>Action = <strong>Webhooks by Zapier → POST</strong></li>
           <li>URL = the endpoint above</li>
           <li>Payload type = <strong>JSON</strong></li>
-          <li>Add Data: map HoneyBook fields to the body keys listed below</li>
-          <li>Add Header: <code>x-honeybook-secret</code> = your <code>HONEYBOOK_WEBHOOK_SECRET</code> value</li>
+          <li>Add Data: include <code>type</code> and <code>data</code> fields shown below</li>
+          <li>Add Header: <code>x-zapier-secret</code> = your <code>ZAPIER_WEBHOOK_SECRET</code> value</li>
         </ol>
-        <p style={{ margin:"0 0 8px", color:C.slate, fontWeight:600, fontSize:13 }}>Supported HoneyBook triggers</p>
+        <p style={{ margin:"0 0 8px", color:C.slate, fontWeight:600, fontSize:13 }}>Supported event types</p>
         <div style={{ overflowX:"auto", marginBottom:12 }}>
           <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
             <thead>
               <tr style={{ background:"rgba(231,111,81,0.06)" }}>
-                <th style={{ textAlign:"left", padding:"7px 10px", borderBottom:`1px solid rgba(231,111,81,0.3)`, color:C.slate }}>HoneyBook trigger</th>
-                <th style={{ textAlign:"left", padding:"7px 10px", borderBottom:`1px solid rgba(231,111,81,0.3)`, color:C.slate }}>event_type value</th>
+                <th style={{ textAlign:"left", padding:"7px 10px", borderBottom:`1px solid rgba(231,111,81,0.3)`, color:C.slate }}>Zapier event</th>
+                <th style={{ textAlign:"left", padding:"7px 10px", borderBottom:`1px solid rgba(231,111,81,0.3)`, color:C.slate }}>type value</th>
                 <th style={{ textAlign:"left", padding:"7px 10px", borderBottom:`1px solid rgba(231,111,81,0.3)`, color:C.slate }}>What it does</th>
               </tr>
             </thead>
             <tbody>
               {[
-                ["New Contact","honeybook.contact.created","Creates client record with status = lead"],
-                ["New Project","honeybook.project.created","Creates client (active) + booking if date present"],
-                ["Project Stage Changed","honeybook.project.stage_changed","Updates client status (lead / active / completed)"],
-                ["Invoice Sent","honeybook.invoice.sent","Sets invoice_status = sent"],
-                ["Invoice Paid","honeybook.invoice.paid","Sets invoice_status = paid, updates client value"],
-                ["Contract Signed","honeybook.contract.signed","Sets contract_signed = true"],
-                ["Payment Received","honeybook.payment.received","Updates client value with payment amount"],
+                ["New lead","NEW_LEAD","Creates lead record with source = zapier"],
+                ["Client converted","CLIENT_CONVERTED","Moves lead into clients table and marks as active"],
+                ["Program enrollment","PROGRAM_ENROLLMENT","Creates enrollment record for model development"],
               ].map(([trigger,type,effect]) => (
                 <tr key={type} style={{ borderBottom:`1px solid ${C.smoke}` }}>
                   <td style={{ padding:"7px 10px", color:C.ink }}>{trigger}</td>
@@ -308,10 +390,10 @@ export default function Integrations() {
           </table>
         </div>
         <p style={{ margin:"0 0 6px", color:C.slate, fontWeight:600, fontSize:13 }}>Required JSON body fields</p>
-        <pre style={{ background:C.ivory, border:`1px solid ${C.smoke}`, padding:"12px 14px", borderRadius:8, fontSize:11, overflowX:"auto", margin:"0 0 12px", color:C.slate }}>{`{\n  "event_type": "honeybook.project.created",\n  "name": "{{contact_name}}",\n  "email": "{{contact_email}}",\n  "company_name": "{{company}}",\n  "project_name": "{{project_name}}",\n  "project_value": "{{project_value}}",\n  "pipeline_stage": "{{stage}}",\n  "honeybook_id": "{{project_id}}",\n  "preferred_date": "{{event_date}}"\n}`}</pre>
+        <pre style={{ background:C.ivory, border:`1px solid ${C.smoke}`, padding:"12px 14px", borderRadius:8, fontSize:11, overflowX:"auto", margin:"0 0 12px", color:C.slate }}>{`{\n  "type": "NEW_LEAD",\n  "data": {\n    "name": "{{full_name}}",\n    "email": "{{email}}",\n    "phone": "{{phone}}",\n    "service_type": "{{service_type}}",\n    "message": "{{message}}"\n  }\n}`}</pre>
         <p style={{ margin:"0 0 4px", color:C.slate, fontWeight:600, fontSize:13 }}>Required env vars</p>
         <ul style={{ margin:0, paddingLeft:18, color:C.dust, fontSize:13, lineHeight:1.8 }}>
-          <li><code>HONEYBOOK_WEBHOOK_SECRET</code> — any string you choose; paste it into the Zapier header</li>
+          <li><code>ZAPIER_WEBHOOK_SECRET</code> — any string you choose; paste it into the Zapier header</li>
           <li><code>SUPABASE_SERVICE_ROLE_KEY</code> — already required by other endpoints</li>
         </ul>
       </div>

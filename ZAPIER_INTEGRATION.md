@@ -1,6 +1,6 @@
-# Zapier ↔ HoneyBook ↔ Serenity Field Mapping
+# Zapier ↔ CRM ↔ Serenity Field Mapping
 
-This document defines the standard field mapping between HoneyBook (via Zapier) and the Serenity App.
+This document defines the standard field mapping between your CRM (via Zapier) and the Serenity App.
 
 ## Webhook Configuration
 
@@ -29,20 +29,20 @@ Value: [ZAPIER_WEBHOOK_SECRET from environment]
 ## Event Types & Field Mappings
 
 ### 1. NEW_LEAD
-Triggered when a new inquiry or form submission arrives in HoneyBook.
+Triggered when a new inquiry or form submission arrives from your CRM.
 
 **Event Type:** `NEW_LEAD`
 
-**Zapier → HoneyBook Field Mapping:**
+**Zapier → CRM Field Mapping:**
 
-| Serenity Field | HoneyBook Field | Required | Type | Notes |
+| Serenity Field | CRM Field | Required | Type | Notes |
 |---|---|---|---|---|
 | `name` | Contact First Name + Last Name | Yes | string | Combine into single field |
 | `email` | Contact Email | Yes | string | Must be unique |
 | `phone` | Contact Phone | No | string | Include if available |
 | `service_type` | Inquiry Type / Service Name | No | string | E.g., "Model Consultation", "Booking Inquiry" |
 | `message` | Form Message / Description | No | string | Inquiry details |
-| `honeybook_id` | HoneyBook Contact ID | No | string | For reference/audit trail |
+| `external_record_id` | CRM Contact/Record ID | No | string | Optional external reference ID |
 
 **Example Zapier POST:**
 ```json
@@ -54,7 +54,7 @@ Triggered when a new inquiry or form submission arrives in HoneyBook.
     "phone": "+1-555-0123",
     "service_type": "Model Development Program",
     "message": "Interested in the 6-month program",
-    "honeybook_id": "hb_12345"
+    "external_record_id": "crm_12345"
   }
 }
 ```
@@ -66,12 +66,12 @@ Triggered when a lead becomes a paying client (contract signed OR invoice paid).
 
 **Event Type:** `CLIENT_CONVERTED`
 
-**Zapier → HoneyBook Field Mapping:**
+**Zapier → CRM Field Mapping:**
 
-| Serenity Field | HoneyBook Field | Required | Type | Notes |
+| Serenity Field | CRM Field | Required | Type | Notes |
 |---|---|---|---|---|
 | `email` | Contact Email | Yes | string | Links to existing lead |
-| `honeybook_id` | HoneyBook Contact ID | No | string | For audit trail |
+| `external_record_id` | CRM Contact/Record ID | No | string | Optional external reference ID |
 | `contract_signed` | Contract Status / Date | No | boolean | True if contract is signed |
 | `invoice_paid` | Invoice Status / Payment Status | No | boolean | True if invoice is paid |
 | `service_type` | Service / Product Name | No | string | What they're buying |
@@ -83,7 +83,7 @@ Triggered when a lead becomes a paying client (contract signed OR invoice paid).
   "type": "CLIENT_CONVERTED",
   "data": {
     "email": "sarah@example.com",
-    "honeybook_id": "hb_12345",
+    "external_record_id": "crm_12345",
     "contract_signed": true,
     "invoice_paid": true,
     "service_type": "Model Development Program - 6 Month",
@@ -99,15 +99,15 @@ Triggered when a client enrolls in a model development program (after conversion
 
 **Event Type:** `PROGRAM_ENROLLMENT`
 
-**Zapier → HoneyBook Field Mapping:**
+**Zapier → CRM Field Mapping:**
 
-| Serenity Field | HoneyBook Field | Required | Type | Notes |
+| Serenity Field | CRM Field | Required | Type | Notes |
 |---|---|---|---|---|
 | `email` | Contact Email | Yes | string | Links to client record |
 | `program_name` | Program Name | Yes | string | E.g., "6-Month Development Track" |
 | `program_tier` | Program Level / Tier | No | string | starter, standard, or premium |
 | `start_date` | Program Start Date | No | date/ISO | Format: YYYY-MM-DD or ISO 8601 |
-| `honeybook_id` | HoneyBook Contact ID | No | string | For reference |
+| `external_record_id` | CRM Contact/Record ID | No | string | Optional external reference ID |
 
 **Example Zapier POST:**
 ```json
@@ -118,30 +118,30 @@ Triggered when a client enrolls in a model development program (after conversion
     "program_name": "6-Month Model Development Track",
     "program_tier": "standard",
     "start_date": "2026-04-20",
-    "honeybook_id": "hb_12345"
+    "external_record_id": "crm_12345"
   }
 }
 ```
 
 ---
 
-## HoneyBook Trigger Configuration in Zapier
+## CRM Trigger Configuration in Zapier
 
 ### Step 1: Create Zapier Zap
-- **Trigger:** HoneyBook (choose the event type)
+- **Trigger:** Your CRM app (choose the event type)
   - "New Contact" → NEW_LEAD
   - "Update Contact" (when status = paid) → CLIENT_CONVERTED
   - "New Project" or "Status Change" → PROGRAM_ENROLLMENT
 
-### Step 2: Extract HoneyBook Fields
-Map these HoneyBook fields to Zapier variables:
+### Step 2: Extract CRM Fields
+Map these CRM fields to Zapier variables:
 - Contact First Name → name (part 1)
 - Contact Last Name → name (part 2)
 - Contact Email → email
 - Contact Phone → phone
 - Inquiry Type → service_type
 - Form Message / Description → message
-- HoneyBook Contact ID → honeybook_id
+- CRM Contact/Record ID → external_record_id
 
 ### Step 3: Format Request Body
 Use Zapier's **JSON** or **Code by Zapier** module to construct the exact JSON structure above.
@@ -171,7 +171,7 @@ curl -X POST https://smithinc-vzo9d7nva-sitfa92s-projects.vercel.app/api/zapier/
       "phone": "555-0123",
       "service_type": "Test",
       "message": "Testing integration",
-      "honeybook_id": "test_123"
+      "external_record_id": "test_123"
     }
   }'
 ```
@@ -202,7 +202,7 @@ All Zapier events are logged to the `workflow_events` table in Supabase and visi
 | Error | Cause | Solution |
 |---|---|---|
 | `Invalid or missing webhook secret` | Zapier secret doesn't match | Update ZAPIER_WEBHOOK_SECRET env var on Vercel |
-| `Missing required fields: name, email` | NEW_LEAD missing name or email | Ensure HoneyBook form captures these fields |
+| `Missing required fields: name, email` | NEW_LEAD missing name or email | Ensure your CRM form captures these fields |
 | `Lead not found for email` | CLIENT_CONVERTED references non-existent lead | Verify email matches NEW_LEAD record |
 | `Client not found for email` | PROGRAM_ENROLLMENT references non-existent client | Ensure CLIENT_CONVERTED was processed first |
 

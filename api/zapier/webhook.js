@@ -1,8 +1,8 @@
 /**
  * Zapier Webhook Handler for Serenity App
  *
- * Receives structured events from Zapier (HoneyBook automation) and processes:
- * - NEW_LEAD: Lead intake from HoneyBook inquiry
+ * Receives structured events from Zapier automations and processes:
+ * - NEW_LEAD: Lead intake from inbound inquiry
  * - CLIENT_CONVERTED: Lead becomes paying client
  * - PROGRAM_ENROLLMENT: Client enrolls in model development program
  *
@@ -16,6 +16,9 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ZAPIER_WEBHOOK_SECRET = process.env.ZAPIER_WEBHOOK_SECRET;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+const resolveExternalRecordId = (payload = {}) =>
+  payload.external_record_id || payload.crm_record_id || payload.honeybook_id || "";
 
 // Validate webhook secret from Zapier
 function validateSecret(req) {
@@ -41,9 +44,10 @@ async function logWorkflowEvent(type, data, status = "success", error = null) {
   }
 }
 
-// NEW_LEAD: Capture inquiry from HoneyBook
+// NEW_LEAD: Capture inquiry from webhook automation
 async function handleNewLead(data) {
-  const { name, email, phone, service_type, message, honeybook_id } = data;
+  const { name, email, phone, service_type, message } = data;
+  const externalRecordId = resolveExternalRecordId(data);
 
   if (!email || !name) {
     throw new Error("Missing required fields: name, email");
@@ -67,8 +71,8 @@ async function handleNewLead(data) {
     phone: phone || "",
     service_type: service_type || "inquiry",
     message: message || "",
-    honeybook_id: honeybook_id || "",
-    source: "honeybook",
+    honeybook_id: externalRecordId,
+    source: "zapier",
     status: "new",
     created_at: new Date().toISOString(),
   });
@@ -82,8 +86,8 @@ async function handleNewLead(data) {
 
 // CLIENT_CONVERTED: Move lead to client, mark as paid
 async function handleClientConverted(data) {
-  const { email, honeybook_id, contract_signed, invoice_paid, service_type, client_value } =
-    data;
+  const { email, contract_signed, invoice_paid, service_type, client_value } = data;
+  const externalRecordId = resolveExternalRecordId(data);
 
   if (!email) {
     throw new Error("Missing required field: email");
@@ -105,7 +109,7 @@ async function handleClientConverted(data) {
     .from("leads")
     .update({
       status: "converted",
-      honeybook_id: honeybook_id || lead.honeybook_id,
+      honeybook_id: externalRecordId || lead.honeybook_id,
       conversion_date: new Date().toISOString(),
     })
     .eq("id", lead.id);
@@ -118,13 +122,13 @@ async function handleClientConverted(data) {
   const { data: client, error: clientError } = await supabase.from("clients").insert({
     name: lead.name,
     email: email.toLowerCase().trim(),
-    honeybook_id: honeybook_id || "",
+    honeybook_id: externalRecordId,
     service_type: service_type || "general",
     client_value: client_value || 0,
     status: "active",
     contract_signed: contract_signed || false,
     invoice_paid: invoice_paid || true,
-    source: "honeybook",
+    source: "zapier",
     created_at: new Date().toISOString(),
   });
 
@@ -137,7 +141,8 @@ async function handleClientConverted(data) {
 
 // PROGRAM_ENROLLMENT: Student enrolls in model development program
 async function handleProgramEnrollment(data) {
-  const { email, program_name, program_tier, start_date, honeybook_id } = data;
+  const { email, program_name, program_tier, start_date } = data;
+  const externalRecordId = resolveExternalRecordId(data);
 
   if (!email || !program_name) {
     throw new Error("Missing required fields: email, program_name");
@@ -164,9 +169,9 @@ async function handleProgramEnrollment(data) {
       program_name: program_name,
       program_tier: program_tier || "standard",
       start_date: start_date || new Date().toISOString(),
-      honeybook_id: honeybook_id || "",
+      honeybook_id: externalRecordId,
       status: "active",
-      source: "honeybook",
+      source: "zapier",
       created_at: new Date().toISOString(),
     });
 

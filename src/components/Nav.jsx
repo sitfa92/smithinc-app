@@ -36,8 +36,19 @@ const GROUPS = [
     key: "business",
     label: "Business",
     items: [
-      { key: "bookings", label: "Bookings", to: "/bookings" },
-      { key: "clients",  label: "Clients",  to: "/clients" },
+      { key: "bookings",            label: "Bookings",    to: "/bookings" },
+      { key: "partners",            label: "Partners",    to: "/partners" },
+      { key: "partner-pipeline",    label: "Pipeline",    to: "/partner-pipeline" },
+      { key: "partner-submissions", label: "Submissions", to: "/partner-submissions" },
+    ],
+  },
+  {
+    key: "brand-ambassador",
+    label: "Brand Ambassador",
+    items: [
+      { key: "brand-ambassadors",           label: "Contacts",    to: "/brand-ambassadors" },
+      { key: "brand-ambassador-pipeline",   label: "Pipeline",    to: "/brand-ambassador-pipeline" },
+      { key: "brand-ambassador-submissions",label: "Submissions", to: "/brand-ambassador-submissions" },
     ],
   },
   {
@@ -47,6 +58,7 @@ const GROUPS = [
       { key: "integrations", label: "Integrations", to: "/integrations" },
       { key: "workflows",    label: "Workflows",    to: "/workflows" },
       { key: "team",         label: "Team",         to: "/team" },
+      { key: "team-docs",    label: "Team Docs",    to: "/team-docs" },
     ],
   },
 ];
@@ -112,7 +124,7 @@ export default function Nav() {
 
   const canAccess = (section) => {
     if (role === "admin") return true;
-    if (role === "va")    return ["dashboard","dashboard-group","notifications","models","model-pipeline","bookings","clients","integrations","workflows"].includes(section);
+    if (role === "va")    return ["dashboard","dashboard-group","notifications","models","model-pipeline","bookings","partners","partner-pipeline","partner-submissions","brand-ambassadors","brand-ambassador-pipeline","brand-ambassador-submissions","integrations","workflows"].includes(section);
     if (role === "agent") return ["dashboard","dashboard-group","notifications","models","model-pipeline","submissions","analytics"].includes(section);
     if (role === "user")  return ["dashboard","dashboard-group","notifications","models"].includes(section);
     return false;

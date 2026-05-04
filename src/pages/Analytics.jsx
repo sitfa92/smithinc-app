@@ -8,11 +8,7 @@ export default function Analytics() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
 
-  React.useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async () => {
     try {
       setError("");
       const [modelsResult, bookingsResult] = await Promise.all([
@@ -30,9 +26,13 @@ export default function Analytics() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const metrics = calculateMetrics(models, bookings);
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const metrics = React.useMemo(() => calculateMetrics(models, bookings), [models, bookings]);
 
   const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2", info:"#1e3a5f", infoBg:"#eff6ff" };
   const statCard = (label, value, extra={}) => (

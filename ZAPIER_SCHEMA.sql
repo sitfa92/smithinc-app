@@ -1,7 +1,7 @@
 -- Zapier Workflow System Schema
 -- Run these SQL commands in Supabase SQL Editor to set up the workflow infrastructure
 
--- 1. LEADS TABLE - Capture all HoneyBook inquiries
+-- 1. LEADS TABLE - Capture all inbound CRM inquiries
 CREATE TABLE IF NOT EXISTS public.leads (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   name text NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.leads (
   service_type text DEFAULT 'inquiry',
   message text DEFAULT '',
   honeybook_id text DEFAULT '',
-  source text DEFAULT 'honeybook',
+  source text DEFAULT 'zapier',
   status text DEFAULT 'new' CHECK (status IN ('new', 'converted', 'lost')),
   created_at timestamp DEFAULT now(),
   updated_at timestamp DEFAULT now()
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.clients (
   status text DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'churned')),
   contract_signed boolean DEFAULT false,
   invoice_paid boolean DEFAULT true,
-  source text DEFAULT 'honeybook',
+  source text DEFAULT 'zapier',
   created_at timestamp DEFAULT now(),
   updated_at timestamp DEFAULT now()
 );
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS public.program_enrollments (
   start_date timestamp NOT NULL,
   honeybook_id text DEFAULT '',
   status text DEFAULT 'active' CHECK (status IN ('active', 'completed', 'paused', 'cancelled')),
-  source text DEFAULT 'honeybook',
+  source text DEFAULT 'zapier',
   created_at timestamp DEFAULT now(),
   updated_at timestamp DEFAULT now()
 );

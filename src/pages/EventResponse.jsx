@@ -43,14 +43,20 @@ export default function EventResponse() {
   const params = React.useMemo(() => new URLSearchParams(window.location.search), []);
   const modelName = params.get("name") || "there";
   const modelEmail = params.get("email") || "";
-  const eventTitle = params.get("eventTitle") || "Event";
-  const eventType = params.get("eventType") || "meeting";
+  const eventTitle = params.get("eventTitle") || "Casting call";
+  const eventType = params.get("eventType") || "casting";
   const eventAt = params.get("eventAt") || "";
-  const defaultAction = params.get("action") || "confirm";
+  const actionAlias = { confirm: "available", reschedule: "maybe", cancel: "unavailable" };
+  const rawAction = params.get("action") || "available";
+  const defaultAction = ["available", "maybe", "unavailable"].includes(rawAction)
+    ? rawAction
+    : actionAlias[rawAction] || "available";
 
   const [action, setAction] = React.useState(defaultAction);
   const [message, setMessage] = React.useState("");
   const [requestedTime, setRequestedTime] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [instagram, setInstagram] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -78,6 +84,8 @@ export default function EventResponse() {
           eventAt,
           action,
           requestedTime: requestedTime ? new Date(requestedTime).toISOString() : "",
+          phone,
+          instagram,
           message,
         }),
       });
@@ -93,25 +101,25 @@ export default function EventResponse() {
   };
 
   const successText = {
-    confirm: "Your confirmation has been sent to the team.",
-    reschedule: "Your reschedule request has been sent to the team.",
-    cancel: "Your cancellation has been sent to the team.",
+    available: "Your casting availability has been submitted.",
+    maybe: "Your tentative availability has been submitted.",
+    unavailable: "Your unavailability has been submitted.",
   }[action] || "Your response has been sent.";
 
   return (
     <div className="lx-auth-screen" style={{ alignItems: "flex-start", paddingTop: 24, paddingBottom: 24 }}>
       <div className="lx-auth-panel xwide" style={{ maxWidth: 760, padding: "32px 24px" }}>
         <div className="lx-auth-brand" style={{ marginBottom: 18, paddingBottom: 14 }}>Meet Serenity</div>
-        <h1 className="lx-auth-title" style={{ marginBottom: 8 }}>Event Response</h1>
+        <h1 className="lx-auth-title" style={{ marginBottom: 8 }}>Casting Call Submission</h1>
         <p className="lx-auth-sub" style={{ marginBottom: 20 }}>
-          {modelName}, let the team know if you can attend, need to reschedule, or need to cancel.
+          {modelName}, submit your standard casting call response so the team can review availability quickly.
         </p>
 
         <div style={{ background: "linear-gradient(180deg, #faf8f4 0%, #f5f2ec 100%)", border: "1px solid #e8e4dc", borderRadius: 14, padding: 18, marginBottom: 18 }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888", marginBottom: 10 }}>Event details</div>
           <div style={{ display: "grid", gap: 6, color: COLORS.slate, fontSize: 14 }}>
-            <div><strong style={{ color: COLORS.ink }}>Event:</strong> {eventTitle}</div>
-            <div><strong style={{ color: COLORS.ink }}>Type:</strong> {eventType}</div>
+            <div><strong style={{ color: COLORS.ink }}>Casting call:</strong> {eventTitle}</div>
+            <div><strong style={{ color: COLORS.ink }}>Category:</strong> {eventType}</div>
             <div><strong style={{ color: COLORS.ink }}>Date & time:</strong> {prettyDate}</div>
             {modelEmail ? <div><strong style={{ color: COLORS.ink }}>Email:</strong> {modelEmail}</div> : null}
           </div>
@@ -128,16 +136,16 @@ export default function EventResponse() {
                 Your response
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" onClick={() => setAction("confirm")} style={buttonStyle(action === "confirm", "success")}>Confirm</button>
-                <button type="button" onClick={() => setAction("reschedule")} style={buttonStyle(action === "reschedule", "warn")}>Reschedule</button>
-                <button type="button" onClick={() => setAction("cancel")} style={buttonStyle(action === "cancel", "danger")}>Cancel</button>
+                <button type="button" onClick={() => setAction("available")} style={buttonStyle(action === "available", "success")}>Available</button>
+                <button type="button" onClick={() => setAction("maybe")} style={buttonStyle(action === "maybe", "warn")}>Maybe</button>
+                <button type="button" onClick={() => setAction("unavailable")} style={buttonStyle(action === "unavailable", "danger")}>Unavailable</button>
               </div>
             </div>
 
-            {action === "reschedule" && (
+            {action === "maybe" && (
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: COLORS.dust, marginBottom: 6 }}>
-                  Preferred new time
+                  Preferred / alternate time
                 </div>
                 <input
                   type="datetime-local"
@@ -148,6 +156,31 @@ export default function EventResponse() {
               </div>
             )}
 
+            <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))" }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: COLORS.dust, marginBottom: 6 }}>
+                  Phone (optional)
+                </div>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. +1 555 555 5555"
+                  style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: `1px solid ${COLORS.smoke}`, fontSize: 14, boxSizing: "border-box" }}
+                />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: COLORS.dust, marginBottom: 6 }}>
+                  Instagram (optional)
+                </div>
+                <input
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                  placeholder="@yourhandle"
+                  style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: `1px solid ${COLORS.smoke}`, fontSize: 14, boxSizing: "border-box" }}
+                />
+              </div>
+            </div>
+
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: COLORS.dust, marginBottom: 6 }}>
                 Message
@@ -155,7 +188,7 @@ export default function EventResponse() {
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Add any notes for the team"
+                placeholder="Add any notes, links, or wardrobe details for the team"
                 rows={4}
                 style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: `1px solid ${COLORS.smoke}`, fontSize: 14, boxSizing: "border-box", resize: "vertical" }}
               />
@@ -172,7 +205,7 @@ export default function EventResponse() {
               disabled={saving}
               className="lx-btn lx-btn-primary lx-btn-full"
             >
-              {saving ? "Sending…" : "Send Response"}
+              {saving ? "Sending…" : "Submit Casting Response"}
             </button>
           </form>
         )}
