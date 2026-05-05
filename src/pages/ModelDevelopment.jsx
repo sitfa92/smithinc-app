@@ -88,6 +88,16 @@ const sections = [
         ],
       },
       {
+        currency: "KES",
+        symbol: "KSh",
+        label: "Nairobi, Kenya — Kenyan shilling",
+        tiers: [
+          { label: "Starter", price: "KSh 6,500", text: "Affordable entry support for confidence, structure, and steady early progress." },
+          { label: "Growth", price: "KSh 9,500", text: "Balanced coaching depth for sharper positioning, stronger assets, and better accountability." },
+          { label: "Elite", price: "KSh 16,000", text: "Premium support for committed talent who want the highest-touch development experience." },
+        ],
+      },
+      {
         currency: "UGX",
         symbol: "USh",
         label: "Uganda — Shilling",
@@ -167,7 +177,8 @@ function getDefaultTierCurrency() {
 
   if (inSet("NG")) return "NGN";
   if (inSet("CI", "SN", "BJ", "BF", "ML", "NE", "TG", "GW")) return "XOF";
-  if (inSet("UG", "KE", "TZ", "RW", "BI", "SS", "ET")) return "UGX";
+  if (inSet("KE")) return "KES";
+  if (inSet("UG", "TZ", "RW", "BI", "SS", "ET")) return "UGX";
   if (inSet("GB", "IE")) return "GBP";
   if (inSet("US", "CA", "MX", "BR", "AR", "CL", "CO", "PE")) return "USD";
 
@@ -178,7 +189,10 @@ function getDefaultTierCurrency() {
   if (timeZone.includes("africa/lagos") || timeZone.includes("africa/accra")) {
     return "NGN";
   }
-  if (timeZone.includes("africa/kampala") || timeZone.includes("africa/nairobi") || timeZone.includes("africa/kigali") || timeZone.includes("africa/dar_es_salaam")) {
+  if (timeZone.includes("africa/nairobi")) {
+    return "KES";
+  }
+  if (timeZone.includes("africa/kampala") || timeZone.includes("africa/kigali") || timeZone.includes("africa/dar_es_salaam")) {
     return "UGX";
   }
   if (timeZone.includes("europe/london") || timeZone.includes("europe/dublin")) {
