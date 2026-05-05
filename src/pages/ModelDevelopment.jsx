@@ -220,6 +220,13 @@ export default function ModelDevelopment() {
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               <VoiceCallButton label="Call Now" metadata={{ page: "homepage", intent }} compact={isMobile} />
+              <a
+                href="/contact-team"
+                className="lx-btn lx-btn-outline"
+                style={{ textDecoration: "none" }}
+              >
+                Contact Team
+              </a>
               {callLineHref && (
                 <a
                   href={callLineHref}
