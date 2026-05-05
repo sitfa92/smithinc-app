@@ -260,31 +260,27 @@ export default function Models() {
                   <span style={{ padding:"3px 10px", background:"rgba(123,47,247,0.1)", color:"#7b2ff7", borderRadius:99, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase" }}>ManyChat</span>
                 )}
                 <span style={{ padding:"3px 10px", background:bg, color:clr, borderRadius:99, fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>{model.status}</span>
-                {model.status === "approved" && (
-                  <>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/digitals/${model.id}`)}
-                      title="Copy digitals upload link"
-                      style={{ padding:"4px 10px", background:C.okBg, color:C.ok, border:`1px solid rgba(26,102,54,0.2)`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
-                    >
-                      Copy Digitals Link
-                    </button>
-                    <button
-                      onClick={() => window.open(`${window.location.origin}/digitals/${model.id}`, "_blank", "noopener,noreferrer")}
-                      title="Open digitals portal"
-                      style={{ padding:"4px 10px", background:C.ink, color:C.white, border:`1px solid ${C.ink}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
-                    >
-                      Open Digitals
-                    </button>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/talent/${model.id}`)}
-                      title="Copy public portfolio link"
-                      style={{ padding:"4px 10px", background:C.ivory, color:C.dust, border:`1px solid ${C.smoke}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
-                    >
-                      Copy Portfolio Link
-                    </button>
-                  </>
-                )}
+                <button
+                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/digitals/${model.id}`)}
+                  title="Copy digitals upload link"
+                  style={{ padding:"4px 10px", background:C.okBg, color:C.ok, border:`1px solid rgba(26,102,54,0.2)`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+                >
+                  Copy Digitals Link
+                </button>
+                <button
+                  onClick={() => window.open(`${window.location.origin}/digitals/${model.id}`, "_blank", "noopener,noreferrer")}
+                  title="Open digitals portal"
+                  style={{ padding:"4px 10px", background:C.ink, color:C.white, border:`1px solid ${C.ink}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+                >
+                  Open Digitals
+                </button>
+                <button
+                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/talent/${model.id}`)}
+                  title="Copy public portfolio link"
+                  style={{ padding:"4px 10px", background:C.ivory, color:C.dust, border:`1px solid ${C.smoke}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+                >
+                  Copy Portfolio Link
+                </button>
               </div>
             </div>
 

@@ -124,9 +124,9 @@ export const uploadImage = async (file, folder = "models") => {
 
   // Validate file size by upload type
   const isDigitalsUpload = String(folder || "").startsWith("digitals");
-  const maxSize = isDigitalsUpload ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+  const maxSize = isDigitalsUpload ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
   if (file.size > maxSize) {
-    throw new Error(`File too large. Maximum size is ${isDigitalsUpload ? "10MB" : "5MB"}.`);
+    throw new Error(`File too large. Maximum size is ${isDigitalsUpload ? "25MB" : "5MB"}.`);
   }
 
   const signResp = await fetch("/api/storage/sign-upload", {

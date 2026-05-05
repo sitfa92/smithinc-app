@@ -221,7 +221,7 @@ export default function DigitalsUpload() {
             ) : null}
           </div>
           <p style={{ margin: 0, color: "#4a4a4a", fontSize: 13, lineHeight: 1.6 }}>
-            Please upload clean headshots, profile shots, and full-length digitals. Each file can be up to 10 MB.
+            Please upload clean headshots, profile shots, and full-length digitals. Each file can be up to 25 MB.
           </p>
         </div>
 
