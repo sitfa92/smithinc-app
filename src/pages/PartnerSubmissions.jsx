@@ -4,7 +4,6 @@ import { createInAppAlerts, sendInternalTeamEmailAlert } from "../utils";
 
 const EMERGENCY_AMBASSADOR_EMAILS = new Set([
   "kouassibenedicta46@gmail.com",
-  "adebanjookikiola252@gmail.com",
 ]);
 
 const isTableMissingError = (err) =>

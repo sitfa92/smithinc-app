@@ -4,7 +4,6 @@ import { isMissingColumnError, sendZapierEvent, createInAppAlerts, sendInternalT
 
 const EMERGENCY_AMBASSADOR_EMAILS = new Set([
   "kouassibenedicta46@gmail.com",
-  "adebanjookikiola252@gmail.com",
 ]);
 
 export default function Partners() {
