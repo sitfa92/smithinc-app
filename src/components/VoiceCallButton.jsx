@@ -8,7 +8,9 @@ const VAPI_ASSISTANT_ID =
 
 const STATUS = { idle: "idle", connecting: "connecting", active: "active", error: "error" };
 
-export default function VoiceCallButton({ modelName }) {
+// metadata: arbitrary object merged into the VAPI call metadata
+// label: button text override (default "Talk to Serenity")
+export default function VoiceCallButton({ modelName, metadata = {}, label = "Talk to Serenity" }) {
   const [status, setStatus] = React.useState(STATUS.idle);
   const [errorMsg, setErrorMsg] = React.useState("");
   const [isMuted, setIsMuted] = React.useState(false);
@@ -47,7 +49,10 @@ export default function VoiceCallButton({ modelName }) {
       });
 
       await vapi.start(VAPI_ASSISTANT_ID, {
-        ...(modelName ? { metadata: { model_name: modelName } } : {}),
+        metadata: {
+          ...(modelName ? { model_name: modelName } : {}),
+          ...metadata,
+        },
       });
     } catch (err) {
       setStatus(STATUS.error);
@@ -98,7 +103,7 @@ export default function VoiceCallButton({ modelName }) {
           onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 20px rgba(201,168,76,0.35)"; }}
         >
           <MicIcon />
-          Talk to Serenity
+          {label}
         </button>
         {status === STATUS.error && errorMsg && (
           <p style={{ fontSize: 12, color: C.err, margin: 0, maxWidth: 280 }}>{errorMsg}</p>

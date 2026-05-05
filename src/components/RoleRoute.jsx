@@ -5,13 +5,13 @@ import { useAuth } from "../auth";
 export const canAccessRoute = (role, routeKey) => {
   if (role === "admin") return true;
   if (role === "va") {
-    return ["dashboard", "models", "model-pipeline", "submissions", "bookings", "partners", "partner-pipeline", "partner-submissions", "brand-ambassadors", "brand-ambassador-pipeline", "brand-ambassador-submissions", "analytics", "team", "team-docs", "integrations"].includes(routeKey);
+    return ["dashboard", "models", "model-pipeline", "submissions", "bookings", "partners", "partner-pipeline", "partner-submissions", "brand-ambassadors", "brand-ambassador-pipeline", "brand-ambassador-submissions", "analytics", "team", "team-docs", "integrations", "contact-team"].includes(routeKey);
   }
   if (role === "agent") {
-    return ["dashboard", "models", "model-pipeline", "submissions", "analytics"].includes(routeKey);
+    return ["dashboard", "models", "model-pipeline", "submissions", "analytics", "contact-team"].includes(routeKey);
   }
   if (role === "user") {
-    return ["dashboard", "models"].includes(routeKey);
+    return ["dashboard", "models", "contact-team"].includes(routeKey);
   }
   return false;
 };

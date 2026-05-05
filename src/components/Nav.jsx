@@ -59,6 +59,7 @@ const GROUPS = [
       { key: "workflows",    label: "Workflows",    to: "/workflows" },
       { key: "team",         label: "Team",         to: "/team" },
       { key: "team-docs",    label: "Team Docs",    to: "/team-docs" },
+      { key: "contact-team", label: "Contact Team", to: "/contact-team" },
     ],
   },
 ];

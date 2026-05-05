@@ -32,6 +32,7 @@ const Integrations = React.lazy(() => import("./pages/Integrations"));
 const Team = React.lazy(() => import("./pages/Team"));
 const TeamDocs = React.lazy(() => import("./pages/TeamDocs"));
 const Notifications = React.lazy(() => import("./pages/Notifications"));
+const ContactTeam = React.lazy(() => import("./pages/ContactTeam"));
 
 const PageFallback = () => (
   <div style={{ padding: 40, textAlign: "center" }}>
@@ -189,6 +190,7 @@ function App() {
             <Route path="/partner-submit" element={<PublicPartnerSubmission />} />
             <Route path="/brand-ambassador-submit" element={<PublicBrandAmbassadorSubmission />} />
             <Route path="/talent/:id" element={<Portfolio />} />
+            <Route path="/contact-team" element={<ContactTeam />} />
             <Route path="/digitals/:id" element={<DigitalsUpload />} />
             <Route path="/event-response" element={<EventResponse />} />
             <Route path="/*" element={<ProtectedApp />} />

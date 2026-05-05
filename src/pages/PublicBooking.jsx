@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import { sendBookingConfirmationEmail } from "../emailService";
 import { createInAppAlerts, sendInternalTeamEmailAlert, sendZapierEvent, sendBackendWebhook } from "../utils";
 import "../App.css";
+import VoiceCallButton from "../components/VoiceCallButton";
 
 const inp = {
   width:"100%", padding:"12px 14px", fontSize:14, color:"#111",
@@ -95,6 +96,17 @@ export default function PublicBooking() {
         <div className="lx-auth-brand">Meet Serenity</div>
         <h1 className="lx-auth-title">{bookingContent.title}</h1>
         <p className="lx-auth-sub">{bookingContent.sub}</p>
+
+        {/* Voice-first option */}
+        <div style={{ background:"#faf8f4", border:"1px solid #e8e4dc", borderRadius:12, padding:"18px 20px", marginBottom:28 }}>
+          <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", color:"#888" }}>
+            Not sure where to start?
+          </p>
+          <p style={{ margin:"0 0 14px", fontSize:13, color:"#4a4a4a", lineHeight:1.6 }}>
+            Talk to Serenity first — ask questions, get clarity, then book when you're ready.
+          </p>
+          <VoiceCallButton label="Talk to Serenity" metadata={{ page: "booking", intent }} />
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div className="lx-field">
