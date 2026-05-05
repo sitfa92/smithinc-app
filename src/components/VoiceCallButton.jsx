@@ -169,8 +169,8 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
       const callOptions = {
         firstMessage:
           preferredLanguage === "fr"
-            ? "Bonjour, ici Serenity avec SmithInc. Comment puis-je vous aider aujourd'hui ?"
-            : "Hi, this is Serenity with SmithInc. How can I help you today?",
+            ? "Bonjour, ici Serenity de SmithInc, une agence de conseil en mode avec un programme de developpement de mannequins. Comment puis-je vous aider aujourd'hui ?"
+            : "Hi, this is Serenity with SmithInc, a fashion consulting agency with a model development program. How can I help you today?",
         variableValues: {
           preferred_language: preferredLanguage,
           viewer_country: countryHint || "unknown",
@@ -198,8 +198,8 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
               role: "system",
               content:
                 preferredLanguage === "fr"
-                  ? "For this call, speak only French unless the caller explicitly asks to switch languages."
-                  : "For this call, speak only English unless the caller explicitly asks to switch languages.",
+                  ? "For this call, speak only French unless the caller explicitly asks to switch languages. Identify SmithInc as a fashion consulting agency with a model development program focused on preparing top models for placement across different areas of the fashion industry."
+                  : "For this call, speak only English unless the caller explicitly asks to switch languages. Identify SmithInc as a fashion consulting agency with a model development program focused on preparing top models for placement across different areas of the fashion industry.",
             },
           });
         } catch {

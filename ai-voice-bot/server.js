@@ -19,7 +19,7 @@ const SYSTEM_PROMPT = String(
 ).trim();
 const PROGRAM_INFO_MESSAGE = String(
   process.env.PROGRAM_INFO_MESSAGE ||
-    "Meet Serenity is a structured model development membership, not a modeling agency. It offers starter, growth, and elite tiers with coaching, positioning support, and accountability. It is designed for serious talent who want clear direction and industry readiness. To apply, visit meet-serenity.online and select apply for the program."
+    "Meet Serenity is a structured model development program from SmithInc, a fashion consulting agency. We are not a modeling agency. The program offers starter, growth, and elite tiers with coaching, positioning support, and accountability to prepare top models for placement across different areas of the industry. To apply, visit meet-serenity.online and select apply for the program."
 ).trim();
 const BOOKING_INFO_MESSAGE = String(
   process.env.BOOKING_INFO_MESSAGE ||
@@ -27,7 +27,7 @@ const BOOKING_INFO_MESSAGE = String(
 ).trim();
 const PROGRAM_INFO_MESSAGE_FR = String(
   process.env.PROGRAM_INFO_MESSAGE_FR ||
-    "Meet Serenity est un programme structure de developpement de modele, pas une agence de mannequinat. Il propose des niveaux starter, growth et elite avec coaching, accompagnement de positionnement et suivi. Pour candidater, visitez meet-serenity.online et choisissez apply for the program."
+    "Meet Serenity est un programme structure de developpement de modeles propose par SmithInc, une agence de conseil en mode. Nous ne sommes pas une agence de mannequinat. Le programme propose des niveaux starter, growth et elite avec coaching, accompagnement de positionnement et suivi pour preparer des top modeles au placement dans differents secteurs de l'industrie. Pour candidater, visitez meet-serenity.online et choisissez apply for the program."
 ).trim();
 const BOOKING_INFO_MESSAGE_FR = String(
   process.env.BOOKING_INFO_MESSAGE_FR ||
@@ -36,7 +36,7 @@ const BOOKING_INFO_MESSAGE_FR = String(
 
 const WHATSAPP_SYSTEM_PROMPT = String(
   process.env.WHATSAPP_SYSTEM_PROMPT ||
-    `You are Serenity, the AI assistant for SmithInc. The Fashion Agency — a luxury fashion talent agency. You help international clients and aspiring models via WhatsApp. Be warm, professional, and clear. Answer questions about the agency, the Meet Serenity Program, how to apply, requirements, and next steps. Keep replies concise and easy to read on a phone screen. Use plain text only — no markdown. If someone wants to apply or submit materials, direct them to meet-serenity.online or tell them to send their digitals and runway video to +1 (773) 694-4567 on WhatsApp.`
+    `You are Serenity, the AI assistant for SmithInc, a fashion consulting agency with a model development program. SmithInc is not a modeling agency. You help international clients and aspiring models via WhatsApp. Be warm, professional, and clear. Answer questions about the agency, the Meet Serenity Program, how to apply, requirements, and next steps. Explain that the program is focused on developing top models for placement across different parts of the fashion industry. Keep replies concise and easy to read on a phone screen. Use plain text only - no markdown. If someone wants to apply or submit materials, direct them to meet-serenity.online or tell them to send their digitals and runway video to +1 (773) 694-4567 on WhatsApp.`
 ).trim();
 
 const VOICE_CONFIG = {
@@ -398,7 +398,7 @@ app.post("/whatsapp", async (req, res) => {
 
   if (!incoming) {
     res.type("text/xml").status(200).send(
-      twimlMessage("Hi! I'm Serenity, the SmithInc. assistant. How can I help you today? You can ask about our programs, how to apply, or what to send us.")
+      twimlMessage("Hi! I'm Serenity, the SmithInc. assistant for our fashion consulting and model development program. How can I help you today? You can ask about our programs, how to apply, or what to send us.")
     );
     return;
   }
@@ -410,7 +410,7 @@ app.post("/whatsapp", async (req, res) => {
     const convo = getWAConversation(from);
     convo.messages = [];
     res.type("text/xml").status(200).send(
-      twimlMessage("Hi! I'm Serenity, the SmithInc. The Fashion Agency assistant. How can I help you today? You can ask about our programs, how to apply, or what materials to send.")
+      twimlMessage("Hi! I'm Serenity, the SmithInc. assistant. SmithInc is a fashion consulting agency with a model development program. How can I help you today? You can ask about our programs, how to apply, or what materials to send.")
     );
     return;
   }
