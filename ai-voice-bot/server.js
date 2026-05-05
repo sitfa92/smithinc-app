@@ -19,7 +19,7 @@ const SYSTEM_PROMPT = String(
 ).trim();
 const PROGRAM_INFO_MESSAGE = String(
   process.env.PROGRAM_INFO_MESSAGE ||
-    "Meet Serenity is a structured model development program from SmithInc, a fashion consulting agency. We are not a modeling agency. The program offers starter, growth, and elite tiers with coaching, positioning support, and accountability to prepare top models for placement across different areas of the industry. To apply, visit meet-serenity.online and select apply for the program."
+    "Meet Serenity is SmithInc's fashion consulting and model development platform. We are not a modeling agency. It helps manage model portfolios, coordinate brand bookings, and track pipeline workflows, while the Starter, Growth, and Elite tiers provide coaching, positioning support, and accountability to prepare top models for placement across different areas of the industry. To apply, visit meet-serenity.online and select apply for the program."
 ).trim();
 const BOOKING_INFO_MESSAGE = String(
   process.env.BOOKING_INFO_MESSAGE ||
@@ -27,7 +27,7 @@ const BOOKING_INFO_MESSAGE = String(
 ).trim();
 const PROGRAM_INFO_MESSAGE_FR = String(
   process.env.PROGRAM_INFO_MESSAGE_FR ||
-    "Meet Serenity est un programme structure de developpement de modeles propose par SmithInc, une agence de conseil en mode. Nous ne sommes pas une agence de mannequinat. Le programme propose des niveaux starter, growth et elite avec coaching, accompagnement de positionnement et suivi pour preparer des top modeles au placement dans differents secteurs de l'industrie. Pour candidater, visitez meet-serenity.online et choisissez apply for the program."
+    "Meet Serenity est la plateforme de conseil mode et de developpement de modeles de SmithInc. Nous ne sommes pas une agence de mannequinat. La plateforme aide a gerer les portfolios, coordonner les reservations de marques et suivre le pipeline, tandis que les niveaux Starter, Growth et Elite apportent coaching, accompagnement de positionnement et suivi pour preparer des top modeles au placement dans differents secteurs de l'industrie. Pour candidater, visitez meet-serenity.online et choisissez apply for the program."
 ).trim();
 const BOOKING_INFO_MESSAGE_FR = String(
   process.env.BOOKING_INFO_MESSAGE_FR ||

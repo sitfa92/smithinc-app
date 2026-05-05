@@ -269,7 +269,7 @@ export default function ModelDevelopment() {
             Choose your lane. Grow at your pace.
           </h1>
           <p className="lx-auth-sub" style={{ maxWidth: 760, marginBottom: 16, textAlign: "center", marginLeft: "auto", marginRight: "auto" }}>
-            A structured, selective model development membership designed for talent who want clear direction, stronger presentation, and a longer runway for growth.
+            Meet Serenity is SmithInc's fashion consulting and model development platform: one system for model portfolios, brand booking coordination, and pipeline tracking, plus Starter, Growth, and Elite program tiers with coaching, positioning support, and accountability.
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <Link to={applyPath} className="lx-btn lx-btn-primary" style={{ textDecoration: "none" }}>

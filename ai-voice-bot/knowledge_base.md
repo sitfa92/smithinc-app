@@ -1,10 +1,18 @@
-# Smith Inc Talent Agency — Serenity Knowledge Base
+# Smith Inc — Serenity Knowledge Base
 
 ## About Smith Inc
-Smith Inc is a luxury fashion talent agency specializing in model development, brand ambassadorship, and fashion education. We represent and develop emerging and established talent across the United States.
+Smith Inc is a fashion consulting business with a structured model development program. We are not a modeling agency. Through Meet Serenity, we help organize portfolios, bookings, and workflows while preparing talent for placement opportunities across different areas of the fashion industry.
 
 ## The Meet Serenity Program
-The Meet Serenity Program is Smith Inc's signature model onboarding and development program. It provides talent with professional guidance, training, and placement opportunities in the fashion industry.
+Meet Serenity is Smith Inc's model development platform and workflow system. It combines:
+- Model management (rosters, portfolios, and talent profiles)
+- Brand booking coordination
+- Agency pipeline tracking from intake to completed jobs
+
+Program tiers:
+- Starter: foundational structure and early coaching support
+- Growth: deeper positioning support and stronger accountability
+- Elite: highest-touch guidance for advanced readiness and placement preparation
 
 ## Contacting Smith Inc
 - **Phone / Voice AI**: +1 (773) 694-4567 — ask for Serenity
