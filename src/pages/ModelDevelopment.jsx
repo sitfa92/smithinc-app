@@ -219,7 +219,7 @@ export default function ModelDevelopment() {
               Call Serenity now from your browser, or dial the line directly.
             </p>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <VoiceCallButton label="Call Now" metadata={{ page: "homepage", intent }} compact={isMobile} />
+              <VoiceCallButton label="Call Serenity" metadata={{ page: "homepage", intent }} compact={isMobile} />
               <a
                 href="/contact-team"
                 className="lx-btn lx-btn-outline"
