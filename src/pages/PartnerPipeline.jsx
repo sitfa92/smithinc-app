@@ -129,28 +129,19 @@ alter table public.clients disable row level security;`;
   const fetchClients = async () => {
     try {
       setError("");
-      const selectFields = "id, name, email, project, service_type, status, client_value, source, avatar_url, pipeline_stage, priority_level, internal_notes, next_step, last_updated, created_at";
-      const { data, error: fetchError } = await supabase
-        .from("clients")
-        .select(selectFields)
-        .order("last_updated", { ascending: false });
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (fetchError) {
-        if (isMissingColumnError(fetchError)) {
-          setPipelineSchemaReady(false);
-          const fallback = await supabase
-            .from("clients")
-            .select("id, name, email, project, service_type, status, client_value, source, avatar_url, created_at")
-            .order("created_at", { ascending: false });
-          if (fallback.error) throw fallback.error;
-          setClients((fallback.data || []).map(normalizeClient));
-          return;
-        }
-        throw fetchError;
-      }
+      const resp = await fetch("/api/clients/list", {
+        headers: { Authorization: `Bearer ${session?.access_token || ""}` },
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json.error || "Failed to load clients");
 
       setPipelineSchemaReady(true);
-      let nextClients = (data || []).map(normalizeClient);
+      const rawClients = json.clients || [];
+      let nextClients = rawClients.map(normalizeClient);
 
       if (isBrandAmbassadorView) {
         const { data: partnerRows, error: partnerRowsError } = await supabase
