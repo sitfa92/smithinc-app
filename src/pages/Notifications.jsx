@@ -9,6 +9,7 @@ export default function Notifications() {
   const [filter, setFilter] = React.useState("all"); // all | unread | read
   const [markingAll, setMarkingAll] = React.useState(false);
   const [updatingId, setUpdatingId] = React.useState("");
+  const [alertsOpen, setAlertsOpen] = React.useState(true);
 
   const C = {
     ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc",
@@ -51,15 +52,17 @@ export default function Notifications() {
     return () => { supabase.removeChannel(ch); };
   }, [fetchAlerts, user?.email]);
 
-  const markRead = async (id) => {
-    setUpdatingId(id);
+  const markRead = async (idOrIds) => {
+    const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds];
+    if (!ids.length) return;
+    setUpdatingId(ids[0]);
     try {
       const { error } = await supabase
         .from("alerts")
         .update({ status: "read", read_at: new Date().toISOString() })
-        .eq("id", id);
+        .in("id", ids);
       if (error) throw error;
-      setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: "read", read_at: new Date().toISOString() } : a));
+      setAlerts(prev => prev.map(a => ids.includes(a.id) ? { ...a, status: "read", read_at: new Date().toISOString() } : a));
     } finally {
       setUpdatingId("");
     }
@@ -95,6 +98,33 @@ export default function Notifications() {
     return true;
   });
 
+  const groupedFiltered = filtered.reduce((acc, item) => {
+    const key = [
+      item.title || "",
+      item.message || "",
+      item.level || "info",
+      item.status || "unread",
+      item.audience_role || "",
+      item.source_type || "",
+      item.source_id || "",
+    ].join("|");
+    const existing = acc.get(key);
+    if (!existing) {
+      acc.set(key, { ...item, groupedIds: [item.id], duplicateCount: 1 });
+      return acc;
+    }
+    existing.groupedIds.push(item.id);
+    existing.duplicateCount += 1;
+    if (new Date(item.created_at).getTime() > new Date(existing.created_at).getTime()) {
+      existing.created_at = item.created_at;
+      existing.read_at = item.read_at;
+    }
+    return acc;
+  }, new Map());
+
+  const groupedItems = Array.from(groupedFiltered.values())
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
   const unreadCount = alerts.filter(a => a.status !== "read").length;
 
   const tabBtn = (key, label, count) => (
@@ -126,18 +156,32 @@ export default function Notifications() {
           </p>
         </div>
         {unreadCount > 0 && (
-          <button
-            onClick={markAllRead}
-            disabled={markingAll}
-            style={{
-              padding: "10px 18px", background: C.ink, color: C.white, border: "none",
-              borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: "0.07em",
-              textTransform: "uppercase", cursor: markingAll ? "not-allowed" : "pointer",
-              fontFamily: "'Inter',sans-serif", opacity: markingAll ? 0.6 : 1,
-            }}
-          >
-            {markingAll ? "Marking…" : "Mark All Read"}
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <button
+              onClick={() => setAlertsOpen(v => !v)}
+              style={{
+                padding: "9px 14px", background: C.ivory, color: C.slate, border: `1px solid ${C.smoke}`,
+                borderRadius: 8, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em",
+                textTransform: "uppercase", cursor: "pointer", fontFamily: "'Inter',sans-serif",
+              }}
+              aria-expanded={alertsOpen}
+              aria-controls="notifications-alert-list"
+            >
+              {alertsOpen ? "Hide Alerts" : "Show Alerts"}
+            </button>
+            <button
+              onClick={markAllRead}
+              disabled={markingAll}
+              style={{
+                padding: "10px 18px", background: C.ink, color: C.white, border: "none",
+                borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: "0.07em",
+                textTransform: "uppercase", cursor: markingAll ? "not-allowed" : "pointer",
+                fontFamily: "'Inter',sans-serif", opacity: markingAll ? 0.6 : 1,
+              }}
+            >
+              {markingAll ? "Marking…" : "Mark All Read"}
+            </button>
+          </div>
         )}
       </div>
 
@@ -149,7 +193,7 @@ export default function Notifications() {
       </div>
 
       {loading && <p style={{ color: C.dust }}>Loading notifications…</p>}
-      {!loading && filtered.length === 0 && (
+      {!loading && groupedItems.length === 0 && (
         <div style={{ textAlign: "center", padding: "60px 24px" }}>
           <p style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 24, color: C.ink, marginBottom: 8 }}>
             {filter === "unread" ? "No unread notifications" : "No notifications yet"}
@@ -160,12 +204,17 @@ export default function Notifications() {
         </div>
       )}
 
-      {!loading && filtered.map(item => {
+      {!loading && !alertsOpen && groupedItems.length > 0 && (
+        <p style={{ color: C.dust, fontSize: 12, marginTop: 6 }}>Alerts list is collapsed. Click Show Alerts to view entries.</p>
+      )}
+
+      {!loading && alertsOpen && groupedItems.map(item => {
         const [bg, fg] = lvlPalette[item.level] || [C.ivory, C.slate];
         const isRead = item.status === "read";
         return (
           <div
             key={item.id}
+            id="notifications-alert-list"
             style={{
               background: isRead ? C.ivory : C.white,
               border: `1px solid ${isRead ? C.smoke : "rgba(17,17,17,0.12)"}`,
@@ -186,6 +235,11 @@ export default function Notifications() {
                   <span style={{ padding: "2px 8px", borderRadius: 99, background: bg, color: fg, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
                     {item.level || "info"}
                   </span>
+                  {item.duplicateCount > 1 && (
+                    <span style={{ padding: "2px 8px", borderRadius: 99, background: C.ivory, color: C.dust, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", border: `1px solid ${C.smoke}` }}>
+                      x{item.duplicateCount}
+                    </span>
+                  )}
                 </div>
                 {item.message && (
                   <p style={{ margin: "4px 0 6px", color: C.slate, fontSize: 13, lineHeight: 1.6 }}>{item.message}</p>
@@ -198,7 +252,7 @@ export default function Notifications() {
               </div>
               {!isRead && (
                 <button
-                  onClick={() => markRead(item.id)}
+                  onClick={() => markRead(item.groupedIds || [item.id])}
                   disabled={updatingId === item.id}
                   style={{
                     padding: "7px 13px", background: "transparent", color: C.slate,

@@ -124,6 +124,16 @@ export const runAuthenticatedCurrentDataSync = async () => {
 };
 
 export const createInAppAlerts = async (alerts) => {
+  const keyForAlert = (item) => [
+    String(item.title || "").trim().toLowerCase(),
+    String(item.message || "").trim().toLowerCase(),
+    String(item.audience_role || "").trim().toLowerCase(),
+    String(item.audience_email || "").trim().toLowerCase(),
+    String(item.source_type || "system").trim().toLowerCase(),
+    String(item.source_id || "").trim().toLowerCase(),
+    String(item.level || "info").trim().toLowerCase(),
+  ].join("|");
+
   const payload = (alerts || [])
     .filter((item) => item?.title)
     .map((item) => ({
@@ -140,8 +150,47 @@ export const createInAppAlerts = async (alerts) => {
 
   if (payload.length === 0) return;
 
+  const uniquePayload = [];
+  const seen = new Set();
+  for (const item of payload) {
+    const key = keyForAlert(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniquePayload.push(item);
+  }
+
+  if (uniquePayload.length === 0) return;
+
+  let insertPayload = uniquePayload;
+
   try {
-    await supabase.from("alerts").insert(payload);
+    const since = new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString();
+    const titles = [...new Set(uniquePayload.map((item) => item.title))];
+    const sourceTypes = [...new Set(uniquePayload.map((item) => item.source_type))];
+
+    const { data: existing } = await supabase
+      .from("alerts")
+      .select("title, message, audience_role, audience_email, source_type, source_id, level, status, created_at")
+      .in("title", titles)
+      .in("source_type", sourceTypes)
+      .gte("created_at", since)
+      .limit(500);
+
+    const existingKeys = new Set(
+      (existing || [])
+        .filter((item) => item.status !== "read")
+        .map((item) => keyForAlert(item))
+    );
+
+    insertPayload = uniquePayload.filter((item) => !existingKeys.has(keyForAlert(item)));
+  } catch (_err) {
+    insertPayload = uniquePayload;
+  }
+
+  if (insertPayload.length === 0) return;
+
+  try {
+    await supabase.from("alerts").insert(insertPayload);
   } catch (_err) {
     // Alerts are additive only.
   }
