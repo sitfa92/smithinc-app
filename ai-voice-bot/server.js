@@ -25,11 +25,75 @@ const BOOKING_INFO_MESSAGE = String(
   process.env.BOOKING_INFO_MESSAGE ||
     "For bookings and consultations, visit meet-serenity.online slash book. You can submit your name, email, company, service type, and preferred date. Our team will review and confirm your request quickly."
 ).trim();
+const PROGRAM_INFO_MESSAGE_FR = String(
+  process.env.PROGRAM_INFO_MESSAGE_FR ||
+    "Meet Serenity est un programme structure de developpement de modele, pas une agence de mannequinat. Il propose des niveaux starter, growth et elite avec coaching, accompagnement de positionnement et suivi. Pour candidater, visitez meet-serenity.online et choisissez apply for the program."
+).trim();
+const BOOKING_INFO_MESSAGE_FR = String(
+  process.env.BOOKING_INFO_MESSAGE_FR ||
+    "Pour les reservations et consultations, visitez meet-serenity.online slash book. Vous pouvez envoyer votre nom, email, entreprise, type de service et date souhaitee. Notre equipe examinera puis confirmera votre demande rapidement."
+).trim();
 
 const WHATSAPP_SYSTEM_PROMPT = String(
   process.env.WHATSAPP_SYSTEM_PROMPT ||
     `You are Serenity, the AI assistant for SmithInc. The Fashion Agency — a luxury fashion talent agency. You help international clients and aspiring models via WhatsApp. Be warm, professional, and clear. Answer questions about the agency, the Meet Serenity Program, how to apply, requirements, and next steps. Keep replies concise and easy to read on a phone screen. Use plain text only — no markdown. If someone wants to apply or submit materials, direct them to meet-serenity.online or tell them to send their digitals and runway video to +1 (773) 694-4567 on WhatsApp.`
 ).trim();
+
+const VOICE_CONFIG = {
+  en: { locale: "en-US", voice: "Polly.Joanna" },
+  fr: { locale: "fr-FR", voice: "Polly.Celine" },
+};
+
+const COPY = {
+  intro: {
+    en: "Hi, this is {bot}. Press 1 for Meet Serenity program info. Press 2 for booking help. Press 3 to leave a callback request. Or tell me how I can help you today.",
+    fr: "Bonjour, ici {bot}. Appuyez sur 1 pour les informations du programme Meet Serenity. Appuyez sur 2 pour l'aide de reservation. Appuyez sur 3 pour demander un rappel. Ou dites-moi comment je peux vous aider aujourd'hui.",
+  },
+  gatherPrompt: {
+    en: "Press 1 for program info. Press 2 for booking help. Press 3 to leave a callback request. Or speak now.",
+    fr: "Appuyez sur 1 pour les informations du programme. Appuyez sur 2 pour l'aide de reservation. Appuyez sur 3 pour demander un rappel. Ou parlez maintenant.",
+  },
+  missedInput: {
+    en: "I did not catch that. Goodbye.",
+    fr: "Je n'ai pas bien compris. Au revoir.",
+  },
+  callbackAsk: {
+    en: "Please say your full name, phone number, and the best time to call you back.",
+    fr: "Veuillez indiquer votre nom complet, votre numero de telephone et le meilleur moment pour vous rappeler.",
+  },
+  callbackPrompt: {
+    en: "You can speak your callback details now.",
+    fr: "Vous pouvez maintenant donner vos informations pour le rappel.",
+  },
+  callbackMissed: {
+    en: "I did not catch that. Please call again, or visit meet-serenity.online slash contact-team.",
+    fr: "Je n'ai pas bien compris. Veuillez rappeler, ou visitez meet-serenity.online slash contact-team.",
+  },
+  callbackHearError: {
+    en: "I could not hear your callback details. Please call again.",
+    fr: "Je n'ai pas pu entendre vos informations de rappel. Veuillez rappeler.",
+  },
+  callbackSaved: {
+    en: "Thank you. Your callback request has been noted. Our team will follow up soon.",
+    fr: "Merci. Votre demande de rappel a bien ete enregistree. Notre equipe vous contactera bientot.",
+  },
+  silenceEnd: {
+    en: "I could not hear anything. Please call again.",
+    fr: "Je n'ai rien entendu. Veuillez rappeler.",
+  },
+  goodbye: {
+    en: "Thanks for calling. Goodbye.",
+    fr: "Merci pour votre appel. Au revoir.",
+  },
+  aiFallback: {
+    en: "Sorry, I am having trouble right now. Please try again later.",
+    fr: "Desole, je rencontre un probleme pour le moment. Veuillez reessayer plus tard.",
+  },
+  unconfigured: {
+    en: "This bot is not configured yet. Missing PUBLIC_BASE_URL environment variable.",
+    fr: "Ce bot n'est pas encore configure. La variable d'environnement PUBLIC_BASE_URL est manquante.",
+  },
+};
 
 // In-memory WhatsApp conversation memory (keyed by sender number)
 const WA_CONVERSATIONS = new Map();
@@ -57,22 +121,72 @@ function escapeXml(value) {
     .replace(/'/g, "&apos;");
 }
 
-function twimlSayAndListen({ message, actionPath = "/gather", first = false }) {
-  const actionUrl = `${PUBLIC_BASE_URL}${actionPath}`;
+function copy(key, lang, vars = {}) {
+  const template = COPY[key]?.[lang] || COPY[key]?.en || "";
+  return Object.entries(vars).reduce(
+    (acc, [k, v]) => acc.replaceAll(`{${k}}`, String(v)),
+    template
+  );
+}
+
+function getLanguageConfig(lang) {
+  return VOICE_CONFIG[lang] || VOICE_CONFIG.en;
+}
+
+function looksFrench(text) {
+  const value = String(text || "").toLowerCase();
+  if (!value) return false;
+  if (/[àâçéèêëîïôùûüÿœ]/i.test(value)) return true;
+  const frenchSignals = [
+    "bonjour",
+    "salut",
+    "merci",
+    "s'il vous plait",
+    "svp",
+    "je veux",
+    "je souhaite",
+    "programme",
+    "reservation",
+    "rappel",
+    "au revoir",
+    "francais",
+  ];
+  return frenchSignals.some((signal) => value.includes(signal));
+}
+
+function normalizeLang(raw) {
+  const value = String(raw || "").trim().toLowerCase();
+  if (!value) return "";
+  if (value === "fr" || value.startsWith("fr-")) return "fr";
+  if (value === "en" || value.startsWith("en-")) return "en";
+  return "";
+}
+
+function detectCallLanguage({ queryLang, speechLanguage, text }) {
+  const explicit = normalizeLang(queryLang) || normalizeLang(speechLanguage);
+  if (explicit) return explicit;
+  return looksFrench(text) ? "fr" : "en";
+}
+
+function twimlSayAndListen({ message, actionPath = "/gather", first = false, lang = "en" }) {
+  const cfg = getLanguageConfig(lang);
+  const actionUrl = `${PUBLIC_BASE_URL}${actionPath}${actionPath.includes("?") ? "&" : "?"}lang=${lang}`;
   const intro = first
-    ? `<Say voice="Polly.Joanna">Hi, this is ${escapeXml(BOT_NAME)}. Press 1 for Meet Serenity program info. Press 2 for booking help. Press 3 to leave a callback request. Or tell me how I can help you today.</Say>`
+    ? `<Say voice="${cfg.voice}">${escapeXml(copy("intro", lang, { bot: BOT_NAME }))}</Say>`
     : "";
 
-    return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  ${intro}\n  ${message ? `<Say voice=\"Polly.Joanna\">${escapeXml(message)}</Say>` : ""}\n  <Gather input=\"dtmf speech\" numDigits=\"1\" speechTimeout=\"auto\" timeout=\"5\" action=\"${escapeXml(actionUrl)}\" method=\"POST\">\n    <Say voice=\"Polly.Joanna\">Press 1 for program info. Press 2 for booking help. Press 3 to leave a callback request. Or speak now.</Say>\n  </Gather>\n  <Say voice=\"Polly.Joanna\">I did not catch that. Goodbye.</Say>\n  <Hangup/>\n</Response>`;
+  return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  ${intro}\n  ${message ? `<Say voice=\"${cfg.voice}\">${escapeXml(message)}</Say>` : ""}\n  <Gather input=\"dtmf speech\" numDigits=\"1\" speechTimeout=\"auto\" timeout=\"5\" action=\"${escapeXml(actionUrl)}\" method=\"POST\" language=\"${cfg.locale}\">\n    <Say voice=\"${cfg.voice}\">${escapeXml(copy("gatherPrompt", lang))}</Say>\n  </Gather>\n  <Say voice=\"${cfg.voice}\">${escapeXml(copy("missedInput", lang))}</Say>\n  <Hangup/>\n</Response>`;
 }
 
-function twimlCollectCallbackRequest() {
-  const actionUrl = `${PUBLIC_BASE_URL}/gather?mode=callback_collect`;
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Say voice="Polly.Joanna">Please say your full name, phone number, and the best time to call you back.</Say>\n  <Gather input="speech" speechTimeout="auto" timeout="6" action="${escapeXml(actionUrl)}" method="POST">\n    <Say voice="Polly.Joanna">You can speak your callback details now.</Say>\n  </Gather>\n  <Say voice="Polly.Joanna">I did not catch that. Please call again, or visit meet-serenity.online slash contact-team.</Say>\n  <Hangup/>\n</Response>`;
+function twimlCollectCallbackRequest(lang = "en") {
+  const cfg = getLanguageConfig(lang);
+  const actionUrl = `${PUBLIC_BASE_URL}/gather?mode=callback_collect&lang=${lang}`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Say voice="${cfg.voice}">${escapeXml(copy("callbackAsk", lang))}</Say>\n  <Gather input="speech" speechTimeout="auto" timeout="6" action="${escapeXml(actionUrl)}" method="POST" language="${cfg.locale}">\n    <Say voice="${cfg.voice}">${escapeXml(copy("callbackPrompt", lang))}</Say>\n  </Gather>\n  <Say voice="${cfg.voice}">${escapeXml(copy("callbackMissed", lang))}</Say>\n  <Hangup/>\n</Response>`;
 }
 
-function twimlEnd(message) {
-  return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"Polly.Joanna\">${escapeXml(message)}</Say>\n  <Hangup/>\n</Response>`;
+function twimlEnd(message, lang = "en") {
+  const cfg = getLanguageConfig(lang);
+  return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"${cfg.voice}\">${escapeXml(message)}</Say>\n  <Hangup/>\n</Response>`;
 }
 
 function twimlMessage(text) {
@@ -99,9 +213,16 @@ async function callOpenAI({ systemPrompt, messages, maxTokens = 180 }) {
   return String(json?.choices?.[0]?.message?.content || "").trim() || "Could you repeat that?";
 }
 
-async function askOpenAI(userText) {
+async function askOpenAI(userText, lang = "en") {
   if (!OPENAI_API_KEY) return "Thanks for calling. Our team will get back to you shortly.";
-  return callOpenAI({ systemPrompt: SYSTEM_PROMPT, messages: [{ role: "user", content: userText }] });
+  const languageGuard =
+    lang === "fr"
+      ? "Always answer in French unless the caller asks to switch languages."
+      : "Always answer in English unless the caller asks to switch languages.";
+  return callOpenAI({
+    systemPrompt: `${SYSTEM_PROMPT}\n\n${languageGuard}`,
+    messages: [{ role: "user", content: userText }],
+  });
 }
 
 async function askOpenAIChat(messages) {
@@ -120,21 +241,26 @@ app.get("/health", (_req, res) => {
 app.post("/voice", (_req, res) => {
   if (!PUBLIC_BASE_URL) {
     res.type("text/xml").status(200).send(
-      twimlEnd("This bot is not configured yet. Missing PUBLIC_BASE_URL environment variable.")
+      twimlEnd(copy("unconfigured", "en"), "en")
     );
     return;
   }
-  res.type("text/xml").status(200).send(twimlSayAndListen({ first: true }));
+  res.type("text/xml").status(200).send(twimlSayAndListen({ first: true, lang: "en" }));
 });
 
 app.post("/gather", async (req, res) => {
   const mode = String(req.query?.mode || "").trim().toLowerCase();
   const digits = String(req.body?.Digits || "").trim();
   const said = String(req.body?.SpeechResult || "").trim();
+  const lang = detectCallLanguage({
+    queryLang: req.query?.lang,
+    speechLanguage: req.body?.SpeechLanguage,
+    text: said,
+  });
 
   if (mode === "callback_collect") {
     if (!said) {
-      res.type("text/xml").status(200).send(twimlEnd("I could not hear your callback details. Please call again."));
+      res.type("text/xml").status(200).send(twimlEnd(copy("callbackHearError", lang), lang));
       return;
     }
 
@@ -148,53 +274,77 @@ app.post("/gather", async (req, res) => {
     res
       .type("text/xml")
       .status(200)
-      .send(twimlEnd("Thank you. Your callback request has been noted. Our team will follow up soon."));
+      .send(twimlEnd(copy("callbackSaved", lang), lang));
     return;
   }
 
   if (digits === "1") {
-    res.type("text/xml").status(200).send(twimlSayAndListen({ message: PROGRAM_INFO_MESSAGE }));
+    const infoMessage = lang === "fr" ? PROGRAM_INFO_MESSAGE_FR : PROGRAM_INFO_MESSAGE;
+    res.type("text/xml").status(200).send(twimlSayAndListen({ message: infoMessage, lang }));
     return;
   }
   if (digits === "2") {
-    res.type("text/xml").status(200).send(twimlSayAndListen({ message: BOOKING_INFO_MESSAGE }));
+    const bookingMessage = lang === "fr" ? BOOKING_INFO_MESSAGE_FR : BOOKING_INFO_MESSAGE;
+    res.type("text/xml").status(200).send(twimlSayAndListen({ message: bookingMessage, lang }));
     return;
   }
   if (digits === "3") {
-    res.type("text/xml").status(200).send(twimlCollectCallbackRequest());
+    res.type("text/xml").status(200).send(twimlCollectCallbackRequest(lang));
     return;
   }
 
   if (!said) {
-    res.type("text/xml").status(200).send(twimlEnd("I could not hear anything. Please call again."));
+    res.type("text/xml").status(200).send(twimlEnd(copy("silenceEnd", lang), lang));
     return;
   }
 
   const lowered = said.toLowerCase();
-  if (lowered.includes("option 1") || lowered.includes("press 1") || lowered.includes("program info")) {
-    res.type("text/xml").status(200).send(twimlSayAndListen({ message: PROGRAM_INFO_MESSAGE }));
+  if (
+    lowered.includes("option 1") ||
+    lowered.includes("press 1") ||
+    lowered.includes("program info") ||
+    lowered.includes("programme")
+  ) {
+    const infoMessage = lang === "fr" ? PROGRAM_INFO_MESSAGE_FR : PROGRAM_INFO_MESSAGE;
+    res.type("text/xml").status(200).send(twimlSayAndListen({ message: infoMessage, lang }));
     return;
   }
-  if (lowered.includes("option 2") || lowered.includes("press 2") || lowered.includes("booking")) {
-    res.type("text/xml").status(200).send(twimlSayAndListen({ message: BOOKING_INFO_MESSAGE }));
+  if (
+    lowered.includes("option 2") ||
+    lowered.includes("press 2") ||
+    lowered.includes("booking") ||
+    lowered.includes("reservation")
+  ) {
+    const bookingMessage = lang === "fr" ? BOOKING_INFO_MESSAGE_FR : BOOKING_INFO_MESSAGE;
+    res.type("text/xml").status(200).send(twimlSayAndListen({ message: bookingMessage, lang }));
     return;
   }
-  if (lowered.includes("option 3") || lowered.includes("press 3") || lowered.includes("callback")) {
-    res.type("text/xml").status(200).send(twimlCollectCallbackRequest());
+  if (
+    lowered.includes("option 3") ||
+    lowered.includes("press 3") ||
+    lowered.includes("callback") ||
+    lowered.includes("rappel")
+  ) {
+    res.type("text/xml").status(200).send(twimlCollectCallbackRequest(lang));
     return;
   }
-  if (lowered.includes("goodbye") || lowered.includes("bye") || lowered.includes("stop")) {
-    res.type("text/xml").status(200).send(twimlEnd("Thanks for calling. Goodbye."));
+  if (
+    lowered.includes("goodbye") ||
+    lowered.includes("bye") ||
+    lowered.includes("stop") ||
+    lowered.includes("au revoir")
+  ) {
+    res.type("text/xml").status(200).send(twimlEnd(copy("goodbye", lang), lang));
     return;
   }
 
   try {
-    const answer = await askOpenAI(said);
-    res.type("text/xml").status(200).send(twimlSayAndListen({ message: answer }));
+    const answer = await askOpenAI(said, lang);
+    res.type("text/xml").status(200).send(twimlSayAndListen({ message: answer, lang }));
   } catch (err) {
-    const fallback = "Sorry, I am having trouble right now. Please try again later.";
+    const fallback = copy("aiFallback", lang);
     console.error("gather error:", err?.message || err);
-    res.type("text/xml").status(200).send(twimlEnd(fallback));
+    res.type("text/xml").status(200).send(twimlEnd(fallback, lang));
   }
 });
 
