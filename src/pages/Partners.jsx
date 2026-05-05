@@ -83,7 +83,7 @@ export default function Partners() {
   };
 
   const uploadAvatar = async (clientId, file) => {
-    if (!file || !clientId || String(clientId).startsWith("booking-") || String(clientId).startsWith("partner-")) return;
+    if (!file || !clientId || String(clientId).startsWith("booking-")) return;
     setUploadingId(String(clientId));
     try {
       const signResp = await fetch("/api/storage/sign-upload", {
