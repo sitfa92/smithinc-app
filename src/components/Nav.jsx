@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
+import VoiceCallButton from "./VoiceCallButton";
 
 const C = {
   ink: "#111111",
@@ -72,6 +73,7 @@ export default function Nav() {
   const [isMobile, setIsMobile] = React.useState(window.innerWidth <= 900);
   const [openMenu, setOpenMenu] = React.useState(null);
   const [unreadAlertCount, setUnreadAlertCount] = React.useState(0);
+  const [recentUnreadAlerts, setRecentUnreadAlerts] = React.useState([]);
   const closeTimer = React.useRef(null);
   const navRef = React.useRef(null);
 
@@ -91,7 +93,7 @@ export default function Nav() {
       try {
         const { data, error } = await supabase
           .from("alerts")
-          .select("id, audience_role, audience_email, status")
+          .select("id, title, created_at, audience_role, audience_email, status")
           .neq("status", "read")
           .order("created_at", { ascending: false })
           .limit(100);
@@ -101,8 +103,16 @@ export default function Nav() {
           if (role === "admin") return true;
           return (item.audience_email || "").toLowerCase() === email || item.audience_role === role;
         });
-        if (mounted) setUnreadAlertCount(visible.length);
-      } catch (_err) { if (mounted) setUnreadAlertCount(0); }
+        if (mounted) {
+          setUnreadAlertCount(visible.length);
+          setRecentUnreadAlerts(visible.slice(0, 5));
+        }
+      } catch (_err) {
+        if (mounted) {
+          setUnreadAlertCount(0);
+          setRecentUnreadAlerts([]);
+        }
+      }
     };
     fetchUnreadAlerts();
     const ch = supabase
@@ -249,25 +259,156 @@ export default function Nav() {
   );
 
   // ── Bell ──────────────────────────────────────────────────
-  const BellLink = ({ onClick: handleClick }) => (
-    <Link to="/notifications" onClick={handleClick}
-      style={{ ...navLinkBase, padding: "6px 4px" }}
-      aria-label={`Alerts${unreadAlertCount ? ` (${unreadAlertCount} unread)` : ""}`}>
-      <span style={{ fontSize: 15, position: "relative" }}>
-        🔔
-        {unreadAlertCount > 0 && (
-          <span style={{
-            position: "absolute", top: -4, right: -6,
-            minWidth: 16, height: 16, padding: "0 4px",
-            borderRadius: 999, background: "#c0392b", color: C.white,
-            fontSize: 10, lineHeight: "16px", textAlign: "center", fontWeight: 700,
-          }}>
-            {unreadAlertCount > 99 ? "99+" : unreadAlertCount}
+  const AlertsMenu = () => {
+    const isOpen = openMenu === "alerts-menu";
+    return (
+      <div
+        style={{ position: "relative" }}
+        onMouseEnter={() => openDrop("alerts-menu")}
+        onMouseLeave={closeDrop}
+      >
+        <button
+          type="button"
+          onClick={() => toggleDrop("alerts-menu")}
+          aria-expanded={isOpen}
+          aria-haspopup="menu"
+          aria-label={`Alerts${unreadAlertCount ? ` (${unreadAlertCount} unread)` : ""}`}
+          style={{ ...navLinkBase, padding: "6px 4px" }}
+        >
+          <span style={{ fontSize: 15, position: "relative" }}>
+            🔔
+            {unreadAlertCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -4,
+                  right: -6,
+                  minWidth: 16,
+                  height: 16,
+                  padding: "0 4px",
+                  borderRadius: 999,
+                  background: "#c0392b",
+                  color: C.white,
+                  fontSize: 10,
+                  lineHeight: "16px",
+                  textAlign: "center",
+                  fontWeight: 700,
+                }}
+              >
+                {unreadAlertCount > 99 ? "99+" : unreadAlertCount}
+              </span>
+            )}
           </span>
+        </button>
+
+        {isOpen && (
+          <div
+            style={{
+              ...dropPanel,
+              left: "auto",
+              right: -8,
+              transform: "none",
+              minWidth: 280,
+              maxWidth: 320,
+              padding: "8px 0",
+            }}
+            onMouseEnter={() => openDrop("alerts-menu")}
+            onMouseLeave={closeDrop}
+          >
+            <div
+              style={{
+                padding: "8px 14px 10px",
+                borderBottom: `1px solid ${C.smoke}`,
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: C.dust }}>
+                Alerts
+              </div>
+              <div style={{ fontSize: 12, color: C.slate, marginTop: 2 }}>
+                {unreadAlertCount > 0 ? `${unreadAlertCount} unread` : "All caught up"}
+              </div>
+            </div>
+
+            {recentUnreadAlerts.length === 0 ? (
+              <div style={{ padding: "12px 14px", fontSize: 12, color: C.dust, fontFamily: "'Inter', sans-serif" }}>
+                No unread alerts right now.
+              </div>
+            ) : (
+              recentUnreadAlerts.map((item) => (
+                <Link
+                  key={item.id}
+                  to="/notifications"
+                  onClick={() => setOpenMenu(null)}
+                  style={{
+                    display: "block",
+                    padding: "10px 14px",
+                    textDecoration: "none",
+                    borderBottom: `1px solid ${C.smoke}`,
+                    fontFamily: "'Inter', sans-serif",
+                    background: "transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = C.ivory;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  <div style={{ color: C.ink, fontSize: 12, fontWeight: 600, lineHeight: 1.35 }}>
+                    {item.title || "Alert"}
+                  </div>
+                  <div style={{ color: C.dust, fontSize: 11, marginTop: 3 }}>
+                    {new Date(item.created_at).toLocaleString()}
+                  </div>
+                </Link>
+              ))
+            )}
+
+            <Link
+              to="/notifications"
+              onClick={() => setOpenMenu(null)}
+              style={{
+                display: "block",
+                textAlign: "center",
+                textDecoration: "none",
+                padding: "10px 12px 8px",
+                fontFamily: "'Inter', sans-serif",
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: C.ink,
+              }}
+            >
+              View All Alerts
+            </Link>
+
+            <div style={{ borderTop: `1px solid ${C.smoke}`, padding: "10px 12px 8px" }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: C.dust,
+                  marginBottom: 8,
+                  fontFamily: "'Inter', sans-serif",
+                }}
+              >
+                Quick Test
+              </div>
+              <VoiceCallButton
+                label="Test Voice Call"
+                compact
+                metadata={{ page: "nav_alerts_dropdown", role: role || "unknown", email: user?.email || "" }}
+              />
+            </div>
+          </div>
         )}
-      </span>
-    </Link>
-  );
+      </div>
+    );
+  };
 
   // ── Desktop dropdown group ────────────────────────────────
   const DropGroup = ({ group }) => {
@@ -369,8 +510,8 @@ export default function Nav() {
           {/* Divider */}
           <div style={{ width: 1, height: 20, background: C.smoke }} />
 
-          {/* Bell */}
-          {user?.email && <BellLink onClick={() => {}} />}
+          {/* Alerts dropdown */}
+          {user?.email && <AlertsMenu />}
 
           {/* User pill */}
           {user?.email && (
@@ -406,7 +547,7 @@ export default function Nav() {
       {/* Mobile: bell + hamburger */}
       {isMobile && (
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {user?.email && <BellLink onClick={() => {}} />}
+          {user?.email && <AlertsMenu />}
           <button
             onClick={() => setMobileMenuOpen(o => !o)}
             style={{ background: "transparent", border: "none", cursor: "pointer", padding: "4px 6px", color: C.ink, fontSize: 20, lineHeight: 1 }}

@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { DEFAULT_ROLE_BY_EMAIL, runAuthenticatedCurrentDataSync } from "../utils";
 import { sendModelEventEmail } from "../emailService";
+import VoiceCallButton from "../components/VoiceCallButton";
 
 const MJ_VA_EMAIL = "marthajohn223355@gmail.com";
 const CHIZZY_AGENT_EMAIL = "chizzyboi72@gmail.com";
@@ -581,6 +582,20 @@ alter table public.alerts disable row level security;`;
         <p style={{ color: "#2e7d32", marginTop: 4, fontSize: 13 }}>
           Last current-data sync: {new Date(currentDataSyncState.syncedAt).toLocaleString()}
         </p>
+      )}
+      {!loading && (
+        <div style={{ ...card, borderTop: `3px solid ${C.gold}`, marginBottom: 24 }}>
+          <p style={{ margin: "0 0 6px", fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 500, color: C.ink }}>
+            Voice Call Test
+          </p>
+          <p style={{ margin: "0 0 14px", color: C.dust, fontSize: 13 }}>
+            Test Serenity voice calls directly from admin.
+          </p>
+          <VoiceCallButton
+            label="Test Voice Call"
+            metadata={{ page: "admin_dashboard", role: role || "unknown", email: user?.email || "" }}
+          />
+        </div>
       )}
       {/* MJ Operations Command Center */}
       {(isMjViewer || canManageAllTasks) && !loading && (

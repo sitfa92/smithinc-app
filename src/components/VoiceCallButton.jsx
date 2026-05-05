@@ -10,7 +10,8 @@ const STATUS = { idle: "idle", connecting: "connecting", active: "active", error
 
 // metadata: arbitrary object merged into the VAPI call metadata
 // label: button text override (default "Talk to Serenity")
-export default function VoiceCallButton({ modelName, metadata = {}, label = "Talk to Serenity" }) {
+// compact: smaller UI variant for tight spaces like dropdown menus
+export default function VoiceCallButton({ modelName, metadata = {}, label = "Talk to Serenity", compact = false }) {
   const [status, setStatus] = React.useState(STATUS.idle);
   const [errorMsg, setErrorMsg] = React.useState("");
   const [isMuted, setIsMuted] = React.useState(false);
@@ -86,15 +87,15 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
 
   if (status === STATUS.idle || status === STATUS.error) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: compact ? 6 : 8 }}>
         <button
           onClick={startCall}
           style={{
             display: "inline-flex", alignItems: "center", gap: 10,
-            padding: "14px 28px",
+            padding: compact ? "9px 14px" : "14px 28px",
             background: C.gold, color: C.white,
             border: "none", borderRadius: 10,
-            fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+            fontSize: compact ? 11 : 12, fontWeight: 700, letterSpacing: compact ? "0.07em" : "0.1em", textTransform: "uppercase",
             fontFamily: "'Inter',sans-serif", cursor: "pointer",
             boxShadow: "0 4px 20px rgba(201,168,76,0.35)",
             transition: "all 0.2s ease",
@@ -108,18 +109,20 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
         {status === STATUS.error && errorMsg && (
           <p style={{ fontSize: 12, color: C.err, margin: 0, maxWidth: 280 }}>{errorMsg}</p>
         )}
-        <p style={{ fontSize: 11, color: C.dust, margin: 0, letterSpacing: "0.04em" }}>
-          Free AI voice consultation · No call charges
-        </p>
+        {!compact && (
+          <p style={{ fontSize: 11, color: C.dust, margin: 0, letterSpacing: "0.04em" }}>
+            Free AI voice consultation · No call charges
+          </p>
+        )}
       </div>
     );
   }
 
   if (status === STATUS.connecting) {
     return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 12, padding: "14px 28px", background: C.smoke, borderRadius: 10 }}>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 12, padding: compact ? "9px 14px" : "14px 28px", background: C.smoke, borderRadius: 10 }}>
         <PulsingDot color={C.gold} />
-        <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", color: C.ink }}>
+        <span style={{ fontSize: compact ? 11 : 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", color: C.ink }}>
           Connecting…
         </span>
       </div>
@@ -129,9 +132,9 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
   // STATUS.active
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "10px 18px", background: "#edf7ee", border: "1px solid #b2dfc0", borderRadius: 10 }}>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: compact ? "8px 12px" : "10px 18px", background: "#edf7ee", border: "1px solid #b2dfc0", borderRadius: 10 }}>
         <PulsingDot color={C.ok} />
-        <span style={{ fontSize: 12, fontWeight: 600, color: C.ok, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif" }}>
+        <span style={{ fontSize: compact ? 11 : 12, fontWeight: 600, color: C.ok, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif" }}>
           Call in Progress
         </span>
       </div>
@@ -141,10 +144,10 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
           title={isMuted ? "Unmute" : "Mute"}
           style={{
             display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "10px 18px",
+            padding: compact ? "8px 12px" : "10px 18px",
             background: isMuted ? "#fef8ec" : C.white,
             border: `1px solid ${isMuted ? "#f0c070" : C.smoke}`,
-            borderRadius: 8, fontSize: 12, fontWeight: 600,
+            borderRadius: 8, fontSize: compact ? 11 : 12, fontWeight: 600,
             color: isMuted ? "#92560a" : C.ink,
             fontFamily: "'Inter',sans-serif", cursor: "pointer",
           }}
@@ -156,10 +159,10 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
           onClick={stopCall}
           style={{
             display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "10px 18px",
+            padding: compact ? "8px 12px" : "10px 18px",
             background: C.err, color: C.white,
             border: "none", borderRadius: 8,
-            fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+            fontSize: compact ? 11 : 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
             fontFamily: "'Inter',sans-serif", cursor: "pointer",
           }}
         >
