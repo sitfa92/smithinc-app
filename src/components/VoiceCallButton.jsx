@@ -1,5 +1,5 @@
 import React from "react";
-import Vapi from "@vapi-ai/web";
+import * as VapiModule from "@vapi-ai/web";
 
 const VAPI_PUBLIC_KEY =
   import.meta.env.VITE_VAPI_PUBLIC_KEY || "5bce534b-e6b2-479c-b6bb-02f2b94298e3";
@@ -7,6 +7,14 @@ const VAPI_ASSISTANT_ID =
   import.meta.env.VITE_VAPI_ASSISTANT_ID || "806e0bca-a295-4eee-8a20-1e99639808a8";
 
 const STATUS = { idle: "idle", connecting: "connecting", active: "active", error: "error" };
+
+function getVapiConstructor() {
+  const maybeCtor =
+    VapiModule?.default ||
+    VapiModule?.Vapi ||
+    VapiModule;
+  return typeof maybeCtor === "function" ? maybeCtor : null;
+}
 
 // metadata: arbitrary object merged into the VAPI call metadata
 // label: button text override (default "Talk to Serenity")
@@ -32,7 +40,12 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
     setErrorMsg("");
 
     try {
-      const vapi = new Vapi(VAPI_PUBLIC_KEY);
+      const VapiCtor = getVapiConstructor();
+      if (!VapiCtor) {
+        throw new Error("Voice SDK failed to load. Please refresh and try again.");
+      }
+
+      const vapi = new VapiCtor(VAPI_PUBLIC_KEY);
       vapiRef.current = vapi;
 
       vapi.on("call-start", () => setStatus(STATUS.active));
