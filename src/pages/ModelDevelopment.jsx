@@ -131,12 +131,52 @@ function getIntent() {
 }
 
 function getDefaultTierCurrency() {
-  const lang = String(navigator.language || "").toLowerCase();
-  const region = lang.split("-")[1] || "";
-  if (region === "ng") return "NGN";
-  if (region === "us") return "USD";
-  if (region === "gb") return "GBP";
-  if (region === "ug") return "UGX";
+  const localeList = [
+    ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+    String(navigator.language || "").trim(),
+  ].filter(Boolean);
+
+  const extractRegion = (locale) => {
+    const value = String(locale || "").trim();
+    if (!value) return "";
+    try {
+      if (typeof Intl !== "undefined" && typeof Intl.Locale === "function") {
+        return String(new Intl.Locale(value).region || "").toUpperCase();
+      }
+    } catch {
+      // Ignore invalid locale values and continue with manual parsing.
+    }
+    const parts = value.replace("_", "-").split("-");
+    const maybeRegion = parts.find((part) => /^[A-Za-z]{2}$/.test(part));
+    return String(maybeRegion || "").toUpperCase();
+  };
+
+  const regionHints = new Set(localeList.map(extractRegion).filter(Boolean));
+
+  const inSet = (...codes) => codes.some((code) => regionHints.has(code));
+
+  if (inSet("NG")) return "NGN";
+  if (inSet("UG", "KE", "TZ", "RW", "BI", "SS", "ET")) return "UGX";
+  if (inSet("GB", "IE")) return "GBP";
+  if (inSet("US", "CA", "MX", "BR", "AR", "CL", "CO", "PE")) return "USD";
+
+  const timeZone = String(Intl.DateTimeFormat().resolvedOptions().timeZone || "").toLowerCase();
+  if (timeZone.includes("africa/lagos") || timeZone.includes("africa/accra") || timeZone.includes("africa/abidjan")) {
+    return "NGN";
+  }
+  if (timeZone.includes("africa/kampala") || timeZone.includes("africa/nairobi") || timeZone.includes("africa/kigali") || timeZone.includes("africa/dar_es_salaam")) {
+    return "UGX";
+  }
+  if (timeZone.includes("europe/london") || timeZone.includes("europe/dublin")) {
+    return "GBP";
+  }
+  if (timeZone.startsWith("america/")) {
+    return "USD";
+  }
+  if (timeZone.startsWith("africa/")) {
+    return "NGN";
+  }
+
   return "USD";
 }
 
