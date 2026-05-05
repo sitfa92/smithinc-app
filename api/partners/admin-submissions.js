@@ -172,5 +172,41 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   }
 
+  if (req.method === "DELETE") {
+    const { rejectedOnly = false, scope = "all" } = req.body || {};
+    if (!rejectedOnly) {
+      return res.status(400).json({ error: "Only rejectedOnly delete is supported" });
+    }
+
+    let scan = admin
+      .from("partners")
+      .select("id, source")
+      .eq("status", "rejected")
+      .limit(5000);
+
+    if (scope === "brand_ambassador") {
+      scan = scan.eq("source", "brand_ambassador");
+    } else if (scope === "partner") {
+      scan = scan.neq("source", "brand_ambassador");
+    }
+
+    const { data: rejectedRows, error: scanError } = await scan;
+    if (scanError) {
+      return res.status(500).json({ error: scanError.message || "Failed to load rejected submissions" });
+    }
+
+    const ids = (rejectedRows || []).map((row) => row.id).filter(Boolean);
+    if (!ids.length) {
+      return res.status(200).json({ ok: true, deletedCount: 0 });
+    }
+
+    const { error: deleteError } = await admin.from("partners").delete().in("id", ids);
+    if (deleteError) {
+      return res.status(500).json({ error: deleteError.message || "Failed to delete rejected submissions" });
+    }
+
+    return res.status(200).json({ ok: true, deletedCount: ids.length });
+  }
+
   return res.status(405).json({ error: "Method not allowed" });
 }

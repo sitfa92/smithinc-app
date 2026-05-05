@@ -21,6 +21,7 @@ export default function PartnerSubmissions() {
   const [error, setError] = React.useState("");
   const [saveError, setSaveError] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState({});
+  const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const [statusFilter, setStatusFilter] = React.useState("active");
   const [sourceFilter, setSourceFilter] = React.useState(() => (isBrandAmbassadorView ? "brand_ambassador" : "all"));
   const showSourceFilter = !isBrandAmbassadorView;
@@ -261,6 +262,54 @@ alter table public.partners disable row level security;`;
       return (item.source || "manual") === sourceFilter;
     });
 
+  const rejectedCount = React.useMemo(
+    () => submissions
+      .filter((item) => !item.isClientRecord)
+      .filter((item) => (isBrandAmbassadorView ? isAmbassadorSubmission(item) : !isAmbassadorSubmission(item)))
+      .filter((item) => item.status === "rejected").length,
+    [submissions, isBrandAmbassadorView, isAmbassadorSubmission]
+  );
+
+  const deleteAllRejectedSubmissions = async () => {
+    if (rejectedCount === 0) {
+      alert("No rejected submissions to delete.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete all ${rejectedCount} rejected submission${rejectedCount === 1 ? "" : "s"}? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setBulkDeleteLoading(true);
+    try {
+      const headers = await getAuthHeaders();
+      const resp = await fetch("/api/partners/admin-submissions", {
+        method: "DELETE",
+        headers,
+        body: JSON.stringify({
+          rejectedOnly: true,
+          scope: isBrandAmbassadorView ? "brand_ambassador" : "partner",
+        }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json.error || "Failed to delete rejected submissions");
+
+      setSubmissions((prev) =>
+        prev.filter((item) => {
+          if (item.isClientRecord) return true;
+          const inScope = isBrandAmbassadorView ? isAmbassadorSubmission(item) : !isAmbassadorSubmission(item);
+          return !(inScope && item.status === "rejected");
+        })
+      );
+      alert(`Deleted ${Number(json.deletedCount || 0)} rejected submission${Number(json.deletedCount || 0) === 1 ? "" : "s"}.`);
+    } catch (err) {
+      alert(err.message || "Failed to delete rejected submissions");
+    } finally {
+      setBulkDeleteLoading(false);
+    }
+  };
+
   const C = { ink: "#111111", slate: "#4a4a4a", dust: "#888888", smoke: "#e8e4dc", ivory: "#faf8f4", white: "#ffffff", err: "#9b1c1c", warn: "#92560a", ok: "#1a6636", okBg: "#edf7ee", warnBg: "#fef8ec", errBg: "#fef2f2" };
   const accent = C.ink;
   const accentBg = C.ivory;
@@ -300,6 +349,13 @@ alter table public.partners disable row level security;`;
               <option value="zapier">Zapier</option>
             </select>
           )}
+          <button
+            onClick={deleteAllRejectedSubmissions}
+            disabled={bulkDeleteLoading}
+            style={btnS(C.errBg, C.err, { border: `1px solid rgba(155,28,28,0.2)`, opacity: bulkDeleteLoading ? 0.55 : 1, cursor: bulkDeleteLoading ? "not-allowed" : "pointer" })}
+          >
+            {bulkDeleteLoading ? "Deleting…" : "Clear Rejected"}
+          </button>
         </div>
       </div>
 
