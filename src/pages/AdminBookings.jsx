@@ -9,6 +9,13 @@ export default function AdminBookings() {
   const [error, setError] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState({});
 
+  const bookingStats = React.useMemo(() => {
+    const list = bookings || [];
+    const pending = list.filter((item) => (item.status || "pending") === "pending").length;
+    const voiceLeads = list.filter((item) => String(item.service_type || "").toLowerCase().includes("voice ai lead")).length;
+    return { total: list.length, pending, voiceLeads };
+  }, [bookings]);
+
   React.useEffect(() => {
     fetchBookings();
   }, []);
@@ -136,6 +143,23 @@ export default function AdminBookings() {
       </h1>
       <p style={{ color:C.dust, fontSize:13, marginBottom:24 }}>Manage and confirm incoming partner booking requests.</p>
 
+      {!loading && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:12, marginBottom:20 }}>
+          <div style={{ border:`1px solid ${C.smoke}`, borderRadius:10, background:C.white, padding:"12px 14px" }}>
+            <p style={{ margin:"0 0 4px", fontSize:11, color:C.dust, letterSpacing:"0.08em", textTransform:"uppercase", fontWeight:700 }}>Total Requests</p>
+            <p style={{ margin:0, fontSize:26, color:C.ink, fontWeight:700 }}>{bookingStats.total}</p>
+          </div>
+          <div style={{ border:`1px solid rgba(146,86,10,0.2)`, borderRadius:10, background:C.warnBg, padding:"12px 14px" }}>
+            <p style={{ margin:"0 0 4px", fontSize:11, color:C.warn, letterSpacing:"0.08em", textTransform:"uppercase", fontWeight:700 }}>Pending</p>
+            <p style={{ margin:0, fontSize:26, color:C.warn, fontWeight:700 }}>{bookingStats.pending}</p>
+          </div>
+          <div style={{ border:`1px solid rgba(30,58,95,0.2)`, borderRadius:10, background:C.infoBg, padding:"12px 14px" }}>
+            <p style={{ margin:"0 0 4px", fontSize:11, color:C.info, letterSpacing:"0.08em", textTransform:"uppercase", fontWeight:700 }}>Voice AI Leads</p>
+            <p style={{ margin:0, fontSize:26, color:C.info, fontWeight:700 }}>{bookingStats.voiceLeads}</p>
+          </div>
+        </div>
+      )}
+
       {loading && <p style={{ color:C.dust }}>Loading bookings…</p>}
       {error && <div style={{ background:C.errBg, border:`1px solid rgba(155,28,28,0.2)`, borderRadius:10, padding:"12px 16px", marginBottom:20, color:C.err, fontSize:13 }}>Error: {error}</div>}
       {!loading && bookings.length === 0 && <p style={{ color:C.dust }}>No booking requests yet.</p>}
@@ -147,6 +171,11 @@ export default function AdminBookings() {
               <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10, flexWrap:"wrap" }}>
                 <h3 style={{ margin:0, fontSize:17, fontWeight:600, color:C.ink }}>{booking.name}</h3>
                 <span style={statusBadge(booking.status)}>{booking.status}</span>
+                {String(booking.service_type || "").toLowerCase().includes("voice ai lead") && (
+                  <span style={{ padding:"3px 10px", borderRadius:99, fontSize:10, fontWeight:700, letterSpacing:"0.07em", textTransform:"uppercase", background:C.infoBg, color:C.info, border:"1px solid rgba(30,58,95,0.2)" }}>
+                    Voice AI Lead
+                  </span>
+                )}
               </div>
               <p style={{ margin:"0 0 4px", color:C.dust, fontSize:13 }}><span style={{ color:C.slate, fontWeight:500 }}>Company:</span> {booking.company}</p>
               <p style={{ margin:"0 0 4px", color:C.dust, fontSize:13 }}><span style={{ color:C.slate, fontWeight:500 }}>Email:</span> {booking.email}</p>

@@ -12,6 +12,8 @@ const PORT = Number(process.env.PORT || 5050);
 const PUBLIC_BASE_URL = String(process.env.PUBLIC_BASE_URL || "").trim().replace(/\/$/, "");
 const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
 const OPENAI_MODEL = String(process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
+const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim().replace(/\/+$/, "");
+const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 const BOT_NAME = String(process.env.BOT_NAME || "Serenity").trim();
 const SYSTEM_PROMPT = String(
   process.env.SYSTEM_PROMPT ||
@@ -76,6 +78,22 @@ const COPY = {
   callbackSaved: {
     en: "Thank you. Your callback request has been noted. Our team will follow up soon.",
     fr: "Merci. Votre demande de rappel a bien ete enregistree. Notre equipe vous contactera bientot.",
+  },
+  consultAsk: {
+    en: "Great. To request a consultation follow-up, please say your full name, email address, and any details you want us to know.",
+    fr: "Parfait. Pour demander un suivi de consultation, veuillez indiquer votre nom complet, votre adresse email et tout detail utile.",
+  },
+  consultPrompt: {
+    en: "You can share your details now.",
+    fr: "Vous pouvez partager vos informations maintenant.",
+  },
+  consultSaved: {
+    en: "Thank you. Your consultation request has been saved and our team will follow up shortly.",
+    fr: "Merci. Votre demande de consultation a ete enregistree et notre equipe vous contactera rapidement.",
+  },
+  consultMissing: {
+    en: "I did not hear your details clearly. Please call again or visit meet-serenity.online slash book.",
+    fr: "Je n'ai pas bien entendu vos informations. Veuillez rappeler ou visiter meet-serenity.online slash book.",
   },
   silenceEnd: {
     en: "I could not hear anything. Please call again.",
@@ -207,6 +225,92 @@ function twimlCollectCallbackRequest(lang = "en") {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Say voice="${cfg.voice}">${escapeXml(copy("callbackAsk", lang))}</Say>\n  <Gather input="speech" speechTimeout="auto" timeout="6" action="${escapeXml(actionUrl)}" method="POST" language="${cfg.locale}">\n    <Say voice="${cfg.voice}">${escapeXml(copy("callbackPrompt", lang))}</Say>\n  </Gather>\n  <Say voice="${cfg.voice}">${escapeXml(copy("callbackMissed", lang))}</Say>\n  <Hangup/>\n</Response>`;
 }
 
+function twimlCollectConsultRequest(lang = "en") {
+  const cfg = getLanguageConfig(lang);
+  const actionUrl = `${PUBLIC_BASE_URL}/gather?mode=consult_collect&lang=${lang}`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Say voice="${cfg.voice}">${escapeXml(copy("consultAsk", lang))}</Say>\n  <Gather input="speech" speechTimeout="auto" timeout="7" action="${escapeXml(actionUrl)}" method="POST" language="${cfg.locale}">\n    <Say voice="${cfg.voice}">${escapeXml(copy("consultPrompt", lang))}</Say>\n  </Gather>\n  <Say voice="${cfg.voice}">${escapeXml(copy("consultMissing", lang))}</Say>\n  <Hangup/>\n</Response>`;
+}
+
+function normalizeSpokenEmail(text = "") {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/\s*\(at\)\s*/g, "@")
+    .replace(/\s+at\s+/g, "@")
+    .replace(/\s*\(dot\)\s*/g, ".")
+    .replace(/\s+dot\s+/g, ".")
+    .replace(/\s+underscore\s+/g, "_")
+    .replace(/\s+dash\s+/g, "-")
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9@._+-]/g, "");
+}
+
+function extractEmail(text = "") {
+  const normalized = normalizeSpokenEmail(text);
+  const match = normalized.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+  return match ? match[0].toLowerCase() : "";
+}
+
+function extractName(text = "") {
+  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  const match = cleaned.match(/(?:my name is|this is|i am|je m'appelle|je suis)\s+([a-zA-Z][a-zA-Z' -]{1,60})/i);
+  const raw = (match?.[1] || "").trim();
+  if (!raw) return "";
+  return raw
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ")
+    .slice(0, 80);
+}
+
+async function createVoiceConsultLead({ said = "", from = "", lang = "en", fromCountry = "", callerCountry = "" }) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn("Voice consult lead not saved: missing Supabase env vars in ai-voice-bot.");
+    return false;
+  }
+
+  const now = new Date().toISOString();
+  const extractedEmail = extractEmail(said);
+  const extractedName = extractName(said);
+  const fallbackId = Date.now();
+  const payload = {
+    name: extractedName || "Voice Caller",
+    email: extractedEmail || `voice-lead-${fallbackId}@noemail.local`,
+    company: "Voice AI Intake",
+    service_type: "Consultation - Voice AI Lead",
+    preferred_date: null,
+    message: [
+      "Voice consultation lead captured from phone bot.",
+      `Caller number: ${from || "unknown"}`,
+      `Detected language: ${lang || "unknown"}`,
+      `FromCountry: ${fromCountry || "unknown"}`,
+      `CallerCountry: ${callerCountry || "unknown"}`,
+      `Captured details: ${said}`,
+    ].join("\n"),
+    status: "pending",
+    created_at: now,
+  };
+
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify([payload]),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`Supabase insert failed (${resp.status}): ${body || "unknown error"}`);
+  }
+
+  return true;
+}
+
 function twimlEnd(message, lang = "en") {
   const cfg = getLanguageConfig(lang);
   return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"${cfg.voice}\">${escapeXml(message)}</Say>\n  <Hangup/>\n</Response>`;
@@ -322,14 +426,36 @@ app.post("/gather", async (req, res) => {
     return;
   }
 
+  if (mode === "consult_collect") {
+    if (!said) {
+      res.type("text/xml").status(200).send(twimlEnd(copy("consultMissing", lang), lang));
+      return;
+    }
+
+    const from = String(req.body?.From || "unknown").trim();
+    try {
+      await createVoiceConsultLead({
+        said,
+        from,
+        lang,
+        fromCountry: req.body?.FromCountry,
+        callerCountry: req.body?.CallerCountry,
+      });
+    } catch (err) {
+      console.error("consult lead save error:", err?.message || err);
+    }
+
+    res.type("text/xml").status(200).send(twimlEnd(copy("consultSaved", lang), lang));
+    return;
+  }
+
   if (digits === "1") {
     const infoMessage = lang === "fr" ? PROGRAM_INFO_MESSAGE_FR : PROGRAM_INFO_MESSAGE;
     res.type("text/xml").status(200).send(twimlSayAndListen({ message: infoMessage, lang }));
     return;
   }
   if (digits === "2") {
-    const bookingMessage = lang === "fr" ? BOOKING_INFO_MESSAGE_FR : BOOKING_INFO_MESSAGE;
-    res.type("text/xml").status(200).send(twimlSayAndListen({ message: bookingMessage, lang }));
+    res.type("text/xml").status(200).send(twimlCollectConsultRequest(lang));
     return;
   }
   if (digits === "3") {
@@ -357,10 +483,13 @@ app.post("/gather", async (req, res) => {
     lowered.includes("option 2") ||
     lowered.includes("press 2") ||
     lowered.includes("booking") ||
-    lowered.includes("reservation")
+    lowered.includes("reservation") ||
+    lowered.includes("consultation") ||
+    lowered.includes("schedule") ||
+    lowered.includes("book a call") ||
+    lowered.includes("book call")
   ) {
-    const bookingMessage = lang === "fr" ? BOOKING_INFO_MESSAGE_FR : BOOKING_INFO_MESSAGE;
-    res.type("text/xml").status(200).send(twimlSayAndListen({ message: bookingMessage, lang }));
+    res.type("text/xml").status(200).send(twimlCollectConsultRequest(lang));
     return;
   }
   if (
