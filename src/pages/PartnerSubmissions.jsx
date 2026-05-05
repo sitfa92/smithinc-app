@@ -273,9 +273,9 @@ alter table public.partners disable row level security;`;
   );
 
   const C = { ink: "#111111", slate: "#4a4a4a", dust: "#888888", smoke: "#e8e4dc", ivory: "#faf8f4", white: "#ffffff", err: "#9b1c1c", warn: "#92560a", ok: "#1a6636", okBg: "#edf7ee", warnBg: "#fef8ec", errBg: "#fef2f2" };
-  const accent = isBrandAmbassadorView ? "#0891b2" : C.ink;
-  const accentBg = isBrandAmbassadorView ? "rgba(8,145,178,0.08)" : "transparent";
-  const accentMid = isBrandAmbassadorView ? "rgba(8,145,178,0.18)" : C.smoke;
+  const accent = C.ink;
+  const accentBg = C.ivory;
+  const accentMid = C.smoke;
   const inp = { width: "100%", padding: "11px 13px", fontSize: 13, color: C.ink, background: C.white, border: `1px solid ${C.smoke}`, borderRadius: 8, outline: "none", fontFamily: "'Inter',sans-serif", boxSizing: "border-box" };
   const btnS = (bg, clr, extra = {}) => ({ padding: "9px 16px", background: bg, color: clr, border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", cursor: "pointer", fontFamily: "'Inter',sans-serif", ...extra });
   const badge = (st) => {
@@ -288,13 +288,7 @@ alter table public.partners disable row level security;`;
     <div style={{ padding: "32px 24px", maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
         <div>
-          {isBrandAmbassadorView && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: accentBg, border: `1px solid ${accentMid}`, borderRadius: 99, padding: "4px 12px", marginBottom: 10 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: accent, display: "inline-block" }} />
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: accent }}>Brand Ambassador</span>
-            </div>
-          )}
-          <h1 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: "clamp(26px,4vw,38px)", fontWeight: 500, color: isBrandAmbassadorView ? accent : C.ink, letterSpacing: "-0.02em", margin: "0 0 4px" }}>
+          <h1 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: "clamp(26px,4vw,38px)", fontWeight: 500, color: C.ink, letterSpacing: "-0.02em", margin: "0 0 4px" }}>
             {isBrandAmbassadorView ? "Brand Ambassador Submissions" : "Partner Submissions"}
           </h1>
           <p style={{ color: C.dust, fontSize: 13, margin: 0 }}>
@@ -346,8 +340,8 @@ alter table public.partners disable row level security;`;
       )}
 
       {tableReady && (
-        <div style={{ background: C.white, border: `1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderTop: isBrandAmbassadorView ? `3px solid ${accent}` : `1px solid ${C.smoke}`, borderRadius: 12, padding: "22px 22px", marginBottom: 24, boxShadow: "0 1px 4px rgba(17,17,17,0.04)" }}>
-          <p style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 500, color: isBrandAmbassadorView ? accent : C.ink, margin: "0 0 14px" }}>
+        <div style={{ background: C.white, border: `1px solid ${C.smoke}`, borderRadius: 12, padding: "22px 22px", marginBottom: 24, boxShadow: "0 1px 4px rgba(17,17,17,0.04)" }}>
+          <p style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 18, fontWeight: 500, color: C.ink, margin: "0 0 14px" }}>
             {isBrandAmbassadorView ? "Add Brand Ambassador Submission" : "Add Partner Submission"}
           </p>
           <form onSubmit={saveSubmission} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -380,8 +374,8 @@ alter table public.partners disable row level security;`;
         const initials = (partner.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
         return (
           <div key={partner.id} style={{ display:"flex", gap:18, padding:18, marginBottom:16, border:`1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderRadius:12, background:C.white, boxShadow:"0 1px 4px rgba(17,17,17,0.04)", flexWrap:"wrap" }}>
-            <div style={{ flex:"0 0 120px", minWidth:0 }}>
-              <div style={{ width:"100%", height:150, borderRadius:10, border:`1px solid ${C.smoke}`, background:isBrandAmbassadorView ? accentBg : C.ivory, color:isBrandAmbassadorView ? accent : C.dust, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:30 }}>
+            <div style={{ flex:"0 0 140px", minWidth:0 }}>
+              <div style={{ width:"100%", height:185, borderRadius:10, border:`1px solid ${C.smoke}`, background:C.ivory, color:C.dust, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:30 }}>
                 {initials || "?"}
               </div>
             </div>

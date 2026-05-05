@@ -400,9 +400,9 @@ alter table public.bookings disable row level security;`;
   };
 
   const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2", info:"#1e3a5f", infoBg:"#eff6ff", purple:"#6a1b9a", purpleBg:"rgba(106,27,154,0.10)" };
-  const accent = isBrandAmbassadorView ? "#0891b2" : C.ink;
-  const accentBg = isBrandAmbassadorView ? "rgba(8,145,178,0.08)" : C.ivory;
-  const accentMid = isBrandAmbassadorView ? "rgba(8,145,178,0.18)" : C.smoke;
+  const accent = C.ink;
+  const accentBg = C.ivory;
+  const accentMid = C.smoke;
   const inp = { padding:"11px 13px", fontSize:13, color:C.ink, background:C.white, border:`1px solid ${C.smoke}`, borderRadius:8, outline:"none", fontFamily:"'Inter',sans-serif", width:"100%", boxSizing:"border-box" };
   const statusBadge = (st) => { const m={lead:[C.warnBg,C.warn],active:[C.okBg,C.ok],completed:[C.infoBg,C.info],inactive:[C.ivory,C.dust],churned:[C.errBg,C.err]}; const [bg,clr]=m[st]||[C.ivory,C.slate]; return {display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",background:bg,color:clr}; };
   const invoiceBadge = (st) => { const m={pending:[C.warnBg,C.warn],sent:[C.infoBg,C.info],paid:[C.okBg,C.ok]}; const [bg,clr]=m[st]||[C.ivory,C.slate]; return {display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",background:bg,color:clr}; };
@@ -420,13 +420,7 @@ alter table public.bookings disable row level security;`;
 
   return (
     <div style={{ padding:"32px 24px", maxWidth:1200, margin:"0 auto" }}>
-      {isBrandAmbassadorView && (
-        <div style={{ display:"inline-flex", alignItems:"center", gap:6, background:accentBg, border:`1px solid ${accentMid}`, borderRadius:99, padding:"4px 12px", marginBottom:10 }}>
-          <span style={{ width:7, height:7, borderRadius:"50%", background:accent, display:"inline-block" }} />
-          <span style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:accent }}>Brand Ambassador</span>
-        </div>
-      )}
-      <h1 style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:"clamp(26px,4vw,38px)", fontWeight:500, color:isBrandAmbassadorView ? accent : C.ink, letterSpacing:"-0.02em", margin:"0 0 4px" }}>
+      <h1 style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:"clamp(26px,4vw,38px)", fontWeight:500, color:C.ink, letterSpacing:"-0.02em", margin:"0 0 4px" }}>
         {isBrandAmbassadorView ? "Brand Ambassador Management" : "Partner Management"}
       </h1>
       <p style={{ color:C.dust, fontSize:13, marginBottom:24 }}>
@@ -460,8 +454,8 @@ alter table public.bookings disable row level security;`;
       )}
 
       {(tableReady || usingFallbackData) && (
-        <div style={{ background:C.white, border:`1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderTop:isBrandAmbassadorView ? `3px solid ${accent}` : `1px solid ${C.smoke}`, borderRadius:12, padding:"22px 22px", marginBottom:24, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
-          <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:18, fontWeight:500, color:isBrandAmbassadorView ? accent : C.ink, margin:"0 0 14px" }}>
+        <div style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:"22px 22px", marginBottom:24, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+          <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:18, fontWeight:500, color:C.ink, margin:"0 0 14px" }}>
             {usingFallbackData
               ? (isBrandAmbassadorView ? "Add Ambassador Lead" : "Add Partner Lead")
               : (isBrandAmbassadorView ? "Add Brand Ambassador" : "Add Partner")}
@@ -516,7 +510,7 @@ alter table public.bookings disable row level security;`;
         const moveDisabled = !!moveToModelsLoading[client.id] || isBookingBackfill;
 
         return (
-          <div key={client.id} style={{ background:C.white, border:`1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderRadius:12, padding:"16px 18px", marginBottom:12, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+          <div key={client.id} style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:"16px 18px", marginBottom:12, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
               <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
                 <div style={{ position:"relative", flexShrink:0 }}>
@@ -557,7 +551,6 @@ alter table public.bookings disable row level security;`;
               </div>
 
               <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
-                {isBrandAmbassadorView && <span style={{ ...statusBadge("active"), background:accentBg, color:accent }}>Brand Ambassador</span>}
                 <span style={statusBadge(client.status)}>{client.status}</span>
                 <span style={invoiceBadge(client.invoice_status)}>{client.invoice_status}</span>
                 {client.contract_signed && <span style={{ ...statusBadge("active"), background:C.purpleBg, color:C.purple }}>Contract ✓</span>}

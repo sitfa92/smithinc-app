@@ -218,22 +218,16 @@ alter table public.clients disable row level security;`;
   );
 
   const C = { ink: "#111111", slate: "#4a4a4a", dust: "#888888", smoke: "#e8e4dc", ivory: "#faf8f4", white: "#ffffff", warn: "#92560a", warnBg: "#fef8ec", ok: "#1a6636", okBg: "#edf7ee", err: "#9b1c1c", errBg: "#fef2f2" };
-  const accent = isBrandAmbassadorView ? "#0891b2" : C.ink;
-  const accentBg = isBrandAmbassadorView ? "rgba(8,145,178,0.08)" : C.ivory;
-  const accentMid = isBrandAmbassadorView ? "rgba(8,145,178,0.20)" : C.smoke;
+  const accent = C.ink;
+  const accentBg = C.ivory;
+  const accentMid = C.smoke;
   const sel = { padding: "10px 12px", border: `1px solid ${C.smoke}`, borderRadius: 8, fontSize: 13, background: C.white, color: C.slate, outline: "none", fontFamily: "'Inter',sans-serif", appearance: "none", cursor: "pointer" };
   const ta = { padding: "10px 12px", border: `1px solid ${C.smoke}`, borderRadius: 8, fontSize: 13, background: C.white, color: C.slate, outline: "none", fontFamily: "'Inter',sans-serif", width: "100%", resize: "vertical", minHeight: 64, boxSizing: "border-box" };
   const priorityBadge = { high: [C.errBg, C.err], medium: [C.warnBg, C.warn], low: [C.ivory, C.dust] };
 
   return (
     <div style={{ padding: "32px 24px", maxWidth: 1300, margin: "0 auto" }}>
-      {isBrandAmbassadorView && (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: accentBg, border: `1px solid ${accentMid}`, borderRadius: 99, padding: "4px 12px", marginBottom: 10 }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: accent, display: "inline-block" }} />
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: accent }}>Brand Ambassador</span>
-        </div>
-      )}
-      <h1 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: "clamp(26px,4vw,38px)", fontWeight: 500, color: isBrandAmbassadorView ? accent : C.ink, letterSpacing: "-0.02em", margin: "0 0 4px" }}>
+      <h1 style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: "clamp(26px,4vw,38px)", fontWeight: 500, color: C.ink, letterSpacing: "-0.02em", margin: "0 0 4px" }}>
         {isBrandAmbassadorView ? "Brand Ambassador Pipeline" : "Partner Pipeline"}
       </h1>
       <p style={{ color: C.dust, marginBottom: 20, fontSize: 13 }}>
@@ -335,7 +329,7 @@ alter table public.clients disable row level security;`;
       {!loading && (
         <div style={viewMode === "kanban" ? { display: "flex", gap: 16, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" } : { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16 }}>
           {STAGES.map((stage) => (
-            <div key={stage} style={{ background: isBrandAmbassadorView ? accentBg : C.ivory, border: `1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderTop: isBrandAmbassadorView ? `3px solid ${accent}` : `1px solid ${C.smoke}`, borderRadius: 12, padding: 14, ...(viewMode === "kanban" ? { flex: "0 0 280px", maxHeight: "78vh", overflowY: "auto" } : {}) }}>
+            <div key={stage} style={{ background: C.ivory, border: `1px solid ${C.smoke}`, borderRadius: 12, padding: 14, ...(viewMode === "kanban" ? { flex: "0 0 280px", maxHeight: "78vh", overflowY: "auto" } : {}) }}>
               <p style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, fontWeight: 500, color: C.ink, margin: "0 0 12px", letterSpacing: "-0.01em" }}>
                 {STAGE_LABELS[stage]} <span style={{ fontSize: 13, color: C.dust, fontFamily: "'Inter',sans-serif", fontWeight: 400 }}>({grouped[stage]?.length || 0})</span>
               </p>
@@ -352,7 +346,7 @@ alter table public.clients disable row level security;`;
                       {avatarSrc ? (
                         <img src={avatarSrc} alt={client.name} loading="lazy" decoding="async" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: `1px solid ${C.smoke}` }} />
                       ) : (
-                        <div style={{ width: 48, height: 48, borderRadius: 8, background: isBrandAmbassadorView ? accentMid : C.ivory, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: isBrandAmbassadorView ? accent : C.dust, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 600 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 8, background: C.ivory, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: C.dust, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 600 }}>
                           {(client.name || "?")[0].toUpperCase()}
                         </div>
                       )}
