@@ -2,6 +2,21 @@ import React from "react";
 import { supabase } from "../supabase";
 import { createInAppAlerts, sendInternalTeamEmailAlert } from "../utils";
 
+const getAvatarSrc = (url) => {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) {
+    const signMarker = "/storage/v1/object/sign/";
+    const idx = raw.indexOf(signMarker);
+    if (idx >= 0) {
+      const path = raw.slice(idx + signMarker.length).split("?")[0];
+      return `${raw.slice(0, idx)}/storage/v1/object/public/${path}`;
+    }
+    return raw;
+  }
+  return raw;
+};
+
 const EMERGENCY_AMBASSADOR_EMAILS = new Set([
   "kouassibenedicta46@gmail.com",
 ]);
@@ -29,6 +44,8 @@ export default function PartnerSubmissions() {
   const [statusFilter, setStatusFilter] = React.useState("active");
   const [sourceFilter, setSourceFilter] = React.useState(() => (isBrandAmbassadorView ? "brand_ambassador" : "all"));
   const showSourceFilter = !isBrandAmbassadorView;
+  const [uploadingId, setUploadingId] = React.useState("");
+  const avatarInputRef = React.useRef({});
   const [form, setForm] = React.useState({
     name: "",
     email: "",
@@ -63,6 +80,59 @@ export default function PartnerSubmissions() {
       "Content-Type": "application/json",
       Authorization: `Bearer ${session?.access_token || ""}`,
     };
+  };
+
+  const uploadAvatar = async (submissionId, file) => {
+    if (!file || !submissionId || String(submissionId).startsWith("booking-")) return;
+    setUploadingId(String(submissionId));
+    try {
+      const signResp = await fetch("/api/storage/sign-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name || `avatar-${submissionId}`,
+          contentType: file.type || "image/jpeg",
+          folder: "avatars-ambassadors",
+        }),
+      });
+      const signJson = await signResp.json().catch(() => ({}));
+      if (!signResp.ok) throw new Error(signJson.error || "Failed to prepare upload");
+
+      const { bucket, path, token } = signJson;
+      if (!bucket || !path || !token) throw new Error("Invalid upload token");
+
+      const { error: uploadErr } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, file);
+      if (uploadErr) throw uploadErr;
+
+      const { data: pubData } = supabase.storage.from(bucket).getPublicUrl(path);
+      const publicUrl = pubData?.publicUrl || "";
+      if (!publicUrl) throw new Error("Failed to resolve avatar URL");
+
+      const headers = await getAuthHeaders();
+      const idStr = String(submissionId);
+      let saveResp;
+      if (idStr.startsWith("client-")) {
+        saveResp = await fetch("/api/clients/update-pipeline", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ partnerId: idStr.slice("client-".length), updates: { avatar_url: publicUrl, last_updated: new Date().toISOString() } }),
+        });
+      } else {
+        saveResp = await fetch("/api/clients/update-pipeline", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ partnerId: submissionId, updates: { avatar_url: publicUrl, last_updated: new Date().toISOString() } }),
+        });
+      }
+      const saveJson = await saveResp.json().catch(() => ({}));
+      if (!saveResp.ok) throw new Error(saveJson.error || "Failed to save avatar");
+
+      setSubmissions(prev => prev.map(s => s.id === submissionId ? { ...s, avatar_url: publicUrl } : s));
+    } catch (err) {
+      alert(err.message || "Failed to upload avatar");
+    } finally {
+      setUploadingId("");
+    }
   };
 
   const SETUP_SQL = `create table if not exists public.partners (
@@ -109,6 +179,7 @@ alter table public.partners disable row level security;`;
         website: "",
         notes: item.internal_notes || "Moved from model flow",
         source: "brand_ambassador",
+        avatar_url: item.avatar_url || "",
         status: ["inactive", "churned", "rejected"].includes(String(item.status || "").toLowerCase())
           ? "rejected"
           : ["active", "completed", "approved"].includes(String(item.status || "").toLowerCase())
@@ -426,47 +497,112 @@ alter table public.partners disable row level security;`;
 
       {!loading && filteredSubmissions.map((partner) => {
         const initials = (partner.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+        const avatarSrc = getAvatarSrc(partner.avatar_url);
+        const isBusy = !!actionLoading[partner.id];
+        const isUploading = uploadingId === String(partner.id);
+        const canUpload = !String(partner.id).startsWith("booking-");
+
         return (
-          <div key={partner.id} style={{ display:"flex", gap:18, padding:18, marginBottom:16, border:`1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderRadius:12, background:C.white, boxShadow:"0 1px 4px rgba(17,17,17,0.04)", flexWrap:"wrap" }}>
-            <div style={{ flex:"0 0 140px", minWidth:0 }}>
-              <div style={{ width:"100%", height:185, borderRadius:10, border:`1px solid ${C.smoke}`, background:C.ivory, color:C.dust, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:30 }}>
-                {initials || "?"}
-              </div>
-            </div>
-            <div style={{ flex:1, minWidth:220 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:8, marginBottom:8 }}>
-                <h3 style={{ margin:0, fontSize:17, fontWeight:600, color:C.ink }}>{partner.name}</h3>
-                <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
-                  <span style={badge(partner.status)}>{partner.status}</span>
-                  <span style={{ ...badge("pending"), background:C.ivory, color:C.dust }}>{partner.source || "manual"}</span>
-                  {partner.isClientRecord && (
-                    <span style={{ ...badge("pending"), background:accentBg, color:accent }}>Moved Model</span>
+          <div key={partner.id} style={{ background: C.white, border: `1px solid ${C.smoke}`, borderRadius: 12, padding: "16px 18px", marginBottom: 12, boxShadow: "0 1px 4px rgba(17,17,17,0.04)" }}>
+            <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+
+              {/* Avatar */}
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <div
+                  onClick={() => canUpload && avatarInputRef.current[partner.id]?.click()}
+                  title={canUpload ? "Click to change photo" : ""}
+                  style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", border: `1px solid ${C.smoke}`, background: C.ivory, display: "flex", alignItems: "center", justifyContent: "center", cursor: canUpload ? "pointer" : "default", position: "relative", flexShrink: 0 }}
+                >
+                  {avatarSrc ? (
+                    <img src={avatarSrc} alt={partner.name} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  ) : (
+                    <span style={{ fontSize: 20, color: C.dust, fontFamily: "'Cormorant Garamond',Georgia,serif", fontWeight: 600 }}>{initials || "?"}</span>
+                  )}
+                  {isUploading && (
+                    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.75)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: 10, color: C.slate }}>…</span>
+                    </div>
                   )}
                 </div>
+                {canUpload && (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    ref={el => { avatarInputRef.current[partner.id] = el; }}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(partner.id, f); e.target.value = ""; }}
+                  />
+                )}
               </div>
-              <p style={{ margin:"0 0 3px", color:C.dust, fontSize:13 }}>{partner.email}</p>
-              {partner.company && <p style={{ margin:"0 0 3px", color:C.dust, fontSize:13 }}>{partner.company}</p>}
-              {partner.website && <p style={{ margin:"0 0 6px", color:C.dust, fontSize:13 }}>{partner.website}</p>}
-              {partner.notes && <p style={{ margin:"0 0 10px", color:C.slate, fontSize:13, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{partner.notes}</p>}
-              <p style={{ margin:"0 0 14px", color:C.dust, fontSize:12 }}>Submitted: {new Date(partner.submitted_at || partner.created_at).toLocaleString()}</p>
 
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: C.ink, fontFamily: "'Inter',sans-serif" }}>{partner.name}</p>
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={badge(partner.status)}>{partner.status}</span>
+                    {partner.isClientRecord && (
+                      <span style={{ ...badge("pending"), background: accentBg, color: accent }}>Moved Model</span>
+                    )}
+                  </div>
+                </div>
+
+                {partner.email && <p style={{ margin: "0 0 2px", fontSize: 13, color: C.dust }}>{partner.email}</p>}
+                {partner.company && <p style={{ margin: "0 0 2px", fontSize: 13, color: C.dust }}>{partner.company}</p>}
+                {partner.website && (
+                  <p style={{ margin: "0 0 2px", fontSize: 12, color: C.dust }}>
+                    <a href={partner.website.startsWith("http") ? partner.website : `https://${partner.website}`} target="_blank" rel="noreferrer" style={{ color: C.slate, textDecoration: "underline", textDecorationColor: C.smoke }}>
+                      {partner.website.replace(/^https?:\/\//, "")}
+                    </a>
+                  </p>
+                )}
+                {partner.notes && (
+                  <p style={{ margin: "4px 0 0", fontSize: 12, color: C.slate, lineHeight: 1.5, whiteSpace: "pre-wrap", maxHeight: 54, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+                    {partner.notes}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Footer row */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.smoke}`, alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: C.dust, marginRight: "auto" }}>
+                {new Date(partner.submitted_at || partner.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </span>
+              {canUpload && (
+                <button
+                  onClick={() => avatarInputRef.current[partner.id]?.click()}
+                  style={{ padding: "5px 10px", background: C.ivory, color: C.slate, border: `1px solid ${C.smoke}`, borderRadius: 7, fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer", fontFamily: "'Inter',sans-serif" }}
+                >
+                  {avatarSrc ? "Change Photo" : "Add Photo"}
+                </button>
+              )}
               {partner.status === "pending" && !partner.isClientRecord && (
-                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                <>
                   <button
                     onClick={() => updateSubmissionStatus(partner.id, "approved")}
-                    disabled={actionLoading[partner.id]}
-                    style={btnS(C.okBg, C.ok, { border:"1px solid rgba(26,102,54,0.2)", opacity:actionLoading[partner.id] ? 0.55 : 1, cursor:actionLoading[partner.id] ? "not-allowed" : "pointer" })}
+                    disabled={isBusy}
+                    style={btnS(C.okBg, C.ok, { border: "1px solid rgba(26,102,54,0.2)", opacity: isBusy ? 0.55 : 1, cursor: isBusy ? "not-allowed" : "pointer" })}
                   >
-                    {actionLoading[partner.id] ? "…" : "✓ Approve"}
+                    {isBusy ? "…" : "✓ Approve"}
                   </button>
                   <button
                     onClick={() => updateSubmissionStatus(partner.id, "rejected")}
-                    disabled={actionLoading[partner.id]}
-                    style={btnS(C.errBg, C.err, { border:"1px solid rgba(155,28,28,0.2)", opacity:actionLoading[partner.id] ? 0.55 : 1, cursor:actionLoading[partner.id] ? "not-allowed" : "pointer" })}
+                    disabled={isBusy}
+                    style={btnS(C.errBg, C.err, { border: "1px solid rgba(155,28,28,0.2)", opacity: isBusy ? 0.55 : 1, cursor: isBusy ? "not-allowed" : "pointer" })}
                   >
-                    {actionLoading[partner.id] ? "…" : "✕ Reject"}
+                    {isBusy ? "…" : "✕ Reject"}
                   </button>
-                </div>
+                </>
+              )}
+              {partner.status === "approved" && !partner.isClientRecord && (
+                <button
+                  onClick={() => updateSubmissionStatus(partner.id, "rejected")}
+                  disabled={isBusy}
+                  style={btnS(C.ivory, C.slate, { border: `1px solid ${C.smoke}`, opacity: isBusy ? 0.55 : 1, cursor: isBusy ? "not-allowed" : "pointer" })}
+                >
+                  Revoke
+                </button>
               )}
             </div>
           </div>
