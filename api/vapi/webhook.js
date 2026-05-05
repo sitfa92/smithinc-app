@@ -37,6 +37,77 @@ function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+function normalizePhone(raw = "") {
+  const value = String(raw || "").trim();
+  if (!value) return "";
+  if (value.startsWith("+")) return `+${value.slice(1).replace(/[^0-9]/g, "")}`;
+  const digits = value.replace(/[^0-9]/g, "");
+  return digits ? `+${digits}` : "";
+}
+
+function buildCallerKey({ callerPhone = "", callerKeyHint = "" }) {
+  const explicit = String(callerKeyHint || "").trim();
+  if (explicit) return explicit;
+  const normalizedPhone = normalizePhone(callerPhone);
+  if (normalizedPhone) return `phone:${normalizedPhone}`;
+  return "";
+}
+
+function isMissingTableError(err) {
+  const msg = String(err?.message || "").toLowerCase();
+  return msg.includes("does not exist") || msg.includes("relation") || msg.includes("permission") || msg.includes("policy") || msg.includes("rls");
+}
+
+async function learnCallerMemoryFromVapiCall({
+  callerPhone = "",
+  callerKeyHint = "",
+  name = "",
+  email = "",
+  summary = "",
+  transcript = "",
+  intent = "general_inquiry",
+  endedAt = "",
+}) {
+  const callerKey = buildCallerKey({ callerPhone, callerKeyHint });
+  if (!callerKey) return;
+
+  try {
+    const { data: existing, error: existingError } = await supabase
+      .from("caller_memory")
+      .select("caller_key, total_calls, first_call_at, name, email, preferred_language")
+      .eq("caller_key", callerKey)
+      .maybeSingle();
+
+    if (existingError && !isMissingTableError(existingError)) {
+      console.error("caller memory read error:", existingError.message || existingError);
+      return;
+    }
+
+    const now = endedAt || new Date().toISOString();
+    const payload = {
+      caller_key: callerKey,
+      phone: normalizePhone(callerPhone) || null,
+      name: String(name || existing?.name || "").trim() || null,
+      email: String(email || existing?.email || "").trim().toLowerCase() || null,
+      preferred_language: existing?.preferred_language || null,
+      last_intent: intent || null,
+      last_summary: String(summary || "").trim().slice(0, 700) || null,
+      last_transcript_excerpt: String(transcript || "").trim().slice(0, 700) || null,
+      total_calls: Number(existing?.total_calls || 0) + 1,
+      first_call_at: existing?.first_call_at || now,
+      last_call_at: now,
+      updated_at: now,
+    };
+
+    const { error } = await supabase.from("caller_memory").upsert(payload, { onConflict: "caller_key" });
+    if (error && !isMissingTableError(error)) {
+      console.error("caller memory upsert error:", error.message || error);
+    }
+  } catch (err) {
+    console.error("caller memory learn error:", err?.message || err);
+  }
+}
+
 function normalizeSpokenEmail(text = "") {
   return String(text || "")
     .toLowerCase()
@@ -521,6 +592,7 @@ export default async function handler(req, res) {
 
   const call = event.message;
   const callerPhone = call?.customer?.number || null;
+  const callerKeyHint = call?.metadata?.caller_key || call?.customer?.metadata?.caller_key || "";
   const transcript = call?.transcript || null;
   const duration = call?.durationSeconds || null;
   const callId = call?.call?.id || null;
@@ -537,6 +609,17 @@ export default async function handler(req, res) {
     startedAt,
     endedAt,
     callId,
+  });
+
+  await learnCallerMemoryFromVapiCall({
+    callerPhone,
+    callerKeyHint,
+    name: leadResult?.name || "",
+    email: leadResult?.email || "",
+    summary: summary || "",
+    transcript: transcript || "",
+    intent: leadResult?.created ? "consultation_request" : "general_inquiry",
+    endedAt: endedAt || new Date().toISOString(),
   });
 
   // 1 — Log to Supabase

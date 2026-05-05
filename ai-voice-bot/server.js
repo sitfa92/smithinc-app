@@ -14,6 +14,7 @@ const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
 const OPENAI_MODEL = String(process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
 const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim().replace(/\/+$/, "");
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const CALLER_MEMORY_TABLE = "caller_memory";
 const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
 const ALERT_FROM_EMAIL = String(process.env.ALERT_FROM_EMAIL || "onboarding@meet-serenity.online").trim();
 const REQUIRED_ADMIN_EMAILS = ["sitfa92@gmail.com", "marthajohn223355@gmail.com"];
@@ -202,6 +203,20 @@ function normalizeCountry(raw) {
   return String(raw || "").trim().toUpperCase();
 }
 
+function normalizePhone(raw = "") {
+  const value = String(raw || "").trim();
+  if (!value) return "";
+  if (value.startsWith("+")) return `+${value.slice(1).replace(/[^0-9]/g, "")}`;
+  const digits = value.replace(/[^0-9]/g, "");
+  return digits ? `+${digits}` : "";
+}
+
+function toCallerKey(phone = "") {
+  const normalized = normalizePhone(phone);
+  if (!normalized) return "";
+  return `phone:${normalized}`;
+}
+
 function isIvoryCoastCaller({ fromCountry, callerCountry, fromNumber }) {
   const c1 = normalizeCountry(fromCountry);
   const c2 = normalizeCountry(callerCountry);
@@ -225,6 +240,95 @@ function detectCallLanguage({ queryLang, speechLanguage, text, fromCountry, call
   if (browserDetected) return browserDetected;
 
   return looksFrench(text) ? "fr" : "en";
+}
+
+async function getCallerMemory(phone = "") {
+  const callerKey = toCallerKey(phone);
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !callerKey) return null;
+
+  const url = `${SUPABASE_URL}/rest/v1/${CALLER_MEMORY_TABLE}?caller_key=eq.${encodeURIComponent(callerKey)}&select=caller_key,phone,name,email,preferred_language,last_intent,last_summary,total_calls,last_call_at&limit=1`;
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json().catch(() => []);
+    return Array.isArray(data) ? data[0] || null : null;
+  } catch (_err) {
+    return null;
+  }
+}
+
+async function learnCallerMemory({
+  phone = "",
+  name = "",
+  email = "",
+  language = "",
+  intent = "",
+  summary = "",
+}) {
+  const callerKey = toCallerKey(phone);
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !callerKey) return;
+
+  const existing = await getCallerMemory(phone);
+  const now = new Date().toISOString();
+  const payload = {
+    caller_key: callerKey,
+    phone: normalizePhone(phone) || null,
+    name: (name || existing?.name || "").trim() || null,
+    email: (email || existing?.email || "").trim().toLowerCase() || null,
+    preferred_language: (language || existing?.preferred_language || "").trim().toLowerCase() || null,
+    last_intent: (intent || existing?.last_intent || "").trim() || null,
+    last_summary: String(summary || existing?.last_summary || "").trim().slice(0, 700) || null,
+    total_calls: Number(existing?.total_calls || 0) + 1,
+    first_call_at: existing?.first_call_at || now,
+    last_call_at: now,
+    updated_at: now,
+  };
+
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/${CALLER_MEMORY_TABLE}?on_conflict=caller_key`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify([payload]),
+    });
+  } catch (_err) {
+    // Best effort only.
+  }
+}
+
+function buildRepeatCallerMessage(memory, lang = "en") {
+  if (!memory?.total_calls || Number(memory.total_calls) < 2) return "";
+  const callerName = String(memory.name || "").trim();
+  const namePart = callerName ? ` ${callerName}` : "";
+  if (lang === "fr") {
+    return `Bon retour${namePart}. J'ai en memoire votre dernier contexte pour vous aider plus rapidement aujourd'hui.`;
+  }
+  return `Welcome back${namePart}. I remember your previous context and can help you faster today.`;
+}
+
+function buildCallerMemoryPrompt(memory, lang = "en") {
+  if (!memory) return "";
+  const totalCalls = Number(memory.total_calls || 0);
+  if (totalCalls < 2) return "";
+  const lines = [
+    lang === "fr" ? "Contexte appelant memorise:" : "Remembered caller context:",
+    `total_calls=${totalCalls}`,
+    `name=${memory.name || ""}`,
+    `email=${memory.email || ""}`,
+    `preferred_language=${memory.preferred_language || ""}`,
+    `last_intent=${memory.last_intent || ""}`,
+    `last_summary=${memory.last_summary || ""}`,
+  ].filter(Boolean);
+  return lines.join("\n");
 }
 
 function twimlSayAndListen({ message, actionPath = "/gather", first = false, lang = "en" }) {
@@ -495,7 +599,7 @@ async function callOpenAI({ systemPrompt, messages, maxTokens = 180 }) {
   return String(json?.choices?.[0]?.message?.content || "").trim() || "Could you repeat that?";
 }
 
-async function askOpenAI(userText, lang = "en") {
+async function askOpenAI(userText, lang = "en", callerMemoryPrompt = "") {
   if (!OPENAI_API_KEY) return "Thanks for calling. Our team will get back to you shortly.";
   const languageGuard =
     lang === "fr"
@@ -506,7 +610,7 @@ async function askOpenAI(userText, lang = "en") {
       ? `Use this as the main info section when callers ask who you are or what the program is: ${MAIN_PROGRAM_INFO_FR}`
       : `Use this as the main info section when callers ask who you are or what the program is: ${MAIN_PROGRAM_INFO_EN}`;
   return callOpenAI({
-    systemPrompt: `${SYSTEM_PROMPT}\n\n${languageGuard}\n\n${mainInfoGuard}`,
+    systemPrompt: `${SYSTEM_PROMPT}\n\n${languageGuard}\n\n${mainInfoGuard}${callerMemoryPrompt ? `\n\n${callerMemoryPrompt}` : ""}`,
     messages: [{ role: "user", content: userText }],
   });
 }
@@ -524,7 +628,7 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.post("/voice", (req, res) => {
+app.post("/voice", async (req, res) => {
   if (!PUBLIC_BASE_URL) {
     res.type("text/xml").status(200).send(
       twimlEnd(copy("unconfigured", "en"), "en")
@@ -538,23 +642,30 @@ app.post("/voice", (req, res) => {
     fromNumber: req.body?.From,
     acceptLanguage: req.headers?.["accept-language"],
   });
-  res.type("text/xml").status(200).send(twimlSayAndListen({ first: true, lang }));
+  const fromNumber = String(req.body?.From || "").trim();
+  const memory = await getCallerMemory(fromNumber);
+  const repeatMessage = buildRepeatCallerMessage(memory, lang);
+  res.type("text/xml").status(200).send(twimlSayAndListen({ first: true, lang, message: repeatMessage }));
 });
 
-app.post("/voice-fr", (_req, res) => {
+app.post("/voice-fr", async (req, res) => {
   if (!PUBLIC_BASE_URL) {
     res.type("text/xml").status(200).send(
       twimlEnd(copy("unconfigured", "fr"), "fr")
     );
     return;
   }
-  res.type("text/xml").status(200).send(twimlSayAndListen({ first: true, lang: "fr" }));
+  const fromNumber = String(req.body?.From || "").trim();
+  const memory = await getCallerMemory(fromNumber);
+  const repeatMessage = buildRepeatCallerMessage(memory, "fr");
+  res.type("text/xml").status(200).send(twimlSayAndListen({ first: true, lang: "fr", message: repeatMessage }));
 });
 
 app.post("/gather", async (req, res) => {
   const mode = String(req.query?.mode || "").trim().toLowerCase();
   const digits = String(req.body?.Digits || "").trim();
   const said = String(req.body?.SpeechResult || "").trim();
+  const fromNumber = String(req.body?.From || "").trim();
   const lang = detectCallLanguage({
     queryLang: req.query?.lang,
     speechLanguage: req.body?.SpeechLanguage,
@@ -564,6 +675,8 @@ app.post("/gather", async (req, res) => {
     fromNumber: req.body?.From,
     acceptLanguage: req.headers?.["accept-language"],
   });
+  const memory = await getCallerMemory(fromNumber);
+  const callerMemoryPrompt = buildCallerMemoryPrompt(memory, lang);
 
   if (mode === "callback_collect") {
     if (!said) {
@@ -589,6 +702,14 @@ app.post("/gather", async (req, res) => {
         callerCountry: req.body?.CallerCountry,
         details: said,
         createdAt: new Date().toISOString(),
+      });
+      await learnCallerMemory({
+        phone: from,
+        name: extractName(said),
+        email: extractEmail(said),
+        language: lang,
+        intent: "callback_request",
+        summary: said,
       });
     } catch (err) {
       console.warn("callback lead email notification failed:", err?.message || err);
@@ -616,6 +737,14 @@ app.post("/gather", async (req, res) => {
         fromCountry: req.body?.FromCountry,
         callerCountry: req.body?.CallerCountry,
       });
+      await learnCallerMemory({
+        phone: from,
+        name: extractName(said),
+        email: extractEmail(said),
+        language: lang,
+        intent: "consultation_request",
+        summary: said,
+      });
     } catch (err) {
       console.error("consult lead save error:", err?.message || err);
     }
@@ -626,14 +755,32 @@ app.post("/gather", async (req, res) => {
 
   if (digits === "1") {
     const infoMessage = lang === "fr" ? PROGRAM_INFO_MESSAGE_FR : PROGRAM_INFO_MESSAGE;
+    await learnCallerMemory({
+      phone: fromNumber,
+      language: lang,
+      intent: "program_info",
+      summary: infoMessage,
+    });
     res.type("text/xml").status(200).send(twimlSayAndListen({ message: infoMessage, lang }));
     return;
   }
   if (digits === "2") {
+    await learnCallerMemory({
+      phone: fromNumber,
+      language: lang,
+      intent: "consultation_menu",
+      summary: "Caller selected consultation option.",
+    });
     res.type("text/xml").status(200).send(twimlCollectConsultRequest(lang));
     return;
   }
   if (digits === "3") {
+    await learnCallerMemory({
+      phone: fromNumber,
+      language: lang,
+      intent: "callback_menu",
+      summary: "Caller selected callback option.",
+    });
     res.type("text/xml").status(200).send(twimlCollectCallbackRequest(lang));
     return;
   }
@@ -687,7 +834,13 @@ app.post("/gather", async (req, res) => {
   }
 
   try {
-    const answer = await askOpenAI(said, lang);
+    const answer = await askOpenAI(said, lang, callerMemoryPrompt);
+    await learnCallerMemory({
+      phone: fromNumber,
+      language: lang,
+      intent: "general_inquiry",
+      summary: said,
+    });
     res.type("text/xml").status(200).send(twimlSayAndListen({ message: answer, lang }));
   } catch (err) {
     const fallback = copy("aiFallback", lang);

@@ -75,6 +75,19 @@ async function detectPreferredLanguage() {
   return { preferredLanguage: "en", countryHint };
 }
 
+function getOrCreateWebCallerKey() {
+  const storageKey = "ms_web_caller_key_v1";
+  try {
+    const existing = String(window.localStorage.getItem(storageKey) || "").trim();
+    if (existing) return existing;
+    const generated = `web:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    window.localStorage.setItem(storageKey, generated);
+    return generated;
+  } catch {
+    return `web:fallback-${Date.now().toString(36)}`;
+  }
+}
+
 // ── Singleton module loader ────────────────────────────────
 // Starts loading the Vapi SDK immediately when this file is first imported,
 // so it's ready (or has already failed cleanly) before the user ever clicks.
@@ -181,6 +194,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
           viewer_country: countryHint || "unknown",
         },
         metadata: {
+          caller_key: getOrCreateWebCallerKey(),
           assistant_variant: preferredLanguage === "fr" ? "french" : "default",
           preferred_language: preferredLanguage,
           viewer_country: countryHint || "unknown",
