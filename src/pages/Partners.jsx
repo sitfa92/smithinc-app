@@ -83,23 +83,40 @@ export default function Partners() {
   };
 
   const uploadAvatar = async (clientId, file) => {
-    if (!file || !clientId || String(clientId).startsWith("booking-")) return;
+    if (!file || !clientId || String(clientId).startsWith("booking-") || String(clientId).startsWith("partner-")) return;
     setUploadingId(String(clientId));
     try {
-      const ext = file.name.split(".").pop();
-      const path = `avatars/clients/${clientId}/avatar.${ext}`;
-      const buckets = [(import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || "").trim(), "model-images", "models", "images"].filter(Boolean);
-      let publicUrl = "";
-      for (const bucket of buckets) {
-        const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, { upsert: true, contentType: file.type });
-        if (upErr) continue;
-        const { data: pubData } = supabase.storage.from(bucket).getPublicUrl(path);
-        publicUrl = pubData?.publicUrl || "";
-        break;
-      }
-      if (!publicUrl) throw new Error("Upload failed — no bucket accepted the file");
-      const { error: updateErr } = await supabase.from("clients").update({ avatar_url: publicUrl }).eq("id", clientId);
-      if (updateErr) throw updateErr;
+      const signResp = await fetch("/api/storage/sign-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name || `avatar-${clientId}`,
+          contentType: file.type || "image/jpeg",
+          folder: "avatars-clients",
+        }),
+      });
+      const signJson = await signResp.json().catch(() => ({}));
+      if (!signResp.ok) throw new Error(signJson.error || "Failed to prepare avatar upload");
+
+      const { bucket, path, token } = signJson;
+      if (!bucket || !path || !token) throw new Error("Invalid upload token response");
+
+      const { error: uploadErr } = await supabase.storage.from(bucket).uploadToSignedUrl(path, token, file);
+      if (uploadErr) throw uploadErr;
+
+      const { data: pubData } = supabase.storage.from(bucket).getPublicUrl(path);
+      const publicUrl = pubData?.publicUrl || "";
+      if (!publicUrl) throw new Error("Failed to resolve uploaded avatar URL");
+
+      const headers = await getAuthHeaders();
+      const updateResp = await fetch("/api/clients/update-pipeline", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ partnerId: clientId, updates: { avatar_url: publicUrl, last_updated: new Date().toISOString() } }),
+      });
+      const updateJson = await updateResp.json().catch(() => ({}));
+      if (!updateResp.ok) throw new Error(updateJson.error || "Failed to save avatar");
+
       setClients(prev => prev.map(c => c.id === clientId ? { ...c, avatar_url: publicUrl } : c));
     } catch (err) {
       alert(err.message || "Failed to upload photo");

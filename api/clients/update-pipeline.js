@@ -13,6 +13,7 @@ const ALLOWED_FIELDS = new Set([
   "next_step",
   "status",
   "last_updated",
+  "avatar_url",
 ]);
 
 export default async function handler(req, res) {
