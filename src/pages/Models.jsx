@@ -2,7 +2,7 @@ import React from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { isMissingColumnError, sendZapierEvent, sendBackendWebhook } from "../utils";
-import { listDigitalsForModel } from "../imageUpload";
+import { listDigitalsForModel, listPortfolioForModel } from "../imageUpload";
 import LuxuryPhotoCarousel from "../components/LuxuryPhotoCarousel";
 
 export default function Models() {
@@ -34,6 +34,10 @@ export default function Models() {
 
   const [expandedDigitals, setExpandedDigitals] = React.useState({});   // { [modelId]: { open, loading, files } }
   const [copiedTpl, setCopiedTpl] = React.useState({});
+  const [mediaScanLoading, setMediaScanLoading] = React.useState(false);
+  const [mediaScanProgress, setMediaScanProgress] = React.useState({ scanned: 0, total: 0 });
+  const [mediaScanReport, setMediaScanReport] = React.useState(null);
+  const [mediaScanError, setMediaScanError] = React.useState("");
 
   const toggleDigitals = async (model) => {
     const modelId = model?.id;
@@ -76,6 +80,94 @@ export default function Models() {
       setError(err.message || "Failed to load models");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runMediaReindex = async () => {
+    if (role !== "admin") return;
+
+    setMediaScanLoading(true);
+    setMediaScanError("");
+    setMediaScanReport(null);
+
+    const total = models.length;
+    setMediaScanProgress({ scanned: 0, total });
+
+    try {
+      if (!total) {
+        setMediaScanReport({
+          scanned: 0,
+          total: 0,
+          withDigitals: 0,
+          withPortfolio: 0,
+          missingDigitals: 0,
+          missingPortfolio: 0,
+          missingBoth: 0,
+          details: [],
+          completedAt: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const details = [];
+      const chunkSize = 8;
+      let scanned = 0;
+
+      for (let i = 0; i < models.length; i += chunkSize) {
+        const batch = models.slice(i, i + chunkSize);
+        const rows = await Promise.all(batch.map(async (model) => {
+          const modelRef = {
+            id: model.id,
+            email: model.email,
+            instagram: model.instagram,
+          };
+
+          const [digitals, portfolio] = await Promise.all([
+            listDigitalsForModel({ ...modelRef, folder: `digitals/${model.id}` }).catch(() => []),
+            listPortfolioForModel({ ...modelRef, folder: `portfolio/${model.id}` }).catch(() => []),
+          ]);
+
+          return {
+            id: model.id,
+            name: model.name || "Unnamed",
+            email: model.email || "",
+            digitalsCount: digitals.length,
+            portfolioCount: portfolio.length,
+          };
+        }));
+
+        details.push(...rows);
+        scanned += batch.length;
+        setMediaScanProgress({ scanned, total });
+      }
+
+      const withDigitals = details.filter((row) => row.digitalsCount > 0).length;
+      const withPortfolio = details.filter((row) => row.portfolioCount > 0).length;
+      const missingDigitals = details.filter((row) => row.digitalsCount === 0).length;
+      const missingPortfolio = details.filter((row) => row.portfolioCount === 0).length;
+      const missingBoth = details.filter((row) => row.digitalsCount === 0 && row.portfolioCount === 0).length;
+
+      const sortedDetails = [...details].sort((a, b) => {
+        if (a.digitalsCount === 0 && a.portfolioCount === 0 && (b.digitalsCount > 0 || b.portfolioCount > 0)) return -1;
+        if (b.digitalsCount === 0 && b.portfolioCount === 0 && (a.digitalsCount > 0 || a.portfolioCount > 0)) return 1;
+        return (a.name || "").localeCompare(b.name || "");
+      });
+
+      setMediaScanReport({
+        scanned,
+        total,
+        withDigitals,
+        withPortfolio,
+        missingDigitals,
+        missingPortfolio,
+        missingBoth,
+        details: sortedDetails,
+        completedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      setMediaScanError(err.message || "Media reindex failed");
+    } finally {
+      setMediaScanLoading(false);
     }
   };
 
@@ -227,6 +319,53 @@ export default function Models() {
           </div>
         ))}
       </div>
+
+      {role === "admin" && (
+        <div style={{ ...card, marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div>
+              <p style={{ margin: "0 0 4px", fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize: 20, color: C.ink }}>Media Reindex</p>
+              <p style={{ margin: 0, fontSize: 12, color: C.dust }}>Scan all current models for digitals and portfolio coverage.</p>
+            </div>
+            <button
+              onClick={runMediaReindex}
+              disabled={mediaScanLoading || loading}
+              style={{ padding:"10px 14px", background:C.ink, color:C.white, border:"none", borderRadius:8, fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", cursor:(mediaScanLoading || loading)?"not-allowed":"pointer", opacity:(mediaScanLoading || loading)?0.6:1, fontFamily:"'Inter',sans-serif" }}
+            >
+              {mediaScanLoading ? `Scanning ${mediaScanProgress.scanned}/${mediaScanProgress.total || models.length}` : "Reindex Media"}
+            </button>
+          </div>
+
+          {mediaScanError && <p style={{ margin: "10px 0 0", color: C.err, fontSize: 13 }}>{mediaScanError}</p>}
+
+          {mediaScanReport && (
+            <div style={{ marginTop: 12, borderTop: `1px solid ${C.smoke}`, paddingTop: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8, marginBottom: 10 }}>
+                <div style={{ background: C.ivory, border:`1px solid ${C.smoke}`, borderRadius:8, padding:"8px 10px" }}><span style={{ fontSize:11, color:C.dust }}>With Digitals</span><div style={{ fontSize:18, color:C.ink, fontWeight:700 }}>{mediaScanReport.withDigitals}</div></div>
+                <div style={{ background: C.ivory, border:`1px solid ${C.smoke}`, borderRadius:8, padding:"8px 10px" }}><span style={{ fontSize:11, color:C.dust }}>With Portfolio</span><div style={{ fontSize:18, color:C.ink, fontWeight:700 }}>{mediaScanReport.withPortfolio}</div></div>
+                <div style={{ background: C.warnBg, border:`1px solid rgba(146,86,10,0.2)`, borderRadius:8, padding:"8px 10px" }}><span style={{ fontSize:11, color:C.warn }}>Missing Digitals</span><div style={{ fontSize:18, color:C.warn, fontWeight:700 }}>{mediaScanReport.missingDigitals}</div></div>
+                <div style={{ background: C.warnBg, border:`1px solid rgba(146,86,10,0.2)`, borderRadius:8, padding:"8px 10px" }}><span style={{ fontSize:11, color:C.warn }}>Missing Portfolio</span><div style={{ fontSize:18, color:C.warn, fontWeight:700 }}>{mediaScanReport.missingPortfolio}</div></div>
+                <div style={{ background: C.errBg, border:`1px solid rgba(155,28,28,0.2)`, borderRadius:8, padding:"8px 10px" }}><span style={{ fontSize:11, color:C.err }}>Missing Both</span><div style={{ fontSize:18, color:C.err, fontWeight:700 }}>{mediaScanReport.missingBoth}</div></div>
+              </div>
+
+              {mediaScanReport.details.length > 0 && (
+                <div style={{ maxHeight: 220, overflow: "auto", border:`1px solid ${C.smoke}`, borderRadius:8 }}>
+                  {mediaScanReport.details.map((row) => (
+                    <div key={row.id} style={{ display:"grid", gridTemplateColumns:"1fr auto auto", gap:10, alignItems:"center", padding:"8px 10px", borderBottom:`1px solid ${C.smoke}` }}>
+                      <div>
+                        <div style={{ fontSize:13, color:C.ink, fontWeight:600 }}>{row.name}</div>
+                        <div style={{ fontSize:11, color:C.dust }}>{row.email || "No email"}</div>
+                      </div>
+                      <span style={{ fontSize:11, color: row.digitalsCount ? C.ok : C.warn, fontWeight:700, letterSpacing:"0.04em", textTransform:"uppercase" }}>Digitals: {row.digitalsCount}</span>
+                      <span style={{ fontSize:11, color: row.portfolioCount ? C.ok : C.warn, fontWeight:700, letterSpacing:"0.04em", textTransform:"uppercase" }}>Portfolio: {row.portfolioCount}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading && <p style={{ color:C.dust }}>Loading models…</p>}
       {error && <p style={{ color:C.err }}>{error}</p>}
