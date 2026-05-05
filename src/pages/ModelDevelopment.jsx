@@ -130,9 +130,20 @@ function getIntent() {
   return params.get("intent") || window.localStorage.getItem("ms-intent") || "become-model";
 }
 
+function getDefaultTierCurrency() {
+  const lang = String(navigator.language || "").toLowerCase();
+  const region = lang.split("-")[1] || "";
+  if (region === "ng") return "NGN";
+  if (region === "us") return "USD";
+  if (region === "gb") return "GBP";
+  if (region === "ug") return "UGX";
+  return "USD";
+}
+
 export default function ModelDevelopment() {
   const [intent] = React.useState(getIntent);
   const [isMobile, setIsMobile] = React.useState(() => window.innerWidth <= 768);
+  const [tierCurrency, setTierCurrency] = React.useState(getDefaultTierCurrency);
   const callLine = (import.meta.env.VITE_PUBLIC_CALL_LINE || "").trim();
   const callLineHref = callLine ? `tel:${callLine.replace(/\s+/g, "")}` : "";
 
@@ -350,24 +361,55 @@ export default function ModelDevelopment() {
             )}
 
             {section.pricingGroups && (
-              <div style={{ display: "grid", gap: 28 }}>
-                {section.pricingGroups.map((group) => (
-                  <div key={group.currency}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#888", background: "#faf8f4", border: "1px solid #e8e4dc", borderRadius: 99, padding: "3px 11px" }}>{group.currency}</span>
-                      <span style={{ fontSize: 13, color: "#888" }}>{group.label}</span>
+              <div style={{ display: "grid", gap: 14 }}>
+                <div style={{ display: "grid", gap: 7, maxWidth: 360 }}>
+                  <label htmlFor="tier-currency" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#888", fontWeight: 700 }}>
+                    Select your currency
+                  </label>
+                  <select
+                    id="tier-currency"
+                    value={tierCurrency}
+                    onChange={(e) => setTierCurrency(e.target.value)}
+                    style={{
+                      border: "1px solid #e8e4dc",
+                      background: "#fff",
+                      color: "#111",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      fontFamily: "'Inter',sans-serif",
+                      outline: "none",
+                    }}
+                  >
+                    {section.pricingGroups.map((group) => (
+                      <option key={group.currency} value={group.currency}>
+                        {group.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {(() => {
+                  const activeGroup = section.pricingGroups.find((group) => group.currency === tierCurrency) || section.pricingGroups[0];
+                  return (
+                    <div key={activeGroup.currency}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#888", background: "#faf8f4", border: "1px solid #e8e4dc", borderRadius: 99, padding: "3px 11px" }}>{activeGroup.currency}</span>
+                        <span style={{ fontSize: 13, color: "#888" }}>{activeGroup.label}</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+                        {activeGroup.tiers.map((tier) => (
+                          <article key={tier.label} style={{ border: "1px solid #e8e4dc", borderRadius: 14, padding: isMobile ? 16 : 18, background: "#fff" }}>
+                            <div style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888", marginBottom: 6 }}>{tier.label}</div>
+                            <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 46, lineHeight: 1, color: "#111", marginBottom: 8 }}>{tier.price}</div>
+                            <p style={{ margin: 0, color: "#4a4a4a", fontSize: 14, lineHeight: 1.6 }}>{tier.text}</p>
+                          </article>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 12 }}>
-                      {group.tiers.map((tier) => (
-                        <article key={tier.label} style={{ border: "1px solid #e8e4dc", borderRadius: 14, padding: isMobile ? 16 : 18, background: "#fff" }}>
-                          <div style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888", marginBottom: 6 }}>{tier.label}</div>
-                          <div style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 46, lineHeight: 1, color: "#111", marginBottom: 8 }}>{tier.price}</div>
-                          <p style={{ margin: 0, color: "#4a4a4a", fontSize: 14, lineHeight: 1.6 }}>{tier.text}</p>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })()}
               </div>
             )}
           </section>
