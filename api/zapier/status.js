@@ -23,7 +23,11 @@ export default async function handler(req, res) {
       source: "meet-serenity-app",
       event_type: "<string>",
       happened_at: "<ISO 8601>",
-      payload: "<object>",
+      payload: {
+        seo_pillar: "<sleep|stress|burnout|relationship|general>",
+        dedupe_key: "<stable semantic key>",
+        cluster_key: "<topic cluster key>",
+      },
       metadata: { source: "meet-serenity-app", environment: "production" },
     },
   });

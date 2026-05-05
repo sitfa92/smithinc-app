@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -86,6 +87,30 @@ function detectUserGoal(text) {
   return "general_wellbeing";
 }
 
+function mapSeoPillar({ topics, sessionType, userGoal }) {
+  if (topics.includes("burnout") || /burnout/i.test(userGoal || "")) return "burnout";
+  if (topics.includes("relationship calm") || sessionType === "relationship") return "relationship";
+  if (topics.includes("sleep") || sessionType === "sleep" || userGoal === "improve_sleep") return "sleep";
+  if (topics.includes("stress") || topics.includes("anxiety") || sessionType === "work-stress") return "stress";
+  return "general";
+}
+
+function sha1(value) {
+  return crypto.createHash("sha1").update(String(value || "")).digest("hex");
+}
+
+function computeDedupeKeys({ mainQuestion, topics, cities, sessionType, seoPillar }) {
+  const questionSlug = normalizeText(mainQuestion).toLowerCase().slice(0, 180);
+  const topicSlug = uniqueValues(topics).sort().join("|").toLowerCase();
+  const citySlug = uniqueValues(cities).sort().join("|").toLowerCase() || "global";
+  const base = [seoPillar, sessionType, citySlug, topicSlug, questionSlug].join("::");
+
+  return {
+    dedupe_key: sha1(base).slice(0, 16),
+    cluster_key: sha1(`${seoPillar}::${sessionType}::${citySlug}`).slice(0, 16),
+  };
+}
+
 function buildSeoSignals({ transcript, summary }) {
   const mergedText = redactPII(`${summary || ""} ${transcript || ""}`);
   const questions = extractQuestions(mergedText);
@@ -94,6 +119,14 @@ function buildSeoSignals({ transcript, summary }) {
   const sentiment = detectSentiment(mergedText);
   const sessionType = detectSessionType(mergedText);
   const userGoal = detectUserGoal(mergedText);
+  const seoPillar = mapSeoPillar({ topics, sessionType, userGoal });
+  const dedupeKeys = computeDedupeKeys({
+    mainQuestion: questions[0] || "",
+    topics,
+    cities,
+    sessionType,
+    seoPillar,
+  });
 
   const keywordCandidates = uniqueValues([
     ...topics,
@@ -105,6 +138,7 @@ function buildSeoSignals({ transcript, summary }) {
   return {
     main_question: questions[0] || "",
     questions,
+    seo_pillar: seoPillar,
     topic_clusters: topics,
     keyword_candidates: keywordCandidates,
     city_hints: cities,
@@ -114,6 +148,8 @@ function buildSeoSignals({ transcript, summary }) {
     user_goal: userGoal,
     session_type: sessionType,
     transcript_excerpt: mergedText.slice(0, 1200),
+    dedupe_key: dedupeKeys.dedupe_key,
+    cluster_key: dedupeKeys.cluster_key,
   };
 }
 
