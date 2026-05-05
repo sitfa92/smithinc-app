@@ -21,6 +21,10 @@ const PROGRAM_INFO_MESSAGE = String(
   process.env.PROGRAM_INFO_MESSAGE ||
     "Meet Serenity is a structured model development membership, not a modeling agency. It offers starter, growth, and elite tiers with coaching, positioning support, and accountability. It is designed for serious talent who want clear direction and industry readiness. To apply, visit meet-serenity.online and select apply for the program."
 ).trim();
+const BOOKING_INFO_MESSAGE = String(
+  process.env.BOOKING_INFO_MESSAGE ||
+    "For bookings and consultations, visit meet-serenity.online slash book. You can submit your name, email, company, service type, and preferred date. Our team will review and confirm your request quickly."
+).trim();
 
 const WHATSAPP_SYSTEM_PROMPT = String(
   process.env.WHATSAPP_SYSTEM_PROMPT ||
@@ -56,10 +60,15 @@ function escapeXml(value) {
 function twimlSayAndListen({ message, actionPath = "/gather", first = false }) {
   const actionUrl = `${PUBLIC_BASE_URL}${actionPath}`;
   const intro = first
-    ? `<Say voice=\"Polly.Joanna\">Hi, this is ${escapeXml(BOT_NAME)}. Press 1 for Meet Serenity program info, or tell me how I can help you today.</Say>`
+    ? `<Say voice="Polly.Joanna">Hi, this is ${escapeXml(BOT_NAME)}. Press 1 for Meet Serenity program info. Press 2 for booking help. Press 3 to leave a callback request. Or tell me how I can help you today.</Say>`
     : "";
 
-  return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  ${intro}\n  ${message ? `<Say voice=\"Polly.Joanna\">${escapeXml(message)}</Say>` : ""}\n  <Gather input=\"dtmf speech\" numDigits=\"1\" speechTimeout=\"auto\" timeout=\"5\" action=\"${escapeXml(actionUrl)}\" method=\"POST\">\n    <Say voice=\"Polly.Joanna\">Press 1 for Meet Serenity program info, or speak now.</Say>\n  </Gather>\n  <Say voice=\"Polly.Joanna\">I did not catch that. Goodbye.</Say>\n  <Hangup/>\n</Response>`;
+    return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  ${intro}\n  ${message ? `<Say voice=\"Polly.Joanna\">${escapeXml(message)}</Say>` : ""}\n  <Gather input=\"dtmf speech\" numDigits=\"1\" speechTimeout=\"auto\" timeout=\"5\" action=\"${escapeXml(actionUrl)}\" method=\"POST\">\n    <Say voice=\"Polly.Joanna\">Press 1 for program info. Press 2 for booking help. Press 3 to leave a callback request. Or speak now.</Say>\n  </Gather>\n  <Say voice=\"Polly.Joanna\">I did not catch that. Goodbye.</Say>\n  <Hangup/>\n</Response>`;
+}
+
+function twimlCollectCallbackRequest() {
+  const actionUrl = `${PUBLIC_BASE_URL}/gather?mode=callback_collect`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Say voice="Polly.Joanna">Please say your full name, phone number, and the best time to call you back.</Say>\n  <Gather input="speech" speechTimeout="auto" timeout="6" action="${escapeXml(actionUrl)}" method="POST">\n    <Say voice="Polly.Joanna">You can speak your callback details now.</Say>\n  </Gather>\n  <Say voice="Polly.Joanna">I did not catch that. Please call again, or visit meet-serenity.online slash contact-team.</Say>\n  <Hangup/>\n</Response>`;
 }
 
 function twimlEnd(message) {
@@ -119,11 +128,40 @@ app.post("/voice", (_req, res) => {
 });
 
 app.post("/gather", async (req, res) => {
+  const mode = String(req.query?.mode || "").trim().toLowerCase();
   const digits = String(req.body?.Digits || "").trim();
   const said = String(req.body?.SpeechResult || "").trim();
 
+  if (mode === "callback_collect") {
+    if (!said) {
+      res.type("text/xml").status(200).send(twimlEnd("I could not hear your callback details. Please call again."));
+      return;
+    }
+
+    const from = String(req.body?.From || "unknown").trim();
+    console.log("callback request:", {
+      from,
+      spokenDetails: said,
+      at: new Date().toISOString(),
+    });
+
+    res
+      .type("text/xml")
+      .status(200)
+      .send(twimlEnd("Thank you. Your callback request has been noted. Our team will follow up soon."));
+    return;
+  }
+
   if (digits === "1") {
     res.type("text/xml").status(200).send(twimlSayAndListen({ message: PROGRAM_INFO_MESSAGE }));
+    return;
+  }
+  if (digits === "2") {
+    res.type("text/xml").status(200).send(twimlSayAndListen({ message: BOOKING_INFO_MESSAGE }));
+    return;
+  }
+  if (digits === "3") {
+    res.type("text/xml").status(200).send(twimlCollectCallbackRequest());
     return;
   }
 
@@ -135,6 +173,14 @@ app.post("/gather", async (req, res) => {
   const lowered = said.toLowerCase();
   if (lowered.includes("option 1") || lowered.includes("press 1") || lowered.includes("program info")) {
     res.type("text/xml").status(200).send(twimlSayAndListen({ message: PROGRAM_INFO_MESSAGE }));
+    return;
+  }
+  if (lowered.includes("option 2") || lowered.includes("press 2") || lowered.includes("booking")) {
+    res.type("text/xml").status(200).send(twimlSayAndListen({ message: BOOKING_INFO_MESSAGE }));
+    return;
+  }
+  if (lowered.includes("option 3") || lowered.includes("press 3") || lowered.includes("callback")) {
+    res.type("text/xml").status(200).send(twimlCollectCallbackRequest());
     return;
   }
   if (lowered.includes("goodbye") || lowered.includes("bye") || lowered.includes("stop")) {
