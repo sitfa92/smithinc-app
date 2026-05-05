@@ -1,5 +1,4 @@
 import React from "react";
-import * as VapiModule from "@vapi-ai/web";
 
 const VAPI_PUBLIC_KEY =
   import.meta.env.VITE_VAPI_PUBLIC_KEY || "5bce534b-e6b2-479c-b6bb-02f2b94298e3";
@@ -8,12 +7,14 @@ const VAPI_ASSISTANT_ID =
 
 const STATUS = { idle: "idle", connecting: "connecting", active: "active", error: "error" };
 
-function getVapiConstructor() {
-  const maybeCtor =
-    VapiModule?.default ||
-    VapiModule?.Vapi ||
-    VapiModule;
-  return typeof maybeCtor === "function" ? maybeCtor : null;
+// Dynamically load Vapi at call-time to avoid CJS/ESM interop issues in production build
+async function loadVapi(publicKey) {
+  const mod = await import("@vapi-ai/web");
+  // Handle all possible export shapes from CJS/ESM interop
+  let Ctor = mod?.default ?? mod;
+  if (typeof Ctor !== "function") Ctor = Ctor?.default;
+  if (typeof Ctor !== "function") throw new Error("Voice SDK could not be loaded.");
+  return new Ctor(publicKey);
 }
 
 // metadata: arbitrary object merged into the VAPI call metadata
@@ -40,12 +41,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
     setErrorMsg("");
 
     try {
-      const VapiCtor = getVapiConstructor();
-      if (!VapiCtor) {
-        throw new Error("Voice SDK failed to load. Please refresh and try again.");
-      }
-
-      const vapi = new VapiCtor(VAPI_PUBLIC_KEY);
+      const vapi = await loadVapi(VAPI_PUBLIC_KEY);
       vapiRef.current = vapi;
 
       vapi.on("call-start", () => setStatus(STATUS.active));
