@@ -427,15 +427,6 @@ alter table public.bookings disable row level security;`;
         {isBrandAmbassadorView ? "Track brand ambassador leads, campaign status, and engagement details." : "Track your partner roster, contracts, and invoices."}
       </p>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:24 }}>
-        {metrics.map((m) => (
-          <div key={m.label} style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:18, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
-            <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust }}>{m.label}</p>
-            <p style={{ margin:0, fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:32, fontWeight:500, color:C.ink, lineHeight:1 }}>{m.value}</p>
-          </div>
-        ))}
-      </div>
-
       {!tableReady && (
         <div style={{ background:C.infoBg, border:`1px solid rgba(30,58,95,0.15)`, borderRadius:12, padding:"18px 22px", marginBottom:24 }}>
           <p style={{ margin:"0 0 6px", fontWeight:600, color:C.info, fontSize:14 }}>
@@ -496,6 +487,15 @@ alter table public.bookings disable row level security;`;
           </form>
         </div>
       )}
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:24 }}>
+        {metrics.map((m) => (
+          <div key={m.label} style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:18, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+            <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust }}>{m.label}</p>
+            <p style={{ margin:0, fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:32, fontWeight:500, color:C.ink, lineHeight:1 }}>{m.value}</p>
+          </div>
+        ))}
+      </div>
 
       {loading && <p style={{ color:C.dust }}>{isBrandAmbassadorView ? "Loading brand ambassadors…" : "Loading partners…"}</p>}
       {error && <p style={{ color:C.err, fontSize:13 }}>{error}</p>}

@@ -261,17 +261,6 @@ alter table public.partners disable row level security;`;
       return (item.source || "manual") === sourceFilter;
     });
 
-  const pendingCount = React.useMemo(() => submissions.filter((s) => s.status === "pending").length, [submissions]);
-  const approvedCount = React.useMemo(() => submissions.filter((s) => s.status === "approved").length, [submissions]);
-  const metrics = React.useMemo(
-    () => [
-      { label: isBrandAmbassadorView ? "Total Applications" : "Total Submissions", value: submissions.length },
-      { label: "Pending", value: pendingCount },
-      { label: "Approved", value: approvedCount },
-    ],
-    [isBrandAmbassadorView, submissions.length, pendingCount, approvedCount]
-  );
-
   const C = { ink: "#111111", slate: "#4a4a4a", dust: "#888888", smoke: "#e8e4dc", ivory: "#faf8f4", white: "#ffffff", err: "#9b1c1c", warn: "#92560a", ok: "#1a6636", okBg: "#edf7ee", warnBg: "#fef8ec", errBg: "#fef2f2" };
   const accent = C.ink;
   const accentBg = C.ivory;
@@ -312,15 +301,6 @@ alter table public.partners disable row level security;`;
             </select>
           )}
         </div>
-      </div>
-
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:24 }}>
-        {metrics.map((m) => (
-          <div key={m.label} style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:18, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
-            <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust }}>{m.label}</p>
-            <p style={{ margin:0, fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:32, fontWeight:500, color:C.ink, lineHeight:1 }}>{m.value}</p>
-          </div>
-        ))}
       </div>
 
       {!tableReady && !psBannerDismissed && (
