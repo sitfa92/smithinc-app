@@ -7,14 +7,48 @@ const VAPI_ASSISTANT_ID =
 
 const STATUS = { idle: "idle", connecting: "connecting", active: "active", error: "error" };
 
+// Extract a human-readable message from any error shape Vapi SDK emits
+function extractErrMsg(err) {
+  if (!err) return null;
+  // Standard JS Error
+  if (typeof err === "string") return err;
+  if (err.message) return err.message;
+  // Vapi SDK wraps errors as { error: { message } } or { errorMsg }
+  if (err.error?.message) return err.error.message;
+  if (err.errorMsg) return err.errorMsg;
+  if (err.error && typeof err.error === "string") return err.error;
+  // Serialize if nothing else works
+  try { return JSON.stringify(err); } catch { return "Unknown error"; }
+}
+
 // Dynamically load Vapi at call-time to avoid CJS/ESM interop issues in production build
 async function loadVapi(publicKey) {
   const mod = await import("@vapi-ai/web");
-  // Handle all possible export shapes from CJS/ESM interop
   let Ctor = mod?.default ?? mod;
   if (typeof Ctor !== "function") Ctor = Ctor?.default;
-  if (typeof Ctor !== "function") throw new Error("Voice SDK could not be loaded.");
+  if (typeof Ctor !== "function") throw new Error("Voice SDK could not be loaded. Please refresh and try again.");
   return new Ctor(publicKey);
+}
+
+// Request mic permission explicitly before starting — surfaces a clear error instead of Vapi swallowing it
+async function requestMicPermission() {
+  if (!navigator?.mediaDevices?.getUserMedia) {
+    throw new Error("Microphone access is not supported in this browser.");
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+      throw new Error("Microphone permission denied. Please allow microphone access in your browser settings and try again.");
+    }
+    if (err.name === "NotFoundError") {
+      throw new Error("No microphone found. Please connect a microphone and try again.");
+    }
+    throw new Error(err.message || "Could not access microphone. Please check your browser settings.");
+  }
+  // Release the stream immediately — Vapi will open its own
+  stream.getTracks().forEach((t) => t.stop());
 }
 
 // metadata: arbitrary object merged into the VAPI call metadata
@@ -41,6 +75,9 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
     setErrorMsg("");
 
     try {
+      // Check mic permission first — surfaces a clear error before Vapi tries (and fails silently)
+      await requestMicPermission();
+
       const vapi = await loadVapi(VAPI_PUBLIC_KEY);
       vapiRef.current = vapi;
 
@@ -51,9 +88,10 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
         vapiRef.current = null;
       });
       vapi.on("error", (err) => {
-        console.error("VAPI error:", err);
+        console.error("VAPI error event:", err);
+        const msg = extractErrMsg(err) || "Call failed. Please try again.";
         setStatus(STATUS.error);
-        setErrorMsg(err?.message || "Something went wrong. Please try again.");
+        setErrorMsg(msg);
         setIsMuted(false);
         vapiRef.current = null;
       });
@@ -65,8 +103,9 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
         },
       });
     } catch (err) {
+      console.error("VAPI startCall error:", err);
       setStatus(STATUS.error);
-      setErrorMsg(err?.message || "Could not start call. Check microphone permissions.");
+      setErrorMsg(extractErrMsg(err) || "Could not start call. Check microphone permissions.");
       vapiRef.current = null;
     }
   }, [modelName]);
