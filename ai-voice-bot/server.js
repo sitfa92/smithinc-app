@@ -14,6 +14,15 @@ const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || "").trim();
 const OPENAI_MODEL = String(process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
 const SUPABASE_URL = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim().replace(/\/+$/, "");
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
+const ALERT_FROM_EMAIL = String(process.env.ALERT_FROM_EMAIL || "onboarding@meet-serenity.online").trim();
+const ADMIN_NOTIFICATION_EMAILS = String(
+  process.env.ADMIN_NOTIFICATION_EMAILS ||
+    "sitfa92@gmail.com,marthajohn223355@gmail.com"
+)
+  .split(",")
+  .map((email) => String(email || "").trim().toLowerCase())
+  .filter((email, idx, arr) => /.+@.+\..+/.test(email) && arr.indexOf(email) === idx);
 const BOT_NAME = String(process.env.BOT_NAME || "Serenity").trim();
 const SYSTEM_PROMPT = String(
   process.env.SYSTEM_PROMPT ||
@@ -284,6 +293,107 @@ function extractName(text = "") {
     .slice(0, 80);
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
+function formatEmailDate(value) {
+  if (!value) return "Unknown";
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return String(value);
+  return dt.toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" });
+}
+
+async function sendLeadNotificationEmail({
+  leadType = "consultation",
+  name = "Voice Caller",
+  email = "",
+  phone = "",
+  lang = "en",
+  fromCountry = "",
+  callerCountry = "",
+  details = "",
+  createdAt = new Date().toISOString(),
+}) {
+  if (!RESEND_API_KEY || ADMIN_NOTIFICATION_EMAILS.length === 0) return false;
+
+  const safeLeadType = escapeHtml(leadType);
+  const safeName = escapeHtml(name || "Voice Caller");
+  const safeEmail = escapeHtml(email || "not provided");
+  const safePhone = escapeHtml(phone || "unknown");
+  const safeLang = escapeHtml(lang || "unknown");
+  const safeFromCountry = escapeHtml(fromCountry || "unknown");
+  const safeCallerCountry = escapeHtml(callerCountry || "unknown");
+  const safeDetails = escapeHtml(details || "").replace(/\n/g, "<br>");
+  const formattedDate = escapeHtml(formatEmailDate(createdAt));
+
+  const subject = `New Voice AI ${leadType === "callback" ? "Callback" : "Consultation"} Lead`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7f7f8; padding: 20px; color: #111;">
+  <div style="max-width: 620px; margin: 0 auto; background: #fff; border: 1px solid #eee; border-radius: 10px; overflow: hidden;">
+    <div style="background: #111; color: #fff; padding: 16px 20px; font-weight: 700; letter-spacing: 0.04em;">SMITH INC - VOICE LEAD ALERT</div>
+    <div style="padding: 20px; line-height: 1.6;">
+      <p style="margin: 0 0 14px;">A new <strong>${safeLeadType}</strong> lead was captured from the voice bot.</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 0 0 14px;">
+        <tr><td style="padding: 8px 0; color: #666; width: 170px;">Name</td><td style="padding: 8px 0;">${safeName}</td></tr>
+        <tr><td style="padding: 8px 0; color: #666;">Email</td><td style="padding: 8px 0;">${safeEmail}</td></tr>
+        <tr><td style="padding: 8px 0; color: #666;">Phone</td><td style="padding: 8px 0;">${safePhone}</td></tr>
+        <tr><td style="padding: 8px 0; color: #666;">Language</td><td style="padding: 8px 0;">${safeLang}</td></tr>
+        <tr><td style="padding: 8px 0; color: #666;">From Country</td><td style="padding: 8px 0;">${safeFromCountry}</td></tr>
+        <tr><td style="padding: 8px 0; color: #666;">Caller Country</td><td style="padding: 8px 0;">${safeCallerCountry}</td></tr>
+        <tr><td style="padding: 8px 0; color: #666;">Captured At</td><td style="padding: 8px 0;">${formattedDate}</td></tr>
+      </table>
+      <p style="margin: 0 0 8px;"><strong>Captured Details</strong></p>
+      <div style="margin: 0; padding: 12px; border: 1px solid #eee; background: #fafafa; border-radius: 8px; white-space: normal;">${safeDetails || "No additional details provided."}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const text = [
+    `New Voice AI ${leadType === "callback" ? "Callback" : "Consultation"} Lead`,
+    `Name: ${name || "Voice Caller"}`,
+    `Email: ${email || "not provided"}`,
+    `Phone: ${phone || "unknown"}`,
+    `Language: ${lang || "unknown"}`,
+    `From Country: ${fromCountry || "unknown"}`,
+    `Caller Country: ${callerCountry || "unknown"}`,
+    `Captured At: ${formatEmailDate(createdAt)}`,
+    "",
+    "Captured Details:",
+    details || "No additional details provided.",
+  ].join("\n");
+
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: ALERT_FROM_EMAIL,
+      to: ADMIN_NOTIFICATION_EMAILS,
+      subject,
+      html,
+      text,
+      reply_to: /.+@.+\..+/.test(String(email || "")) ? String(email).trim() : undefined,
+    }),
+  });
+
+  if (!resp.ok) {
+    const errorText = await resp.text().catch(() => "");
+    throw new Error(`Resend notification failed (${resp.status}): ${errorText || "unknown"}`);
+  }
+
+  return true;
+}
+
 async function createVoiceConsultLead({ said = "", from = "", lang = "en", fromCountry = "", callerCountry = "" }) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     console.warn("Voice consult lead not saved: missing Supabase env vars in ai-voice-bot.");
@@ -326,6 +436,22 @@ async function createVoiceConsultLead({ said = "", from = "", lang = "en", fromC
   if (!resp.ok) {
     const body = await resp.text().catch(() => "");
     throw new Error(`Supabase insert failed (${resp.status}): ${body || "unknown error"}`);
+  }
+
+  try {
+    await sendLeadNotificationEmail({
+      leadType: "consultation",
+      name: payload.name,
+      email: extractedEmail,
+      phone: from,
+      lang,
+      fromCountry,
+      callerCountry,
+      details: said,
+      createdAt: payload.created_at,
+    });
+  } catch (err) {
+    console.warn("consult lead email notification failed:", err?.message || err);
   }
 
   return true;
@@ -438,6 +564,22 @@ app.post("/gather", async (req, res) => {
       spokenDetails: said,
       at: new Date().toISOString(),
     });
+
+    try {
+      await sendLeadNotificationEmail({
+        leadType: "callback",
+        name: extractName(said) || "Voice Caller",
+        email: extractEmail(said),
+        phone: from,
+        lang,
+        fromCountry: req.body?.FromCountry,
+        callerCountry: req.body?.CallerCountry,
+        details: said,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn("callback lead email notification failed:", err?.message || err);
+    }
 
     res
       .type("text/xml")
