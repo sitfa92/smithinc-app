@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import "../App.css";
+import VoiceCallButton from "../components/VoiceCallButton";
 
 const sections = [
   {
@@ -132,6 +133,8 @@ function getIntent() {
 export default function ModelDevelopment() {
   const [intent] = React.useState(getIntent);
   const [isMobile, setIsMobile] = React.useState(() => window.innerWidth <= 768);
+  const callLine = (import.meta.env.VITE_PUBLIC_CALL_LINE || "").trim();
+  const callLineHref = callLine ? `tel:${callLine.replace(/\s+/g, "")}` : "";
 
   React.useEffect(() => {
     try {
@@ -197,6 +200,38 @@ export default function ModelDevelopment() {
               See tiers
             </a>
           </div>
+
+          <div
+            style={{
+              marginTop: 14,
+              border: "1px solid #e8e4dc",
+              background: "#fff",
+              borderRadius: 12,
+              padding: isMobile ? "12px" : "14px 16px",
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            <div style={{ fontSize: 11, letterSpacing: "0.11em", textTransform: "uppercase", color: "#5a4a2f", fontWeight: 700 }}>
+              Need help now?
+            </div>
+            <p style={{ margin: 0, color: "#4a4a4a", fontSize: 13, lineHeight: 1.6 }}>
+              Call Serenity now from your browser, or dial the line directly.
+            </p>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <VoiceCallButton label="Call Now" metadata={{ page: "homepage", intent }} compact={isMobile} />
+              {callLineHref && (
+                <a
+                  href={callLineHref}
+                  className="lx-btn lx-btn-outline"
+                  style={{ textDecoration: "none" }}
+                >
+                  Call line {callLine}
+                </a>
+              )}
+            </div>
+          </div>
+
           <div
             style={{
               marginTop: 12,
