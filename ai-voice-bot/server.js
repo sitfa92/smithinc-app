@@ -245,9 +245,29 @@ function normalizeSpokenEmail(text = "") {
 }
 
 function extractEmail(text = "") {
-  const normalized = normalizeSpokenEmail(text);
-  const match = normalized.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
-  return match ? match[0].toLowerCase() : "";
+  const raw = String(text || "").trim();
+
+  // 1) Direct email spoken as normal text (already contains @).
+  const direct = raw.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+  if (direct?.[0]) return direct[0].toLowerCase();
+
+  // 2) Spoken format after cues like "email is" / "email address".
+  const spokenCue = raw.match(/(?:email(?:\s+address)?\s*(?:is|:)?\s*)(.+)$/i);
+  const spokenTail = spokenCue?.[1] ? spokenCue[1].split(/[,;]|\s(?:and|i|my|please|thank)\s/i)[0] : "";
+  const normalizedTail = normalizeSpokenEmail(spokenTail);
+  const tailMatch = normalizedTail.match(/[a-z0-9._%+-]{1,64}@[a-z0-9.-]{3,255}\.[a-z]{2,}/i);
+  if (tailMatch?.[0]) return tailMatch[0].toLowerCase();
+
+  // 3) Last-resort scan in normalized full phrase, but reject suspiciously long local parts.
+  const normalized = normalizeSpokenEmail(raw);
+  const candidates = normalized.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) || [];
+  for (const candidate of candidates) {
+    const [localPart = "", domainPart = ""] = candidate.split("@");
+    if (localPart.length > 32 || domainPart.length > 255) continue;
+    return candidate.toLowerCase();
+  }
+
+  return "";
 }
 
 function extractName(text = "") {
