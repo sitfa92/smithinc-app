@@ -218,12 +218,30 @@ export default function ModelDevelopment() {
             <p style={{ margin: 0, color: "#4a4a4a", fontSize: 13, lineHeight: 1.6 }}>
               Call Serenity now from your browser, or dial the line directly.
             </p>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-start" }}>
               <VoiceCallButton label="Call Serenity" metadata={{ page: "homepage", intent }} compact={isMobile} />
               <a
                 href="/contact-team"
-                className="lx-btn lx-btn-outline"
-                style={{ textDecoration: "none" }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: isMobile ? "9px 14px" : "14px 22px",
+                  background: "transparent",
+                  color: "#111111",
+                  border: "1.5px solid #c9a84c",
+                  borderRadius: 10,
+                  fontSize: isMobile ? 11 : 12,
+                  fontWeight: 700,
+                  letterSpacing: isMobile ? "0.07em" : "0.1em",
+                  textTransform: "uppercase",
+                  fontFamily: "'Inter',sans-serif",
+                  textDecoration: "none",
+                  transition: "all 0.2s ease",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#fdf7ec"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.transform = ""; }}
               >
                 Contact Team
               </a>
