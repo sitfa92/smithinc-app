@@ -23,6 +23,7 @@ export default function PartnerSubmissions() {
   const [actionLoading, setActionLoading] = React.useState({});
   const [statusFilter, setStatusFilter] = React.useState("active");
   const [sourceFilter, setSourceFilter] = React.useState(() => (isBrandAmbassadorView ? "brand_ambassador" : "all"));
+  const showSourceFilter = !isBrandAmbassadorView;
   const [form, setForm] = React.useState({
     name: "",
     email: "",
@@ -191,12 +192,14 @@ alter table public.partners disable row level security;`;
   };
 
   const filteredSubmissions = submissions
+    .filter((item) => (isBrandAmbassadorView ? (item.source || "") === "brand_ambassador" : (item.source || "") !== "brand_ambassador"))
     .filter((item) => {
       if (statusFilter === "active") return item.status !== "rejected";
       if (statusFilter === "all") return true;
       return item.status === statusFilter;
     })
     .filter((item) => {
+      if (!showSourceFilter) return true;
       if (sourceFilter === "all") return true;
       return (item.source || "manual") === sourceFilter;
     });
@@ -249,13 +252,14 @@ alter table public.partners disable row level security;`;
             <option value="approved">Approved only</option>
             <option value="rejected">Rejected only</option>
           </select>
-          <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} style={{ padding: "9px 12px", border: `1px solid ${C.smoke}`, borderRadius: 8, fontSize: 13, background: C.white, color: C.slate, outline: "none", fontFamily: "'Inter',sans-serif", appearance: "none", cursor: "pointer" }}>
-            <option value="all">All Sources</option>
-            <option value="manual">Manual</option>
-            <option value="public">Public</option>
-            <option value="brand_ambassador">Brand Ambassador</option>
-            <option value="zapier">Zapier</option>
-          </select>
+          {showSourceFilter && (
+            <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} style={{ padding: "9px 12px", border: `1px solid ${C.smoke}`, borderRadius: 8, fontSize: 13, background: C.white, color: C.slate, outline: "none", fontFamily: "'Inter',sans-serif", appearance: "none", cursor: "pointer" }}>
+              <option value="all">All Sources</option>
+              <option value="manual">Manual</option>
+              <option value="public">Public</option>
+              <option value="zapier">Zapier</option>
+            </select>
+          )}
         </div>
       </div>
 

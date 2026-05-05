@@ -50,6 +50,37 @@ export default function PartnerPipeline() {
 
   const canEditPipeline = role === "admin" || role === "va";
 
+  const getClientAvatarSrc = React.useCallback((avatarUrl) => {
+    const raw = String(avatarUrl || "").trim();
+    if (!raw) return "";
+
+    if (/^https?:\/\//i.test(raw)) {
+      const signMarker = "/storage/v1/object/sign/";
+      const signIndex = raw.indexOf(signMarker);
+      if (signIndex >= 0) {
+        const signedPath = raw.slice(signIndex + signMarker.length).split("?")[0];
+        return `${raw.slice(0, signIndex)}/storage/v1/object/public/${signedPath}`;
+      }
+      return raw;
+    }
+
+    const cleanPath = raw.replace(/^\/+/, "");
+    if (!cleanPath) return "";
+
+    const bucketCandidates = ["model-images", "models", "images"];
+    if (cleanPath.includes("/")) {
+      const [firstSegment, ...rest] = cleanPath.split("/");
+      if (bucketCandidates.includes(firstSegment) && rest.length) {
+        const fromBucketPath = rest.join("/");
+        const { data } = supabase.storage.from(firstSegment).getPublicUrl(fromBucketPath);
+        return data?.publicUrl || "";
+      }
+    }
+
+    const { data } = supabase.storage.from("model-images").getPublicUrl(cleanPath);
+    return data?.publicUrl || "";
+  }, []);
+
   const PIPELINE_SETUP_SQL = `alter table public.clients
   add column if not exists pipeline_stage text default 'lead',
   add column if not exists priority_level text default 'medium',
@@ -144,8 +175,10 @@ alter table public.clients disable row level security;`;
     }
   };
 
-  const filteredClients = clients
-    .filter((client) => (isBrandAmbassadorView ? (client.source || "") === "brand_ambassador" : true))
+  const scopedClients = clients
+    .filter((client) => (isBrandAmbassadorView ? (client.source || "") === "brand_ambassador" : (client.source || "") !== "brand_ambassador"));
+
+  const filteredClients = scopedClients
     .filter((client) => (filters.stage === "all" ? true : client.pipeline_stage === filters.stage))
     .filter((client) => (filters.priority === "all" ? true : client.priority_level === filters.priority))
     .filter((client) => (filters.status === "all" ? true : client.status === filters.status))
@@ -165,10 +198,10 @@ alter table public.clients disable row level security;`;
 
   const stageCounts = React.useMemo(
     () => STAGES.reduce((acc, stage) => {
-      acc[stage] = filteredClients.filter((client) => client.pipeline_stage === stage).length;
+      acc[stage] = scopedClients.filter((client) => client.pipeline_stage === stage).length;
       return acc;
     }, {}),
-    [filteredClients]
+    [scopedClients]
   );
 
   const C = { ink: "#111111", slate: "#4a4a4a", dust: "#888888", smoke: "#e8e4dc", ivory: "#faf8f4", white: "#ffffff", warn: "#92560a", warnBg: "#fef8ec", ok: "#1a6636", okBg: "#edf7ee", err: "#9b1c1c", errBg: "#fef2f2" };
@@ -298,12 +331,13 @@ alter table public.clients disable row level security;`;
                 const notesPreview = client.internal_notes || "No notes yet";
                 const isBusy = !!actionLoading[client.id];
                 const [pbg, pclr] = priorityBadge[client.priority_level] || [C.ivory, C.dust];
+                const avatarSrc = getClientAvatarSrc(client.avatar_url);
 
                 return (
                   <div key={client.id} style={{ background: C.white, border: `1px solid ${C.smoke}`, borderRadius: 10, padding: 12, marginBottom: 10 }}>
                     <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
-                      {client.avatar_url ? (
-                        <img src={client.avatar_url} alt={client.name} loading="lazy" decoding="async" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: `1px solid ${C.smoke}` }} />
+                      {avatarSrc ? (
+                        <img src={avatarSrc} alt={client.name} loading="lazy" decoding="async" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: `1px solid ${C.smoke}` }} />
                       ) : (
                         <div style={{ width: 48, height: 48, borderRadius: 8, background: isBrandAmbassadorView ? accentMid : C.ivory, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: isBrandAmbassadorView ? accent : C.dust, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 600 }}>
                           {(client.name || "?")[0].toUpperCase()}

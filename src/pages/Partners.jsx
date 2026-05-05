@@ -259,7 +259,7 @@ alter table public.bookings disable row level security;`;
       if (error) throw error;
       const nextClients = (data || [])
         .map(normalizeClient)
-        .filter((item) => (isBrandAmbassadorView ? (item.source || "") === "brand_ambassador" : true));
+        .filter((item) => (isBrandAmbassadorView ? (item.source || "") === "brand_ambassador" : (item.source || "") !== "brand_ambassador"));
       setTableReady(true);
       setUsingFallbackData(false);
       setClients(nextClients);
