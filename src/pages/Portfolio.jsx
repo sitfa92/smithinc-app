@@ -2,10 +2,13 @@ import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabase";
 import VoiceCallButton from "../components/VoiceCallButton";
+import LuxuryPhotoCarousel from "../components/LuxuryPhotoCarousel";
+import { listPortfolioForModel } from "../imageUpload";
 
 export default function Portfolio() {
   const { id } = useParams();
   const [model, setModel] = React.useState(null);
+  const [portfolioFiles, setPortfolioFiles] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [notFound, setNotFound] = React.useState(false);
 
@@ -47,6 +50,17 @@ export default function Portfolio() {
         else {
           setModel(data);
           try {
+            const files = await listPortfolioForModel({
+              id,
+              email: data.email,
+              instagram: data.instagram,
+              folder: `portfolio/${id}`,
+            });
+            setPortfolioFiles(files);
+          } catch {
+            setPortfolioFiles([]);
+          }
+          try {
             window.sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data }));
           } catch {
             // ignore cache issues
@@ -78,6 +92,11 @@ export default function Portfolio() {
           {id ? (
             <Link to={`/digitals/${id}`} style={{ padding: "12px 24px", background: C.ok, color: C.white, borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", textDecoration: "none" }}>
               Upload Digitals
+            </Link>
+          ) : null}
+          {id ? (
+            <Link to={`/portfolio/${id}`} style={{ padding: "12px 24px", background: C.gold, color: C.white, borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", textDecoration: "none" }}>
+              Upload Portfolio
             </Link>
           ) : null}
           <Link to="/book" style={{ padding: "12px 24px", background: C.ink, color: C.white, borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", textDecoration: "none" }}>
@@ -140,6 +159,13 @@ export default function Portfolio() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <Link
+                to={`/portfolio/${id}`}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", background: C.gold, color: C.white, borderRadius: 10, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", textDecoration: "none", boxShadow: "0 4px 20px rgba(201,168,76,0.35)", transition: "all 0.2s ease" }}
+              >
+                Upload Portfolio Photos
+              </Link>
+
+              <Link
                 to="/book"
                 style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", background: C.ink, color: C.white, borderRadius: 10, fontSize: 12, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", textDecoration: "none", boxShadow: "0 4px 20px rgba(17,17,17,0.18)", transition: "all 0.2s ease" }}
                 onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(17,17,17,0.24)"; }}
@@ -156,6 +182,14 @@ export default function Portfolio() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div style={{ marginTop: 30, background: C.white, border: `1px solid ${C.smoke}`, borderRadius: 16, padding: 18 }}>
+          {!portfolioFiles.length ? (
+            <p style={{ margin: 0, color: C.dust, fontSize: 13 }}>No portfolio photos uploaded yet.</p>
+          ) : (
+            <LuxuryPhotoCarousel files={portfolioFiles} title="Portfolio" />
+          )}
         </div>
 
         {/* Footer */}

@@ -279,7 +279,21 @@ export default function Models() {
                   title="Copy public portfolio link"
                   style={{ padding:"4px 10px", background:C.ivory, color:C.dust, border:`1px solid ${C.smoke}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
                 >
-                  Copy Portfolio Link
+                  Copy Public Portfolio
+                </button>
+                <button
+                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/portfolio/${model.id}`)}
+                  title="Copy portfolio upload link"
+                  style={{ padding:"4px 10px", background:C.okBg, color:C.ok, border:`1px solid rgba(26,102,54,0.2)`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+                >
+                  Copy Portfolio Upload
+                </button>
+                <button
+                  onClick={() => window.open(`${window.location.origin}/portfolio/${model.id}`, "_blank", "noopener,noreferrer")}
+                  title="Open portfolio upload portal"
+                  style={{ padding:"4px 10px", background:C.ink, color:C.white, border:`1px solid ${C.ink}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+                >
+                  Open Portfolio Upload
                 </button>
               </div>
             </div>

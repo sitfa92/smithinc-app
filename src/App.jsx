@@ -49,6 +49,7 @@ const PublicPartnerSubmission = React.lazy(() => import("./pages/PublicPartnerSu
 const PublicBrandAmbassadorSubmission = React.lazy(() => import("./pages/PublicBrandAmbassadorSubmission"));
 const Portfolio = React.lazy(() => import("./pages/Portfolio"));
 const DigitalsUpload = React.lazy(() => import("./pages/DigitalsUpload"));
+const PortfolioUpload = React.lazy(() => import("./pages/PortfolioUpload"));
 const EventResponse = React.lazy(() => import("./pages/EventResponse"));
 const Onboarding = React.lazy(() => import("./pages/Onboarding"));
 const ModelDevelopment = React.lazy(() => import("./pages/ModelDevelopment"));
@@ -231,6 +232,7 @@ function App() {
               <Route path="/talent/:id" element={<Portfolio />} />
               <Route path="/contact-team" element={<ContactTeam />} />
               <Route path="/digitals/:id" element={<DigitalsUpload />} />
+              <Route path="/portfolio/:id" element={<PortfolioUpload />} />
               <Route path="/event-response" element={<EventResponse />} />
               <Route path="/*" element={<ProtectedApp />} />
             </Routes>

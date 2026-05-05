@@ -83,8 +83,53 @@ const buildDigitalsFolderCandidates = ({ id = "", email = "", instagram = "", fo
   return folders.filter(Boolean);
 };
 
+const buildPortfolioFolderCandidates = ({ id = "", email = "", instagram = "", folder = "" } = {}) => {
+  const normalizedId = String(id || "").trim();
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedHandle = String(instagram || "").replace(/^@+/, "").trim().toLowerCase();
+  const folders = [];
+
+  pushUnique(folders, folder ? String(folder).trim() : "");
+  pushUnique(folders, normalizedId ? `portfolio/${normalizedId}` : "");
+  pushUnique(folders, normalizedId ? `portfolio/${normalizedId.toLowerCase()}` : "");
+
+  if (normalizedEmail) {
+    pushUnique(folders, `portfolio/${normalizedEmail}`);
+    const localPart = normalizedEmail.split("@")[0];
+    pushUnique(folders, localPart ? `portfolio/${localPart}` : "");
+  }
+
+  pushUnique(folders, normalizedHandle ? `portfolio/${normalizedHandle}` : "");
+
+  return folders.filter(Boolean);
+};
+
 export const listDigitalsForModel = async (modelRef = {}) => {
   const folders = buildDigitalsFolderCandidates(modelRef);
+  if (!folders.length) return [];
+
+  const seen = new Set();
+  const merged = [];
+
+  for (const folder of folders) {
+    const files = await listFilesInFolder(folder);
+    for (const file of files) {
+      const key = file.url || `${file.bucket || ""}/${file.path || file.name}`;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      merged.push(file);
+    }
+  }
+
+  return merged.sort((a, b) => {
+    const aTime = Date.parse(a.updatedAt || "") || 0;
+    const bTime = Date.parse(b.updatedAt || "") || 0;
+    return bTime - aTime;
+  });
+};
+
+export const listPortfolioForModel = async (modelRef = {}) => {
+  const folders = buildPortfolioFolderCandidates(modelRef);
   if (!folders.length) return [];
 
   const seen = new Set();
@@ -167,10 +212,13 @@ export const uploadImage = async (file, folder = "models", options = {}) => {
   }
 
   // Validate file size by upload type
-  const isDigitalsUpload = String(folder || "").startsWith("digitals");
-  const maxSize = isDigitalsUpload ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
+  const normalizedFolder = String(folder || "");
+  const isDigitalsUpload = normalizedFolder.startsWith("digitals");
+  const isPortfolioUpload = normalizedFolder.startsWith("portfolio");
+  const allowLargeImages = isDigitalsUpload || isPortfolioUpload;
+  const maxSize = allowLargeImages ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
   if (file.size > maxSize) {
-    throw new Error(`File too large. Maximum size is ${isDigitalsUpload ? "25MB" : "5MB"}.`);
+    throw new Error(`File too large. Maximum size is ${allowLargeImages ? "25MB" : "5MB"}.`);
   }
 
   const signResp = await fetch("/api/storage/sign-upload", {
