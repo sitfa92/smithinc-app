@@ -4,8 +4,8 @@ import VoiceCallButton from "../components/VoiceCallButton";
 
 const TEAM = [
   {
-    key: "simi",
-    name: "Simi",
+    key: "david",
+    name: "David",
     role: "Founder & Creative Director",
     email: "sitfa92@gmail.com",
     bio: "Handles creative direction, talent strategy, and overall agency vision.",
