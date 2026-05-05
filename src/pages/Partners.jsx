@@ -2,6 +2,11 @@ import React from "react";
 import { supabase } from "../supabase";
 import { isMissingColumnError, sendZapierEvent, createInAppAlerts, sendInternalTeamEmailAlert, sendBackendWebhook } from "../utils";
 
+const EMERGENCY_AMBASSADOR_EMAILS = new Set([
+  "kouassibenedicta46@gmail.com",
+  "adebanjookikiola252@gmail.com",
+]);
+
 export default function Partners() {
   const isBrandAmbassadorView = React.useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -24,7 +29,9 @@ export default function Partners() {
     const serviceType = String(item?.service_type || "").toLowerCase();
     const project = String(item?.project || "").toLowerCase();
     const notes = String(item?.internal_notes || item?.notes || "").toLowerCase();
+    const email = String(item?.email || "").toLowerCase().trim();
     return (
+      EMERGENCY_AMBASSADOR_EMAILS.has(email) ||
       source === "brand_ambassador" ||
       serviceType.includes("brand ambassador") ||
       project.includes("brand ambassador") ||
@@ -271,9 +278,49 @@ alter table public.bookings disable row level security;`;
         .limit(500);
 
       if (error) throw error;
-      const nextClients = (data || [])
+      let nextClients = (data || [])
         .map(normalizeClient)
         .filter((item) => (isBrandAmbassadorView ? isAmbassadorClient(item) : !isAmbassadorClient(item)));
+
+      if (isBrandAmbassadorView) {
+        const { data: partnerRows, error: partnerRowsError } = await supabase
+          .from("partners")
+          .select("id, name, email, company, notes, source, status, created_at, submitted_at")
+          .order("created_at", { ascending: false })
+          .limit(500);
+
+        if (!partnerRowsError) {
+          const synthesized = (partnerRows || [])
+            .filter((row) => isAmbassadorClient(row))
+            .map((row) => ({
+              id: `partner-${row.id}`,
+              name: row.name || "",
+              email: row.email || "",
+              project: row.company || "Brand Ambassador",
+              service_type: row.company || "Brand Ambassador",
+              status: String(row.status || "pending").toLowerCase() === "approved"
+                ? "active"
+                : String(row.status || "pending").toLowerCase() === "rejected"
+                  ? "inactive"
+                  : "lead",
+              invoice_status: "pending",
+              invoice_paid: false,
+              contract_signed: false,
+              client_value: 0,
+              source: "brand_ambassador",
+              avatar_url: "",
+              created_at: row.created_at || row.submitted_at || new Date().toISOString(),
+            }));
+
+          const deduped = new Set(nextClients.map((row) => String(row.email || "").toLowerCase().trim()).filter(Boolean));
+          synthesized.forEach((row) => {
+            const key = String(row.email || "").toLowerCase().trim();
+            if (key && deduped.has(key)) return;
+            if (key) deduped.add(key);
+            nextClients.push(normalizeClient(row));
+          });
+        }
+      }
       setTableReady(true);
       setUsingFallbackData(false);
       setClients(nextClients);

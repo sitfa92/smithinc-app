@@ -2,6 +2,11 @@ import React from "react";
 import { supabase } from "../supabase";
 import { createInAppAlerts, sendInternalTeamEmailAlert } from "../utils";
 
+const EMERGENCY_AMBASSADOR_EMAILS = new Set([
+  "kouassibenedicta46@gmail.com",
+  "adebanjookikiola252@gmail.com",
+]);
+
 const isTableMissingError = (err) =>
   err?.code === "42P01" ||
   err?.message?.toLowerCase().includes("does not exist") ||
@@ -40,7 +45,9 @@ export default function PartnerSubmissions() {
     const notes = String(item?.notes || item?.internal_notes || "").toLowerCase();
     const serviceType = String(item?.service_type || "").toLowerCase();
     const project = String(item?.project || "").toLowerCase();
+    const email = String(item?.email || "").toLowerCase().trim();
     return (
+      EMERGENCY_AMBASSADOR_EMAILS.has(email) ||
       source === "brand_ambassador" ||
       company.includes("brand ambassador") ||
       serviceType.includes("brand ambassador") ||

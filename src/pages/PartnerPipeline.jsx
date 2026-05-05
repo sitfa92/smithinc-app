@@ -3,6 +3,11 @@ import { supabase } from "../supabase";
 import { useAuth } from "../auth";
 import { isMissingColumnError } from "../utils";
 
+const EMERGENCY_AMBASSADOR_EMAILS = new Set([
+  "kouassibenedicta46@gmail.com",
+  "adebanjookikiola252@gmail.com",
+]);
+
 const STAGES = ["lead", "contacted", "qualified", "proposal_sent", "negotiation", "active", "completed", "inactive"];
 const STAGE_LABELS = {
   lead: "Lead",
@@ -55,7 +60,9 @@ export default function PartnerPipeline() {
     const serviceType = String(item?.service_type || "").toLowerCase();
     const project = String(item?.project || "").toLowerCase();
     const notes = String(item?.internal_notes || item?.notes || "").toLowerCase();
+    const email = String(item?.email || "").toLowerCase().trim();
     return (
+      EMERGENCY_AMBASSADOR_EMAILS.has(email) ||
       source === "brand_ambassador" ||
       serviceType.includes("brand ambassador") ||
       project.includes("brand ambassador") ||
@@ -144,7 +151,50 @@ alter table public.clients disable row level security;`;
       }
 
       setPipelineSchemaReady(true);
-      setClients((data || []).map(normalizeClient));
+      let nextClients = (data || []).map(normalizeClient);
+
+      if (isBrandAmbassadorView) {
+        const { data: partnerRows, error: partnerRowsError } = await supabase
+          .from("partners")
+          .select("id, name, email, company, notes, source, status, created_at, submitted_at")
+          .order("created_at", { ascending: false })
+          .limit(500);
+
+        if (!partnerRowsError) {
+          const synthesized = (partnerRows || [])
+            .filter((row) => isAmbassadorClient(row))
+            .map((row) => normalizeClient({
+              id: `partner-${row.id}`,
+              name: row.name || "",
+              email: row.email || "",
+              project: row.company || "Brand Ambassador",
+              service_type: row.company || "Brand Ambassador",
+              status: String(row.status || "pending").toLowerCase() === "approved"
+                ? "active"
+                : String(row.status || "pending").toLowerCase() === "rejected"
+                  ? "inactive"
+                  : "lead",
+              source: "brand_ambassador",
+              avatar_url: "",
+              pipeline_stage: "lead",
+              priority_level: "medium",
+              internal_notes: row.notes || "",
+              next_step: "",
+              created_at: row.created_at || row.submitted_at || new Date().toISOString(),
+              last_updated: row.created_at || row.submitted_at || new Date().toISOString(),
+            }));
+
+          const deduped = new Set(nextClients.map((row) => String(row.email || "").toLowerCase().trim()).filter(Boolean));
+          synthesized.forEach((row) => {
+            const key = String(row.email || "").toLowerCase().trim();
+            if (key && deduped.has(key)) return;
+            if (key) deduped.add(key);
+            nextClients.push(row);
+          });
+        }
+      }
+
+      setClients(nextClients);
     } catch (err) {
       setError(err.message || "Failed to load partner pipeline");
     } finally {
