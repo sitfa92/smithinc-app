@@ -157,7 +157,7 @@ export default function Submissions() {
     if (!model) return;
 
     const confirmed = window.confirm(
-      `Move ${model.name || "this model"} to Brand Ambassador submissions? This will remove the record from Model Applications.`
+      `Move ${model.name || "this model"} to Brand Ambassador management? This will remove the record from Model Applications.`
     );
     if (!confirmed) return;
 
@@ -167,36 +167,18 @@ export default function Submissions() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      const notes = [
-        "Moved from model submissions",
-        model.instagram ? `Instagram: ${model.instagram}` : "",
-        model.image_url ? `Original image: ${model.image_url}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
-
-      const createResp = await fetch("/api/partners/admin-submissions", {
+      const createResp = await fetch("/api/models/move-to-brand-ambassador", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.access_token || ""}`,
         },
-        body: JSON.stringify({
-          name: model.name || "",
-          email: (model.email || "").toLowerCase(),
-          company: "",
-          website: model.instagram ? `https://instagram.com/${String(model.instagram).replace(/^@+/, "")}` : "",
-          notes,
-          source: "brand_ambassador",
-          status: "pending",
-          submitted_at: new Date().toISOString(),
-          last_updated: new Date().toISOString(),
-        }),
+        body: JSON.stringify({ modelId }),
       });
 
       const createJson = await createResp.json().catch(() => ({}));
       if (!createResp.ok) {
-        throw new Error(createJson.error || "Failed to create brand ambassador submission");
+        throw new Error(createJson.error || "Failed to create brand ambassador record");
       }
 
       const { error: deleteError } = await supabase.from("models").delete().eq("id", modelId);
@@ -205,9 +187,9 @@ export default function Submissions() {
       createInAppAlerts([
         {
           title: "Submission moved to Brand Ambassador",
-          message: `${model.name || "A model"} was moved from model submissions to brand ambassador submissions.`,
+          message: `${model.name || "A model"} was moved from model submissions to brand ambassador management.`,
           audience_role: "admin",
-          source_type: "brand_ambassador_submission",
+          source_type: "brand_ambassador",
           source_id: (model.email || "").toLowerCase(),
           level: "info",
         },
@@ -215,7 +197,7 @@ export default function Submissions() {
 
       sendInternalTeamEmailAlert({
         subject: `Moved to Brand Ambassador: ${model.name || "Submission"}`,
-        message: `${model.name || "A model"} (${model.email || "no-email"}) was moved from model submissions to brand ambassador submissions.`,
+        message: `${model.name || "A model"} (${model.email || "no-email"}) was moved from model submissions to brand ambassador management.`,
         roles: ["admin", "va"],
         submissionEmail: model.email || "",
       });
