@@ -17,6 +17,7 @@ export default function Partners() {
   const [moveToModelsLoading, setMoveToModelsLoading] = React.useState({});
   const [movedToModels, setMovedToModels] = React.useState({});
   const avatarInputRef = React.useRef({});
+  const cacheKey = isBrandAmbassadorView ? "clients-page-v1:brand-ambassadors" : "clients-page-v1:partners";
 
   const isAmbassadorClient = React.useCallback((item) => {
     const source = String(item?.source || "").toLowerCase();
@@ -238,7 +239,7 @@ alter table public.bookings disable row level security;`;
     setClients(fallbackClients);
 
     try {
-      window.sessionStorage.setItem("clients-page-v1", JSON.stringify({ ts: Date.now(), data: fallbackClients, tableReady: false, usingFallbackData: true }));
+      window.sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: fallbackClients, tableReady: false, usingFallbackData: true }));
     } catch {
       // ignore cache issues
     }
@@ -246,7 +247,7 @@ alter table public.bookings disable row level security;`;
 
   const fetchClients = async () => {
     try {
-      const raw = window.sessionStorage.getItem("clients-page-v1");
+      const raw = window.sessionStorage.getItem(cacheKey);
       if (raw) {
         const cached = JSON.parse(raw);
         if (cached?.data && Date.now() - cached.ts < 60000) {
@@ -277,7 +278,7 @@ alter table public.bookings disable row level security;`;
       setUsingFallbackData(false);
       setClients(nextClients);
       try {
-        window.sessionStorage.setItem("clients-page-v1", JSON.stringify({ ts: Date.now(), data: nextClients, tableReady: true, usingFallbackData: false }));
+        window.sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: nextClients, tableReady: true, usingFallbackData: false }));
       } catch {
         // ignore cache issues
       }

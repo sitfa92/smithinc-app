@@ -85,6 +85,36 @@ alter table public.partners add column if not exists last_updated timestamptz de
 
 alter table public.partners disable row level security;`;
 
+  const loadAmbassadorClientRows = React.useCallback(async () => {
+    const { data: ambassadorClients, error: ambassadorClientsError } = await supabase
+      .from("clients")
+      .select("id, name, email, project, service_type, source, status, internal_notes, created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (ambassadorClientsError) return [];
+
+    return (ambassadorClients || [])
+      .filter((item) => isAmbassadorSubmission(item))
+      .map((item) => ({
+        id: `client-${item.id}`,
+        name: item.name,
+        email: item.email,
+        company: item.project || item.service_type || "Brand Ambassador",
+        website: "",
+        notes: item.internal_notes || "Moved from model flow",
+        source: "brand_ambassador",
+        status: ["inactive", "churned", "rejected"].includes(String(item.status || "").toLowerCase())
+          ? "rejected"
+          : ["active", "completed", "approved"].includes(String(item.status || "").toLowerCase())
+            ? "approved"
+            : "pending",
+        submitted_at: item.created_at,
+        created_at: item.created_at,
+        isClientRecord: true,
+      }));
+  }, [isAmbassadorSubmission]);
+
   const fetchSubmissions = async () => {
     try {
       setError("");
@@ -94,7 +124,12 @@ alter table public.partners disable row level security;`;
       if (!resp.ok) {
         if (json.code === "TABLE_SETUP_REQUIRED") {
           setTableReady(false);
-          setSubmissions([]);
+          if (isBrandAmbassadorView) {
+            const synthesized = await loadAmbassadorClientRows();
+            setSubmissions(synthesized);
+          } else {
+            setSubmissions([]);
+          }
           return;
         }
         throw new Error(json.error || "Failed to load partner submissions");
@@ -104,50 +139,28 @@ alter table public.partners disable row level security;`;
       let nextRows = json.data || [];
 
       if (isBrandAmbassadorView) {
-        const { data: ambassadorClients, error: ambassadorClientsError } = await supabase
-          .from("clients")
-          .select("id, name, email, project, service_type, source, status, internal_notes, created_at")
-          .order("created_at", { ascending: false })
-          .limit(500);
-
-        if (!ambassadorClientsError) {
-          const synthesized = (ambassadorClients || [])
-            .filter((item) => isAmbassadorSubmission(item))
-            .map((item) => ({
-              id: `client-${item.id}`,
-              name: item.name,
-              email: item.email,
-              company: item.project || item.service_type || "Brand Ambassador",
-              website: "",
-              notes: item.internal_notes || "Moved from model flow",
-              source: "brand_ambassador",
-              status: ["inactive", "churned", "rejected"].includes(String(item.status || "").toLowerCase())
-                ? "rejected"
-                : ["active", "completed", "approved"].includes(String(item.status || "").toLowerCase())
-                  ? "approved"
-                  : "pending",
-              submitted_at: item.created_at,
-              created_at: item.created_at,
-              isClientRecord: true,
-            }));
-
-          const deduped = new Set(
-            nextRows.map((row) => `${String(row.email || "").toLowerCase()}|${String(row.name || "").toLowerCase()}`)
-          );
-          synthesized.forEach((row) => {
-            const key = `${String(row.email || "").toLowerCase()}|${String(row.name || "").toLowerCase()}`;
-            if (deduped.has(key)) return;
-            deduped.add(key);
-            nextRows.push(row);
-          });
-        }
+        const synthesized = await loadAmbassadorClientRows();
+        const deduped = new Set(
+          nextRows.map((row) => `${String(row.email || "").toLowerCase()}|${String(row.name || "").toLowerCase()}`)
+        );
+        synthesized.forEach((row) => {
+          const key = `${String(row.email || "").toLowerCase()}|${String(row.name || "").toLowerCase()}`;
+          if (deduped.has(key)) return;
+          deduped.add(key);
+          nextRows.push(row);
+        });
       }
 
       setSubmissions(nextRows);
     } catch (err) {
       if (isTableMissingError(err)) {
         setTableReady(false);
-        setSubmissions([]);
+        if (isBrandAmbassadorView) {
+          const synthesized = await loadAmbassadorClientRows();
+          setSubmissions(synthesized);
+        } else {
+          setSubmissions([]);
+        }
       } else {
         setError(err.message || "Failed to load partner submissions");
       }
