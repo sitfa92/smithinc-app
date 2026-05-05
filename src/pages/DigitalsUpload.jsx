@@ -195,6 +195,22 @@ export default function DigitalsUpload() {
     mergeSelectedFiles(Array.from(e.dataTransfer?.files || []));
   };
 
+  const removeSelectedFile = (fileToRemove) => {
+    const fileKey = `${fileToRemove.name}-${fileToRemove.size}-${fileToRemove.lastModified}`;
+    setSelectedFiles((prev) => prev.filter((file) => `${file.name}-${file.size}-${file.lastModified}` !== fileKey));
+    setUploadProgress((prev) => {
+      const next = { ...prev };
+      delete next[fileKey];
+      return next;
+    });
+  };
+
+  const clearSelectedFiles = () => {
+    if (uploading) return;
+    setSelectedFiles([]);
+    setUploadProgress({});
+  };
+
   const handleDelete = async (file) => {
     const confirmed = window.confirm(`Delete ${file.name}?`);
     if (!confirmed) return;
@@ -308,8 +324,30 @@ export default function DigitalsUpload() {
             />
             {selectedFiles.length > 0 && (
               <>
-                <div style={{ color: "#4a4a4a", fontSize: 13, marginBottom: 10 }}>
-                  {selectedFiles.length} file{selectedFiles.length === 1 ? "" : "s"} selected
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <div style={{ color: "#4a4a4a", fontSize: 13 }}>
+                    {selectedFiles.length} file{selectedFiles.length === 1 ? "" : "s"} selected
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearSelectedFiles}
+                    disabled={uploading}
+                    style={{
+                      border: "1px solid #d8d2c8",
+                      background: "#f8f6f1",
+                      color: "#6a6257",
+                      borderRadius: 7,
+                      padding: "4px 8px",
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      cursor: uploading ? "not-allowed" : "pointer",
+                      opacity: uploading ? 0.6 : 1,
+                    }}
+                  >
+                    Clear All
+                  </button>
                 </div>
                 <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
                   {selectedFiles.map((file) => {
@@ -322,10 +360,31 @@ export default function DigitalsUpload() {
                     return (
                       <div key={fileKey} style={{ border: "1px solid #ebe7df", borderRadius: 8, padding: "8px 10px", background: "#fff" }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: hasProgress ? 6 : 0 }}>
-                          <span style={{ color: "#4a4a4a", fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</span>
-                          <span style={{ color: isFailed ? "#9b1c1c" : "#6a6257", fontSize: 11, fontWeight: 600 }}>
+                          <span style={{ color: "#4a4a4a", fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{file.name}</span>
+                          <span style={{ color: isFailed ? "#9b1c1c" : "#6a6257", fontSize: 11, fontWeight: 600, minWidth: 58, textAlign: "right" }}>
                             {isFailed ? "Failed" : hasProgress ? `${progress}%` : "Queued"}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => removeSelectedFile(file)}
+                            disabled={uploading}
+                            title="Remove this file"
+                            style={{
+                              border: "1px solid #e7ddd0",
+                              background: "#faf8f4",
+                              color: "#7b7063",
+                              borderRadius: 6,
+                              padding: "3px 8px",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: "0.06em",
+                              textTransform: "uppercase",
+                              cursor: uploading ? "not-allowed" : "pointer",
+                              opacity: uploading ? 0.6 : 1,
+                            }}
+                          >
+                            Remove
+                          </button>
                         </div>
                         {hasProgress && (
                           <div style={{ height: 6, borderRadius: 999, background: "#eee9df", overflow: "hidden" }}>
