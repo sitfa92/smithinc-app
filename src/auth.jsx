@@ -38,8 +38,6 @@ const useProvideAuth = () => {
       }
     };
 
-    loadRoles();
-
     const initSession = async () => {
       const { data, error } = await supabase.auth.getSession();
       if (!mounted) return;
@@ -58,11 +56,13 @@ const useProvideAuth = () => {
       setLoading(false);
     };
 
-    initSession();
+    // Load roles first so they're available before the app renders protected routes.
+    loadRoles().finally(() => { if (mounted) initSession(); });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
       const sessionUser = session?.user ?? null;
       if (sessionUser?.email && !isStaticallyAllowed(sessionUser.email)) {
         supabase.auth.signOut();
@@ -70,7 +70,8 @@ const useProvideAuth = () => {
       } else {
         setUser(sessionUser);
       }
-      setLoading(false);
+      // setLoading is intentionally omitted here — loading is already resolved
+      // after initial session setup. This handler handles post-load auth changes only.
     });
 
     return () => {

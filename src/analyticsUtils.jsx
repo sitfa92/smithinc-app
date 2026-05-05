@@ -29,8 +29,8 @@ export const calculateMetrics = (models = [], bookings = []) => {
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
   const modelsThisWeek = models.filter((m) => {
-    const date = new Date(m.submitted_at);
-    return date >= oneWeekAgo;
+    const date = new Date(m.submitted_at || m.created_at);
+    return !Number.isNaN(date.getTime()) && date >= oneWeekAgo;
   }).length;
 
   const bookingsThisWeek = bookings.filter((b) => {

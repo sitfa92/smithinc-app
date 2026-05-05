@@ -119,7 +119,10 @@ export default function Nav() {
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      clearTimeout(closeTimer.current);
+    };
   }, []);
 
   const canAccess = (section) => {

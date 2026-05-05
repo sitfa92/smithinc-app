@@ -2,6 +2,14 @@ const RESEND_API_URL = "https://api.resend.com/emails";
 const APP_BASE_URL = (process.env.APP_BASE_URL || "https://meet-serenity.online").trim().replace(/\/$/, "");
 const DEFAULT_ADMIN_EMAILS = ["sitfa92@gmail.com"];
 
+const escapeHtml = (str) =>
+  String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+
 const normalizeEmail = (v) => (v || "").trim().toLowerCase();
 const isValidEmail = (v) => /.+@.+\..+/.test(normalizeEmail(v));
 
@@ -61,7 +69,10 @@ const buildEventResponseLink = ({ name = "", email = "", eventTitle = "", eventT
 
 // ─── Templates ────────────────────────────────────────────────────────────────
 const templates = {
-  "model-submission": ({ name = "there", instagram = "" }) => ({
+  "model-submission": ({ name: rawName = "there", instagram: rawInstagram = "" }) => {
+    const name = escapeHtml(rawName);
+    const instagram = escapeHtml(rawInstagram);
+    return {
     subject: "Application received — Smith Inc",
     html: shell(`
       <h2 style="margin:0 0 20px;font-size:20px;color:#111;">Application Received ✓</h2>
@@ -73,10 +84,12 @@ const templates = {
       ${instagram ? `<p style="margin:0 0 20px;color:#888;font-size:14px;">Instagram submitted: <strong>@${instagram.replace(/^@/, "")}</strong></p>` : ""}
       <p style="margin:0;color:#444;line-height:1.7;">Talk soon,<br><strong>The Smith Inc Team</strong></p>
     `),
-    text: `Hi ${name},\n\nThank you for applying to Smith Inc. We've received your model application and will be in touch shortly.\n\n— The Smith Inc Team`,
-  }),
+    text: `Hi ${rawName},\n\nThank you for applying to Smith Inc. We've received your model application and will be in touch shortly.\n\n— The Smith Inc Team`,
+    };
+  },
 
-  "model-status": ({ name = "there", status = "", digitalsLink = "" }) => {
+  "model-status": ({ name: rawName = "there", status = "", digitalsLink = "" }) => {
+    const name = escapeHtml(rawName);
     const approved = status === "approved";
     return {
       subject: approved ? "Congratulations — you're accepted to the program" : "Application update — Smith Inc",
@@ -100,15 +113,20 @@ const templates = {
         <p style="margin:0;color:#444;line-height:1.7;">— <strong>The Smith Inc Team</strong></p>
       `),
       text: approved
-        ? `Hi ${name},\n\nCongratulations — you have been accepted into our model development program. ${digitalsLink ? `Please upload your digitals here: ${digitalsLink}\n\n` : ""}— The Smith Inc Team`
-        : `Hi ${name},\n\nThank you for applying. We've decided not to move forward at this time.\n\n— The Smith Inc Team`,
+        ? `Hi ${rawName},\n\nCongratulations — you have been accepted into our model development program. ${digitalsLink ? `Please upload your digitals here: ${digitalsLink}\n\n` : ""}— The Smith Inc Team`
+        : `Hi ${rawName},\n\nThank you for applying. We've decided not to move forward at this time.\n\n— The Smith Inc Team`,
     };
   },
 
-  "model-event": ({ name = "there", email = "", eventTitle = "Casting call", eventType = "casting", eventAt = "", notes = "" }) => ({
+  "model-event": ({ name: rawName = "there", email = "", eventTitle: rawEventTitle = "Casting call", eventType: rawEventType = "casting", eventAt = "", notes: rawNotes = "" }) => {
+    const name = escapeHtml(rawName);
+    const eventTitle = escapeHtml(rawEventTitle);
+    const eventType = escapeHtml(rawEventType);
+    const notes = escapeHtml(rawNotes).replace(/\n/g, "<br>");
+    return {
     subject: `Casting call invitation — ${eventTitle}`,
     html: (() => {
-      const submitUrl = buildEventResponseLink({ name, email, eventTitle, eventType, eventAt, action: "available" });
+      const submitUrl = buildEventResponseLink({ name: rawName, email, eventTitle: rawEventTitle, eventType: rawEventType, eventAt, action: "available" });
       return shell(`
         <h2 style="margin:0 0 20px;font-size:20px;color:#111;">Casting call invitation</h2>
         <p style="margin:0 0 12px;color:#444;line-height:1.7;">Hi <strong>${name}</strong>,</p>
@@ -120,7 +138,7 @@ const templates = {
           <tr><td style="padding:10px 16px;background:#fff;border-bottom:1px solid #eee;font-size:13px;color:#888;">Category</td><td style="padding:10px 16px;background:#fff;border-bottom:1px solid #eee;font-size:13px;color:#111;">${eventType || "Casting"}</td></tr>
           <tr><td style="padding:10px 16px;background:#fafafa;font-size:13px;color:#888;">Date & time</td><td style="padding:10px 16px;background:#fafafa;font-size:13px;color:#111;">${formatDateTime(eventAt)}</td></tr>
         </table>
-        ${notes ? `<p style="margin:0 0 18px;color:#444;line-height:1.7;"><strong>Details:</strong><br>${String(notes).replace(/\n/g, "<br>")}</p>` : ""}
+        ${rawNotes ? `<p style="margin:0 0 18px;color:#444;line-height:1.7;"><strong>Details:</strong><br>${notes}</p>` : ""}
         <p style="margin:0 0 12px;color:#444;line-height:1.7;">Please submit your casting response using the button below:</p>
         <p style="margin:0 0 10px;display:flex;gap:8px;flex-wrap:wrap;">
           <a href="${submitUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:11px 16px;border-radius:8px;font-size:13px;font-weight:600;">Submit Casting Response</a>
@@ -128,10 +146,16 @@ const templates = {
         <p style="margin:0;color:#666;font-size:12px;line-height:1.7;">If the button does not work, reply to this email and the team will manually log your response.</p>
       `);
     })(),
-    text: `Hi ${name},\n\nYou have a new ${eventType || "casting"} casting call from Smith Inc.\nCasting call: ${eventTitle}\nDate & time: ${formatDateTime(eventAt)}${notes ? `\nDetails: ${notes}` : ""}\n\nSubmit response: ${buildEventResponseLink({ name, email, eventTitle, eventType, eventAt, action: "available" })}\n\n— The Smith Inc Team`,
-  }),
+      text: `Hi ${rawName},\n\nYou have a new ${rawEventType || "casting"} casting call from Smith Inc.\nCasting call: ${rawEventTitle}\nDate & time: ${formatDateTime(eventAt)}${rawNotes ? `\nDetails: ${rawNotes}` : ""}\n\nSubmit response: ${buildEventResponseLink({ name: rawName, email, eventTitle: rawEventTitle, eventType: rawEventType, eventAt, action: "available" })}\n\n— The Smith Inc Team`,
+    };
+  },
 
-  "booking-confirmation": ({ name = "there", company = "", serviceType = "", preferredDate = "" }) => ({
+  "booking-confirmation": ({ name: rawName = "there", company: rawCompany = "", serviceType: rawServiceType = "", preferredDate: rawPreferredDate = "" }) => {
+    const name = escapeHtml(rawName);
+    const company = escapeHtml(rawCompany);
+    const serviceType = escapeHtml(rawServiceType);
+    const preferredDate = escapeHtml(rawPreferredDate);
+    return {
     subject: "Booking request received — Smith Inc",
     html: shell(`
       <h2 style="margin:0 0 20px;font-size:20px;color:#111;">Booking Request Received ✓</h2>
@@ -146,10 +170,14 @@ const templates = {
       </table>
       <p style="margin:0;color:#444;line-height:1.7;">We'll follow up with confirmation details soon.<br><strong>— The Smith Inc Team</strong></p>
     `),
-    text: `Hi ${name},\n\nWe've received your booking request for ${serviceType || "our services"}${preferredDate ? " on " + preferredDate : ""}. We'll be in touch shortly to confirm.\n\n— The Smith Inc Team`,
-  }),
+    text: `Hi ${rawName},\n\nWe've received your booking request for ${rawServiceType || "our services"}${rawPreferredDate ? " on " + rawPreferredDate : ""}. We'll be in touch shortly to confirm.\n\n— The Smith Inc Team`,
+    };
+  },
 
-  "booking-confirmed": ({ name = "there", serviceType = "" }) => ({
+  "booking-confirmed": ({ name: rawName = "there", serviceType: rawServiceType = "" }) => {
+    const name = escapeHtml(rawName);
+    const serviceType = escapeHtml(rawServiceType);
+    return {
     subject: "Your booking is confirmed — Smith Inc",
     html: shell(`
       <h2 style="margin:0 0 20px;font-size:20px;color:#16a34a;">Booking Confirmed ✓</h2>
@@ -163,8 +191,9 @@ const templates = {
       </p>
       <p style="margin:0;color:#444;line-height:1.7;">See you soon,<br><strong>The Smith Inc Team</strong></p>
     `),
-    text: `Hi ${name},\n\nYour booking${serviceType ? " for " + serviceType : ""} is confirmed. We're looking forward to working with you.\n\n— The Smith Inc Team`,
-  }),
+    text: `Hi ${rawName},\n\nYour booking${rawServiceType ? " for " + rawServiceType : ""} is confirmed. We're looking forward to working with you.\n\n— The Smith Inc Team`,
+    };
+  },
 };
 
 // ─── Handler ──────────────────────────────────────────────────────────────────

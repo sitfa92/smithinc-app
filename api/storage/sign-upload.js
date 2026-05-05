@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
-  const { fileName, contentType, folder = "models" } = req.body || {};
+  const { fileName, contentType, folder: rawFolder = "models" } = req.body || {};
 
   if (!fileName || !contentType) {
     return res.status(400).json({ error: "Missing fileName or contentType" });
@@ -61,10 +61,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Invalid file type. Allowed: JPEG, PNG, GIF, WebP" });
   }
 
-  const extension = String(fileName).split(".").pop() || "jpg";
+  // Sanitize folder to prevent path traversal — only alphanumeric, dashes, underscores
+  const safeFolder = String(rawFolder).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) || "models";
+
+  // Derive extension from content type to avoid extension spoofing
+  const MIME_TO_EXT = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp" };
+  const extension = MIME_TO_EXT[contentType] || "jpg";
   const timestamp = Date.now();
   const random = Math.random().toString(36).slice(2, 8);
-  const filePath = `${folder}/${timestamp}-${random}.${extension}`;
+  const filePath = `${safeFolder}/${timestamp}-${random}.${extension}`;
 
   let lastError = null;
   for (const bucket of candidateBuckets) {
