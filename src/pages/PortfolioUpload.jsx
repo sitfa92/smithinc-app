@@ -1,11 +1,13 @@
 import React from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../supabase";
+import { useAuth } from "../auth";
 import { uploadImage, listPortfolioForModel, deleteImage } from "../imageUpload";
 import LuxuryPhotoCarousel from "../components/LuxuryPhotoCarousel";
 import "../App.css";
 
 export default function PortfolioUpload() {
+  const { user, role } = useAuth();
   const { id } = useParams();
   const [model, setModel] = React.useState(null);
   const [files, setFiles] = React.useState([]);
@@ -16,6 +18,8 @@ export default function PortfolioUpload() {
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [success, setSuccess] = React.useState("Your portfolio upload link is ready.");
+
+  const canDeletePortfolio = Boolean(user) && role === "admin";
 
   const folder = React.useMemo(() => `portfolio/${id}`, [id]);
 
@@ -215,6 +219,11 @@ export default function PortfolioUpload() {
   };
 
   const handleDelete = async (file) => {
+    if (!canDeletePortfolio) {
+      setError("Only signed-in admins can delete portfolio photos.");
+      return;
+    }
+
     const confirmed = window.confirm(`Delete ${file.name}?`);
     if (!confirmed) return;
 
@@ -416,13 +425,18 @@ export default function PortfolioUpload() {
         </div>
 
         <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 18 }}>
+          {!canDeletePortfolio && (
+            <p style={{ margin: "0 0 12px", color: "#888", fontSize: 12 }}>
+              Delete controls are available to signed-in admins only.
+            </p>
+          )}
           {!files.length ? (
             <p style={{ margin: 0, color: "#888", fontSize: 13 }}>No portfolio photos uploaded yet.</p>
           ) : (
             <LuxuryPhotoCarousel
               files={files}
               title="Portfolio gallery"
-              showDelete
+              showDelete={canDeletePortfolio}
               onDelete={handleDelete}
               onDownload={handleDownload}
             />
