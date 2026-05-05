@@ -238,14 +238,26 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.post("/voice", (_req, res) => {
+app.post("/voice", (req, res) => {
   if (!PUBLIC_BASE_URL) {
     res.type("text/xml").status(200).send(
       twimlEnd(copy("unconfigured", "en"), "en")
     );
     return;
   }
-  res.type("text/xml").status(200).send(twimlSayAndListen({ first: true, lang: "en" }));
+  const forcedLang = normalizeLang(req.query?.lang);
+  const lang = forcedLang || "en";
+  res.type("text/xml").status(200).send(twimlSayAndListen({ first: true, lang }));
+});
+
+app.post("/voice-fr", (_req, res) => {
+  if (!PUBLIC_BASE_URL) {
+    res.type("text/xml").status(200).send(
+      twimlEnd(copy("unconfigured", "fr"), "fr")
+    );
+    return;
+  }
+  res.type("text/xml").status(200).send(twimlSayAndListen({ first: true, lang: "fr" }));
 });
 
 app.post("/gather", async (req, res) => {
