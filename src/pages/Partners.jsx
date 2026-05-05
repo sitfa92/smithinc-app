@@ -394,8 +394,19 @@ alter table public.bookings disable row level security;`;
   const statusBadge = (st) => { const m={lead:[C.warnBg,C.warn],active:[C.okBg,C.ok],completed:[C.infoBg,C.info],inactive:[C.ivory,C.dust],churned:[C.errBg,C.err]}; const [bg,clr]=m[st]||[C.ivory,C.slate]; return {display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",background:bg,color:clr}; };
   const invoiceBadge = (st) => { const m={pending:[C.warnBg,C.warn],sent:[C.infoBg,C.info],paid:[C.okBg,C.ok]}; const [bg,clr]=m[st]||[C.ivory,C.slate]; return {display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",background:bg,color:clr}; };
 
+  const activeCount = React.useMemo(() => clients.filter((c) => c.status === "active").length, [clients]);
+  const leadCount = React.useMemo(() => clients.filter((c) => c.status === "lead").length, [clients]);
+  const metrics = React.useMemo(
+    () => [
+      { label: isBrandAmbassadorView ? "Total Ambassadors" : "Total Partners", value: clients.length },
+      { label: "Active", value: activeCount },
+      { label: "Leads", value: leadCount },
+    ],
+    [clients.length, activeCount, leadCount, isBrandAmbassadorView]
+  );
+
   return (
-    <div style={{ padding:"32px 24px", maxWidth:1000, margin:"0 auto" }}>
+    <div style={{ padding:"32px 24px", maxWidth:1200, margin:"0 auto" }}>
       {isBrandAmbassadorView && (
         <div style={{ display:"inline-flex", alignItems:"center", gap:6, background:accentBg, border:`1px solid ${accentMid}`, borderRadius:99, padding:"4px 12px", marginBottom:10 }}>
           <span style={{ width:7, height:7, borderRadius:"50%", background:accent, display:"inline-block" }} />
@@ -408,6 +419,15 @@ alter table public.bookings disable row level security;`;
       <p style={{ color:C.dust, fontSize:13, marginBottom:24 }}>
         {isBrandAmbassadorView ? "Track brand ambassador leads, campaign status, and engagement details." : "Track your partner roster, contracts, and invoices."}
       </p>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:24 }}>
+        {metrics.map((m) => (
+          <div key={m.label} style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:18, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+            <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust }}>{m.label}</p>
+            <p style={{ margin:0, fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:32, fontWeight:500, color:C.ink, lineHeight:1 }}>{m.value}</p>
+          </div>
+        ))}
+      </div>
 
       {!tableReady && (
         <div style={{ background:C.infoBg, border:`1px solid rgba(30,58,95,0.15)`, borderRadius:12, padding:"18px 22px", marginBottom:24 }}>

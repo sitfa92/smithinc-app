@@ -26,6 +26,10 @@ const inferStageFromStatus = (status) => {
 
 const normalizeStage = (value, status) => (STAGES.includes(value) ? value : inferStageFromStatus(status));
 const normalizePriority = (value) => (["high", "medium", "low"].includes(value) ? value : "medium");
+const nextStageOf = (current) => {
+  const idx = STAGES.indexOf(current);
+  return idx >= 0 && idx < STAGES.length - 1 ? STAGES[idx + 1] : null;
+};
 
 export default function PartnerPipeline() {
   const isBrandAmbassadorView = React.useMemo(() => {
@@ -38,6 +42,7 @@ export default function PartnerPipeline() {
   const [error, setError] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState({});
   const [pipelineSchemaReady, setPipelineSchemaReady] = React.useState(true);
+  const [viewMode, setViewMode] = React.useState("kanban");
   const [bannerDismissed, setBannerDismissed] = React.useState(() => {
     try { return localStorage.getItem("cp_banner_dismissed") === "1"; } catch { return false; }
   });
@@ -67,13 +72,14 @@ alter table public.clients disable row level security;`;
     internal_notes: row.internal_notes || "",
     next_step: row.next_step || "",
     service_type: row.service_type || row.project || "General",
+    avatar_url: row.avatar_url || "",
     last_updated: row.last_updated || row.updated_at || row.created_at,
   });
 
   const fetchClients = async () => {
     try {
       setError("");
-      const selectFields = "id, name, email, project, service_type, status, client_value, source, pipeline_stage, priority_level, internal_notes, next_step, last_updated, created_at";
+      const selectFields = "id, name, email, project, service_type, status, client_value, source, avatar_url, pipeline_stage, priority_level, internal_notes, next_step, last_updated, created_at";
       const { data, error: fetchError } = await supabase
         .from("clients")
         .select(selectFields)
@@ -84,7 +90,7 @@ alter table public.clients disable row level security;`;
           setPipelineSchemaReady(false);
           const fallback = await supabase
             .from("clients")
-            .select("id, name, email, project, service_type, status, client_value, source, created_at")
+            .select("id, name, email, project, service_type, status, client_value, source, avatar_url, created_at")
             .order("created_at", { ascending: false });
           if (fallback.error) throw fallback.error;
           setClients((fallback.data || []).map(normalizeClient));
@@ -157,6 +163,14 @@ alter table public.clients disable row level security;`;
     return acc;
   }, {});
 
+  const stageCounts = React.useMemo(
+    () => STAGES.reduce((acc, stage) => {
+      acc[stage] = filteredClients.filter((client) => client.pipeline_stage === stage).length;
+      return acc;
+    }, {}),
+    [filteredClients]
+  );
+
   const C = { ink: "#111111", slate: "#4a4a4a", dust: "#888888", smoke: "#e8e4dc", ivory: "#faf8f4", white: "#ffffff", warn: "#92560a", warnBg: "#fef8ec", ok: "#1a6636", okBg: "#edf7ee", err: "#9b1c1c", errBg: "#fef2f2" };
   const accent = isBrandAmbassadorView ? "#0891b2" : C.ink;
   const accentBg = isBrandAmbassadorView ? "rgba(8,145,178,0.08)" : C.ivory;
@@ -179,6 +193,42 @@ alter table public.clients disable row level security;`;
       <p style={{ color: C.dust, marginBottom: 20, fontSize: 13 }}>
         {isBrandAmbassadorView ? "Structured tracking from ambassador lead to active campaign collaborator." : "Structured tracking from lead to retained partner."}
       </p>
+
+      {!loading && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          {STAGES.map((stage) => {
+            const isActive = filters.stage === stage;
+            return (
+              <button
+                key={stage}
+                onClick={() => setFilters((prev) => ({ ...prev, stage: isActive ? "all" : stage }))}
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 99,
+                  border: `1px solid ${isActive ? C.ink : C.smoke}`,
+                  background: isActive ? C.ink : C.white,
+                  color: isActive ? C.white : C.slate,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'Inter',sans-serif",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {STAGE_LABELS[stage]}{stageCounts[stage] > 0 ? ` · ${stageCounts[stage]}` : ""}
+              </button>
+            );
+          })}
+          {filters.stage !== "all" && (
+            <button
+              onClick={() => setFilters((prev) => ({ ...prev, stage: "all" }))}
+              style={{ padding: "5px 12px", borderRadius: 99, border: `1px solid ${C.smoke}`, background: C.ivory, color: C.slate, fontSize: 11, cursor: "pointer", fontFamily: "'Inter',sans-serif" }}
+            >
+              All ×
+            </button>
+          )}
+        </div>
+      )}
 
       {!pipelineSchemaReady && !bannerDismissed && (
         <div style={{ background: C.warnBg, border: `1px solid rgba(146,86,10,0.2)`, borderRadius: 12, padding: "18px 22px", marginBottom: 24 }}>
@@ -209,13 +259,37 @@ alter table public.clients disable row level security;`;
         ))}
       </div>
 
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+        {["kanban", "grid"].map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setViewMode(mode)}
+            style={{
+              padding: "7px 14px",
+              background: viewMode === mode ? C.ink : C.white,
+              color: viewMode === mode ? C.white : C.slate,
+              border: `1px solid ${C.smoke}`,
+              borderRadius: mode === "kanban" ? "8px 0 0 8px" : "0 8px 8px 0",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "'Inter',sans-serif",
+              letterSpacing: "0.04em",
+              lineHeight: 1,
+            }}
+          >
+            {mode === "kanban" ? "⊞ Kanban" : "≡ List"}
+          </button>
+        ))}
+      </div>
+
       {loading && <p style={{ color: C.dust }}>Loading pipeline…</p>}
       {error && <p style={{ color: C.err, fontSize: 13 }}>{error}</p>}
 
       {!loading && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16 }}>
+        <div style={viewMode === "kanban" ? { display: "flex", gap: 16, overflowX: "auto", paddingBottom: 16, alignItems: "flex-start" } : { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 16 }}>
           {STAGES.map((stage) => (
-            <div key={stage} style={{ background: isBrandAmbassadorView ? accentBg : C.ivory, border: `1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderTop: isBrandAmbassadorView ? `3px solid ${accent}` : `1px solid ${C.smoke}`, borderRadius: 12, padding: 14 }}>
+            <div key={stage} style={{ background: isBrandAmbassadorView ? accentBg : C.ivory, border: `1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderTop: isBrandAmbassadorView ? `3px solid ${accent}` : `1px solid ${C.smoke}`, borderRadius: 12, padding: 14, ...(viewMode === "kanban" ? { flex: "0 0 280px", maxHeight: "78vh", overflowY: "auto" } : {}) }}>
               <p style={{ fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 17, fontWeight: 500, color: C.ink, margin: "0 0 12px", letterSpacing: "-0.01em" }}>
                 {STAGE_LABELS[stage]} <span style={{ fontSize: 13, color: C.dust, fontFamily: "'Inter',sans-serif", fontWeight: 400 }}>({grouped[stage]?.length || 0})</span>
               </p>
@@ -228,9 +302,13 @@ alter table public.clients disable row level security;`;
                 return (
                   <div key={client.id} style={{ background: C.white, border: `1px solid ${C.smoke}`, borderRadius: 10, padding: 12, marginBottom: 10 }}>
                     <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
-                      <div style={{ width: 48, height: 48, borderRadius: 8, background: isBrandAmbassadorView ? accentMid : C.ivory, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: isBrandAmbassadorView ? accent : C.dust, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 600 }}>
-                        {(client.name || "?")[0].toUpperCase()}
-                      </div>
+                      {client.avatar_url ? (
+                        <img src={client.avatar_url} alt={client.name} loading="lazy" decoding="async" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: `1px solid ${C.smoke}` }} />
+                      ) : (
+                        <div style={{ width: 48, height: 48, borderRadius: 8, background: isBrandAmbassadorView ? accentMid : C.ivory, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: isBrandAmbassadorView ? accent : C.dust, fontFamily: "'Cormorant Garamond',Georgia,serif", fontSize: 20, fontWeight: 600 }}>
+                          {(client.name || "?")[0].toUpperCase()}
+                        </div>
+                      )}
                       <div style={{ minWidth: 0 }}>
                         <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: C.ink }}>{client.name}</p>
                         <p style={{ margin: "2px 0 0", color: C.dust, fontSize: 12 }}>{client.email || "No email"}</p>
@@ -245,6 +323,16 @@ alter table public.clients disable row level security;`;
                     <p style={{ margin: "0 0 10px", color: C.slate, fontSize: 12, lineHeight: 1.5 }}>
                       {String(notesPreview).slice(0, 100)}{String(notesPreview).length > 100 ? "…" : ""}
                     </p>
+
+                    {canEditPipeline && pipelineSchemaReady && nextStageOf(client.pipeline_stage) && (
+                      <button
+                        onClick={() => updatePartnerPipeline(client.id, { pipeline_stage: nextStageOf(client.pipeline_stage) })}
+                        disabled={isBusy}
+                        style={{ width: "100%", marginBottom: 8, padding: "10px", background: C.ink, color: "#ffffff", border: "none", borderRadius: 7, fontSize: 12, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: isBusy ? "not-allowed" : "pointer", fontFamily: "'Inter',sans-serif", opacity: isBusy ? 0.6 : 1 }}
+                      >
+                        {`→ ${STAGE_LABELS[nextStageOf(client.pipeline_stage)]}`}
+                      </button>
+                    )}
 
                     {canEditPipeline && pipelineSchemaReady && (
                       <div style={{ display: "grid", gap: 8 }}>

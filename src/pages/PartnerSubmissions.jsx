@@ -201,6 +201,17 @@ alter table public.partners disable row level security;`;
       return (item.source || "manual") === sourceFilter;
     });
 
+  const pendingCount = React.useMemo(() => submissions.filter((s) => s.status === "pending").length, [submissions]);
+  const approvedCount = React.useMemo(() => submissions.filter((s) => s.status === "approved").length, [submissions]);
+  const metrics = React.useMemo(
+    () => [
+      { label: isBrandAmbassadorView ? "Total Applications" : "Total Submissions", value: submissions.length },
+      { label: "Pending", value: pendingCount },
+      { label: "Approved", value: approvedCount },
+    ],
+    [isBrandAmbassadorView, submissions.length, pendingCount, approvedCount]
+  );
+
   const C = { ink: "#111111", slate: "#4a4a4a", dust: "#888888", smoke: "#e8e4dc", ivory: "#faf8f4", white: "#ffffff", err: "#9b1c1c", warn: "#92560a", ok: "#1a6636", okBg: "#edf7ee", warnBg: "#fef8ec", errBg: "#fef2f2" };
   const accent = isBrandAmbassadorView ? "#0891b2" : C.ink;
   const accentBg = isBrandAmbassadorView ? "rgba(8,145,178,0.08)" : "transparent";
@@ -246,6 +257,15 @@ alter table public.partners disable row level security;`;
             <option value="zapier">Zapier</option>
           </select>
         </div>
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:24 }}>
+        {metrics.map((m) => (
+          <div key={m.label} style={{ background:C.white, border:`1px solid ${C.smoke}`, borderRadius:12, padding:18, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+            <p style={{ margin:"0 0 4px", fontSize:11, fontWeight:600, letterSpacing:"0.1em", textTransform:"uppercase", color:C.dust }}>{m.label}</p>
+            <p style={{ margin:0, fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:32, fontWeight:500, color:C.ink, lineHeight:1 }}>{m.value}</p>
+          </div>
+        ))}
       </div>
 
       {!tableReady && !psBannerDismissed && (
@@ -295,42 +315,51 @@ alter table public.partners disable row level security;`;
       {!loading && tableReady && submissions.length === 0 && <p style={{ color: C.dust }}>{isBrandAmbassadorView ? "No brand ambassador submissions yet." : "No partner submissions yet."}</p>}
       {!loading && tableReady && submissions.length > 0 && filteredSubmissions.length === 0 && <p style={{ color: C.dust }}>No submissions match the current filters.</p>}
 
-      {!loading && filteredSubmissions.map((partner) => (
-        <div key={partner.id} style={{ border: `1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderLeft: isBrandAmbassadorView ? `4px solid ${accent}` : `1px solid ${C.smoke}`, borderRadius: 12, padding: 18, marginBottom: 16, background: isBrandAmbassadorView ? accentBg : C.white, boxShadow: "0 1px 4px rgba(17,17,17,0.04)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 600, color: C.ink }}>{partner.name}</h3>
-            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-              <span style={badge(partner.status)}>{partner.status}</span>
-              <span style={{ ...badge("pending"), background: C.ivory, color: C.dust }}>{partner.source || "manual"}</span>
+      {!loading && filteredSubmissions.map((partner) => {
+        const initials = (partner.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+        return (
+          <div key={partner.id} style={{ display:"flex", gap:18, padding:18, marginBottom:16, border:`1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderRadius:12, background:C.white, boxShadow:"0 1px 4px rgba(17,17,17,0.04)", flexWrap:"wrap" }}>
+            <div style={{ flex:"0 0 120px", minWidth:0 }}>
+              <div style={{ width:"100%", height:150, borderRadius:10, border:`1px solid ${C.smoke}`, background:isBrandAmbassadorView ? accentBg : C.ivory, color:isBrandAmbassadorView ? accent : C.dust, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:30 }}>
+                {initials || "?"}
+              </div>
+            </div>
+            <div style={{ flex:1, minWidth:220 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexWrap:"wrap", gap:8, marginBottom:8 }}>
+                <h3 style={{ margin:0, fontSize:17, fontWeight:600, color:C.ink }}>{partner.name}</h3>
+                <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
+                  <span style={badge(partner.status)}>{partner.status}</span>
+                  <span style={{ ...badge("pending"), background:C.ivory, color:C.dust }}>{partner.source || "manual"}</span>
+                </div>
+              </div>
+              <p style={{ margin:"0 0 3px", color:C.dust, fontSize:13 }}>{partner.email}</p>
+              {partner.company && <p style={{ margin:"0 0 3px", color:C.dust, fontSize:13 }}>{partner.company}</p>}
+              {partner.website && <p style={{ margin:"0 0 6px", color:C.dust, fontSize:13 }}>{partner.website}</p>}
+              {partner.notes && <p style={{ margin:"0 0 10px", color:C.slate, fontSize:13, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{partner.notes}</p>}
+              <p style={{ margin:"0 0 14px", color:C.dust, fontSize:12 }}>Submitted: {new Date(partner.submitted_at || partner.created_at).toLocaleString()}</p>
+
+              {partner.status === "pending" && (
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  <button
+                    onClick={() => updateSubmissionStatus(partner.id, "approved")}
+                    disabled={actionLoading[partner.id]}
+                    style={btnS(C.okBg, C.ok, { border:"1px solid rgba(26,102,54,0.2)", opacity:actionLoading[partner.id] ? 0.55 : 1, cursor:actionLoading[partner.id] ? "not-allowed" : "pointer" })}
+                  >
+                    {actionLoading[partner.id] ? "…" : "✓ Approve"}
+                  </button>
+                  <button
+                    onClick={() => updateSubmissionStatus(partner.id, "rejected")}
+                    disabled={actionLoading[partner.id]}
+                    style={btnS(C.errBg, C.err, { border:"1px solid rgba(155,28,28,0.2)", opacity:actionLoading[partner.id] ? 0.55 : 1, cursor:actionLoading[partner.id] ? "not-allowed" : "pointer" })}
+                  >
+                    {actionLoading[partner.id] ? "…" : "✕ Reject"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-
-          <p style={{ margin: "0 0 3px", color: C.dust, fontSize: 13 }}>{partner.email}</p>
-          {partner.company && <p style={{ margin: "0 0 3px", color: C.dust, fontSize: 13 }}>{partner.company}</p>}
-          {partner.website && <p style={{ margin: "0 0 6px", color: C.dust, fontSize: 13 }}>{partner.website}</p>}
-          {partner.notes && <p style={{ margin: "0 0 10px", color: C.slate, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{partner.notes}</p>}
-          <p style={{ margin: "0 0 14px", color: C.dust, fontSize: 12 }}>Submitted: {new Date(partner.submitted_at || partner.created_at).toLocaleString()}</p>
-
-          {partner.status === "pending" && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button
-                onClick={() => updateSubmissionStatus(partner.id, "approved")}
-                disabled={actionLoading[partner.id]}
-                style={btnS(C.okBg, C.ok, { border: "1px solid rgba(26,102,54,0.2)", opacity: actionLoading[partner.id] ? 0.55 : 1, cursor: actionLoading[partner.id] ? "not-allowed" : "pointer" })}
-              >
-                {actionLoading[partner.id] ? "…" : "✓ Approve"}
-              </button>
-              <button
-                onClick={() => updateSubmissionStatus(partner.id, "rejected")}
-                disabled={actionLoading[partner.id]}
-                style={btnS(C.errBg, C.err, { border: "1px solid rgba(155,28,28,0.2)", opacity: actionLoading[partner.id] ? 0.55 : 1, cursor: actionLoading[partner.id] ? "not-allowed" : "pointer" })}
-              >
-                {actionLoading[partner.id] ? "…" : "✕ Reject"}
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
