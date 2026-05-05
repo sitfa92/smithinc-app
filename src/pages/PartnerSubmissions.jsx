@@ -33,6 +33,21 @@ export default function PartnerSubmissions() {
     source: isBrandAmbassadorView ? "brand_ambassador" : "manual",
   });
 
+  const isAmbassadorSubmission = React.useCallback((item) => {
+    const source = String(item?.source || "").toLowerCase();
+    const company = String(item?.company || "").toLowerCase();
+    const notes = String(item?.notes || item?.internal_notes || "").toLowerCase();
+    const serviceType = String(item?.service_type || "").toLowerCase();
+    const project = String(item?.project || "").toLowerCase();
+    return (
+      source === "brand_ambassador" ||
+      company.includes("brand ambassador") ||
+      serviceType.includes("brand ambassador") ||
+      project.includes("brand ambassador") ||
+      notes.includes("moved from model")
+    );
+  }, []);
+
   const getAuthHeaders = async () => {
     const {
       data: { session },
@@ -85,7 +100,49 @@ alter table public.partners disable row level security;`;
       }
 
       setTableReady(true);
-      setSubmissions(json.data || []);
+      let nextRows = json.data || [];
+
+      if (isBrandAmbassadorView) {
+        const { data: ambassadorClients, error: ambassadorClientsError } = await supabase
+          .from("clients")
+          .select("id, name, email, project, service_type, source, status, internal_notes, created_at")
+          .order("created_at", { ascending: false })
+          .limit(500);
+
+        if (!ambassadorClientsError) {
+          const synthesized = (ambassadorClients || [])
+            .filter((item) => isAmbassadorSubmission(item))
+            .map((item) => ({
+              id: `client-${item.id}`,
+              name: item.name,
+              email: item.email,
+              company: item.project || item.service_type || "Brand Ambassador",
+              website: "",
+              notes: item.internal_notes || "Moved from model flow",
+              source: "brand_ambassador",
+              status: ["inactive", "churned", "rejected"].includes(String(item.status || "").toLowerCase())
+                ? "rejected"
+                : ["active", "completed", "approved"].includes(String(item.status || "").toLowerCase())
+                  ? "approved"
+                  : "pending",
+              submitted_at: item.created_at,
+              created_at: item.created_at,
+              isClientRecord: true,
+            }));
+
+          const deduped = new Set(
+            nextRows.map((row) => `${String(row.email || "").toLowerCase()}|${String(row.name || "").toLowerCase()}`)
+          );
+          synthesized.forEach((row) => {
+            const key = `${String(row.email || "").toLowerCase()}|${String(row.name || "").toLowerCase()}`;
+            if (deduped.has(key)) return;
+            deduped.add(key);
+            nextRows.push(row);
+          });
+        }
+      }
+
+      setSubmissions(nextRows);
     } catch (err) {
       if (isTableMissingError(err)) {
         setTableReady(false);
@@ -100,7 +157,7 @@ alter table public.partners disable row level security;`;
 
   React.useEffect(() => {
     fetchSubmissions();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isBrandAmbassadorView]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveSubmission = async (e) => {
     e.preventDefault();
@@ -192,7 +249,7 @@ alter table public.partners disable row level security;`;
   };
 
   const filteredSubmissions = submissions
-    .filter((item) => (isBrandAmbassadorView ? (item.source || "") === "brand_ambassador" : (item.source || "") !== "brand_ambassador"))
+    .filter((item) => (isBrandAmbassadorView ? isAmbassadorSubmission(item) : !isAmbassadorSubmission(item)))
     .filter((item) => {
       if (statusFilter === "active") return item.status !== "rejected";
       if (statusFilter === "all") return true;
@@ -334,6 +391,9 @@ alter table public.partners disable row level security;`;
                 <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
                   <span style={badge(partner.status)}>{partner.status}</span>
                   <span style={{ ...badge("pending"), background:C.ivory, color:C.dust }}>{partner.source || "manual"}</span>
+                  {partner.isClientRecord && (
+                    <span style={{ ...badge("pending"), background:accentBg, color:accent }}>Moved Model</span>
+                  )}
                 </div>
               </div>
               <p style={{ margin:"0 0 3px", color:C.dust, fontSize:13 }}>{partner.email}</p>
@@ -342,7 +402,7 @@ alter table public.partners disable row level security;`;
               {partner.notes && <p style={{ margin:"0 0 10px", color:C.slate, fontSize:13, lineHeight:1.6, whiteSpace:"pre-wrap" }}>{partner.notes}</p>}
               <p style={{ margin:"0 0 14px", color:C.dust, fontSize:12 }}>Submitted: {new Date(partner.submitted_at || partner.created_at).toLocaleString()}</p>
 
-              {partner.status === "pending" && (
+              {partner.status === "pending" && !partner.isClientRecord && (
                 <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                   <button
                     onClick={() => updateSubmissionStatus(partner.id, "approved")}

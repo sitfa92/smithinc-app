@@ -50,6 +50,19 @@ export default function PartnerPipeline() {
 
   const canEditPipeline = role === "admin" || role === "va";
 
+  const isAmbassadorClient = React.useCallback((item) => {
+    const source = String(item?.source || "").toLowerCase();
+    const serviceType = String(item?.service_type || "").toLowerCase();
+    const project = String(item?.project || "").toLowerCase();
+    const notes = String(item?.internal_notes || item?.notes || "").toLowerCase();
+    return (
+      source === "brand_ambassador" ||
+      serviceType.includes("brand ambassador") ||
+      project.includes("brand ambassador") ||
+      notes.includes("moved from model")
+    );
+  }, []);
+
   const getClientAvatarSrc = React.useCallback((avatarUrl) => {
     const raw = String(avatarUrl || "").trim();
     if (!raw) return "";
@@ -176,7 +189,7 @@ alter table public.clients disable row level security;`;
   };
 
   const scopedClients = clients
-    .filter((client) => (isBrandAmbassadorView ? (client.source || "") === "brand_ambassador" : (client.source || "") !== "brand_ambassador"));
+    .filter((client) => (isBrandAmbassadorView ? isAmbassadorClient(client) : !isAmbassadorClient(client)));
 
   const filteredClients = scopedClients
     .filter((client) => (filters.stage === "all" ? true : client.pipeline_stage === filters.stage))

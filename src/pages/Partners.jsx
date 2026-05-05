@@ -18,6 +18,19 @@ export default function Partners() {
   const [movedToModels, setMovedToModels] = React.useState({});
   const avatarInputRef = React.useRef({});
 
+  const isAmbassadorClient = React.useCallback((item) => {
+    const source = String(item?.source || "").toLowerCase();
+    const serviceType = String(item?.service_type || "").toLowerCase();
+    const project = String(item?.project || "").toLowerCase();
+    const notes = String(item?.internal_notes || item?.notes || "").toLowerCase();
+    return (
+      source === "brand_ambassador" ||
+      serviceType.includes("brand ambassador") ||
+      project.includes("brand ambassador") ||
+      notes.includes("moved from model")
+    );
+  }, []);
+
   const moveBackToModels = async (client) => {
     if (!isBrandAmbassadorView || !client?.id) return;
     if (!window.confirm(`Move ${client.name || "this brand ambassador"} back to Models?`)) return;
@@ -259,7 +272,7 @@ alter table public.bookings disable row level security;`;
       if (error) throw error;
       const nextClients = (data || [])
         .map(normalizeClient)
-        .filter((item) => (isBrandAmbassadorView ? (item.source || "") === "brand_ambassador" : (item.source || "") !== "brand_ambassador"));
+        .filter((item) => (isBrandAmbassadorView ? isAmbassadorClient(item) : !isAmbassadorClient(item)));
       setTableReady(true);
       setUsingFallbackData(false);
       setClients(nextClients);
