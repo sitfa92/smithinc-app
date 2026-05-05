@@ -20,6 +20,7 @@ export default async function handler(req, res) {
     webhook_endpoint: "/api/zapier/webhook",
     forward_endpoint: "/api/zapier/forward",
     dedupe_endpoint: "/api/zapier/dedupe",
+    seo_backlog_endpoint: "/api/zapier/seo-backlog",
     payload_shape: {
       source: "meet-serenity-app",
       event_type: "<string>",
@@ -43,6 +44,17 @@ export default async function handler(req, res) {
       response: {
         should_process: "<boolean>",
         duplicate: "<boolean>",
+      },
+    },
+    seo_backlog_contract: {
+      method: "GET",
+      query: {
+        lookback_days: "<number, optional, default 30>",
+        stale_days: "<number, optional, default 90>",
+        limit: "<number, optional, default 50>",
+      },
+      response: {
+        clusters: "<array of cluster objects with count and stale_candidate>",
       },
     },
   });
