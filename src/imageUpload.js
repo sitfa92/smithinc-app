@@ -113,7 +113,51 @@ export const listDigitalsForModel = async (modelRef = {}) => {
  * @param {string} folder - Optional folder path in storage
  * @returns {Promise<string>} Public URL of uploaded image
  */
-export const uploadImage = async (file, folder = "models") => {
+const resolveSignedUploadUrl = (signedUrl = "") => {
+  const raw = String(signedUrl || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+
+  const baseUrl = String(import.meta.env.VITE_SUPABASE_URL || "").trim().replace(/\/+$/, "");
+  if (!baseUrl) return raw;
+
+  if (raw.startsWith("/storage/v1/")) return `${baseUrl}${raw}`;
+  if (raw.startsWith("/object/") || raw.startsWith("object/")) {
+    const normalizedPath = raw.startsWith("/") ? raw : `/${raw}`;
+    return `${baseUrl}/storage/v1${normalizedPath}`;
+  }
+
+  const normalizedPath = raw.startsWith("/") ? raw : `/${raw}`;
+  return `${baseUrl}${normalizedPath}`;
+};
+
+const uploadViaSignedUrlWithProgress = (signedUrl, file, onProgress) =>
+  new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", signedUrl);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || typeof onProgress !== "function") return;
+      const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+      onProgress(percent);
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        if (typeof onProgress === "function") onProgress(100);
+        resolve(true);
+        return;
+      }
+      reject(new Error(`Upload failed with status ${xhr.status}`));
+    };
+
+    xhr.onerror = () => reject(new Error("Network error during upload"));
+    xhr.onabort = () => reject(new Error("Upload was cancelled"));
+    xhr.send(file);
+  });
+
+export const uploadImage = async (file, folder = "models", options = {}) => {
   if (!file) throw new Error("No file provided");
 
   // Validate file type
@@ -149,12 +193,20 @@ export const uploadImage = async (file, folder = "models") => {
     throw new Error("Upload signature response was incomplete");
   }
 
-  const { error: uploadError } = await supabase.storage
-    .from(signed.bucket)
-    .uploadToSignedUrl(signed.path, signed.token, file);
+  const onProgress = typeof options?.onProgress === "function" ? options.onProgress : null;
+  const signedUrl = resolveSignedUploadUrl(signed.signedUrl || "");
 
-  if (uploadError) {
-    throw uploadError;
+  if (onProgress && signedUrl) {
+    await uploadViaSignedUrlWithProgress(signedUrl, file, onProgress);
+  } else {
+    const { error: uploadError } = await supabase.storage
+      .from(signed.bucket)
+      .uploadToSignedUrl(signed.path, signed.token, file);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+    if (onProgress) onProgress(100);
   }
 
   const { data: publicData } = supabase.storage

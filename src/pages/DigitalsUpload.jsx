@@ -10,6 +10,8 @@ export default function DigitalsUpload() {
   const [model, setModel] = React.useState(null);
   const [files, setFiles] = React.useState([]);
   const [selectedFiles, setSelectedFiles] = React.useState([]);
+  const [uploadProgress, setUploadProgress] = React.useState({});
+  const [isDragging, setIsDragging] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -106,12 +108,27 @@ export default function DigitalsUpload() {
     try {
       const uploadedPaths = [];
       const failedFiles = [];
+      const getFileKey = (file) => `${file.name}-${file.size}-${file.lastModified}`;
+
+      setUploadProgress((prev) => {
+        const next = { ...prev };
+        for (const file of selectedFiles) {
+          next[getFileKey(file)] = 0;
+        }
+        return next;
+      });
 
       for (const file of selectedFiles) {
+        const fileKey = getFileKey(file);
         try {
-          await uploadImage(file, folder);
+          await uploadImage(file, folder, {
+            onProgress: (percent) => {
+              setUploadProgress((prev) => ({ ...prev, [fileKey]: percent }));
+            },
+          });
           uploadedPaths.push(file.name);
         } catch (fileErr) {
+          setUploadProgress((prev) => ({ ...prev, [fileKey]: -1 }));
           failedFiles.push(`${file.name}: ${fileErr.message}`);
           console.error("File upload error:", fileErr);
         }
@@ -139,6 +156,43 @@ export default function DigitalsUpload() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const mergeSelectedFiles = React.useCallback((incomingFiles) => {
+    if (!incomingFiles.length) return;
+
+    setSelectedFiles((prev) => {
+      const seen = new Set(prev.map((file) => `${file.name}-${file.size}-${file.lastModified}`));
+      const additions = incomingFiles.filter((file) => {
+        const key = `${file.name}-${file.size}-${file.lastModified}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return [...prev, ...additions];
+    });
+  }, []);
+
+  const onFileInputChange = (e) => {
+    mergeSelectedFiles(Array.from(e.target.files || []));
+    e.target.value = "";
+  };
+
+  const onDragOver = (e) => {
+    e.preventDefault();
+    if (!uploading) setIsDragging(true);
+  };
+
+  const onDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (uploading) return;
+    mergeSelectedFiles(Array.from(e.dataTransfer?.files || []));
   };
 
   const handleDelete = async (file) => {
@@ -228,17 +282,69 @@ export default function DigitalsUpload() {
         {(isEligible || !model?.name) && (
           <div style={{ background: "#fff", border: "1px solid #e8e4dc", borderRadius: 14, padding: 18, marginBottom: 18 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888", marginBottom: 10 }}>Upload files</div>
+            <div
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              style={{
+                border: isDragging ? "2px dashed #1a6636" : "2px dashed #d9d4c9",
+                background: isDragging ? "#f3faf5" : "#fcfbf8",
+                borderRadius: 10,
+                padding: "14px 12px",
+                marginBottom: 12,
+                color: "#6a6257",
+                fontSize: 13,
+                textAlign: "center",
+              }}
+            >
+              Drag and drop photos here or use the file picker below.
+            </div>
             <input
               type="file"
               accept="image/*"
               multiple
-              onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
+              onChange={onFileInputChange}
               style={{ width: "100%", padding: "10px 12px", border: "1px solid #e8e4dc", borderRadius: 8, background: "#fff", boxSizing: "border-box", marginBottom: 12 }}
             />
             {selectedFiles.length > 0 && (
-              <div style={{ color: "#4a4a4a", fontSize: 13, marginBottom: 12 }}>
-                {selectedFiles.length} file{selectedFiles.length === 1 ? "" : "s"} selected
-              </div>
+              <>
+                <div style={{ color: "#4a4a4a", fontSize: 13, marginBottom: 10 }}>
+                  {selectedFiles.length} file{selectedFiles.length === 1 ? "" : "s"} selected
+                </div>
+                <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+                  {selectedFiles.map((file) => {
+                    const fileKey = `${file.name}-${file.size}-${file.lastModified}`;
+                    const progress = uploadProgress[fileKey];
+                    const hasProgress = typeof progress === "number";
+                    const isFailed = progress === -1;
+                    const width = isFailed ? "100%" : `${Math.max(0, progress || 0)}%`;
+
+                    return (
+                      <div key={fileKey} style={{ border: "1px solid #ebe7df", borderRadius: 8, padding: "8px 10px", background: "#fff" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: hasProgress ? 6 : 0 }}>
+                          <span style={{ color: "#4a4a4a", fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</span>
+                          <span style={{ color: isFailed ? "#9b1c1c" : "#6a6257", fontSize: 11, fontWeight: 600 }}>
+                            {isFailed ? "Failed" : hasProgress ? `${progress}%` : "Queued"}
+                          </span>
+                        </div>
+                        {hasProgress && (
+                          <div style={{ height: 6, borderRadius: 999, background: "#eee9df", overflow: "hidden" }}>
+                            <div
+                              style={{
+                                height: "100%",
+                                width,
+                                borderRadius: 999,
+                                background: isFailed ? "#c14b4b" : "linear-gradient(90deg, #1a6636 0%, #2f855a 100%)",
+                                transition: "width 160ms ease",
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
             <button
               type="button"

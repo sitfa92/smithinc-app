@@ -61,8 +61,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Invalid file type. Allowed: JPEG, PNG, GIF, WebP" });
   }
 
-  // Sanitize folder to prevent path traversal — only alphanumeric, dashes, underscores
-  const safeFolder = String(rawFolder).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 64) || "models";
+  // Sanitize folder while allowing nested paths like digitals/<model-id>
+  const safeFolder = String(rawFolder)
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment && segment !== "." && segment !== "..")
+    .map((segment) => segment.replace(/[^a-zA-Z0-9_-]/g, ""))
+    .filter(Boolean)
+    .slice(0, 4)
+    .join("/") || "models";
 
   // Derive extension from content type to avoid extension spoofing
   const MIME_TO_EXT = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp" };
