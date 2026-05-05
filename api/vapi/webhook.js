@@ -9,10 +9,12 @@ const supabase = createClient(
 const ZAPIER_WEBHOOK_URL = String(process.env.ZAPIER_WEBHOOK_URL || "").trim();
 const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
 const ALERT_FROM_EMAIL = String(process.env.ALERT_FROM_EMAIL || "onboarding@meet-serenity.online").trim();
+const REQUIRED_ADMIN_EMAILS = ["sitfa92@gmail.com", "marthajohn223355@gmail.com"];
 const ADMIN_NOTIFICATION_EMAILS = String(
-  process.env.ADMIN_NOTIFICATION_EMAILS || "sitfa92@gmail.com,marthajohn223355@gmail.com"
+  process.env.ADMIN_NOTIFICATION_EMAILS || ""
 )
   .split(",")
+  .concat(REQUIRED_ADMIN_EMAILS)
   .map((value) => String(value || "").trim().toLowerCase())
   .filter((value, idx, arr) => /.+@.+\..+/.test(value) && arr.indexOf(value) === idx);
 
