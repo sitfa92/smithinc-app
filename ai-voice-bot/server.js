@@ -162,9 +162,32 @@ function normalizeLang(raw) {
   return "";
 }
 
-function detectCallLanguage({ queryLang, speechLanguage, text }) {
+function normalizeCountry(raw) {
+  return String(raw || "").trim().toUpperCase();
+}
+
+function isIvoryCoastCaller({ fromCountry, callerCountry, fromNumber }) {
+  const c1 = normalizeCountry(fromCountry);
+  const c2 = normalizeCountry(callerCountry);
+  if (c1 === "CI" || c1 === "CIV" || c2 === "CI" || c2 === "CIV") return true;
+  const num = String(fromNumber || "").trim();
+  return /^\+?225/.test(num);
+}
+
+function detectCallLanguage({ queryLang, speechLanguage, text, fromCountry, callerCountry, fromNumber, acceptLanguage }) {
+  // Business rule: all Ivory Coast callers should be handled in French.
+  if (isIvoryCoastCaller({ fromCountry, callerCountry, fromNumber })) return "fr";
+
   const explicit = normalizeLang(queryLang) || normalizeLang(speechLanguage);
   if (explicit) return explicit;
+
+  const browserLang = String(acceptLanguage || "")
+    .split(",")
+    .map((part) => part.split(";")[0].trim())
+    .find(Boolean);
+  const browserDetected = normalizeLang(browserLang);
+  if (browserDetected) return browserDetected;
+
   return looksFrench(text) ? "fr" : "en";
 }
 
@@ -245,8 +268,13 @@ app.post("/voice", (req, res) => {
     );
     return;
   }
-  const forcedLang = normalizeLang(req.query?.lang);
-  const lang = forcedLang || "en";
+  const lang = detectCallLanguage({
+    queryLang: req.query?.lang,
+    fromCountry: req.body?.FromCountry,
+    callerCountry: req.body?.CallerCountry,
+    fromNumber: req.body?.From,
+    acceptLanguage: req.headers?.["accept-language"],
+  });
   res.type("text/xml").status(200).send(twimlSayAndListen({ first: true, lang }));
 });
 
@@ -268,6 +296,10 @@ app.post("/gather", async (req, res) => {
     queryLang: req.query?.lang,
     speechLanguage: req.body?.SpeechLanguage,
     text: said,
+    fromCountry: req.body?.FromCountry,
+    callerCountry: req.body?.CallerCountry,
+    fromNumber: req.body?.From,
+    acceptLanguage: req.headers?.["accept-language"],
   });
 
   if (mode === "callback_collect") {
