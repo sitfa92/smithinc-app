@@ -72,6 +72,16 @@ export default function Partners() {
     }
   };
 
+  const getAuthHeaders = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session?.access_token || ""}`,
+    };
+  };
+
   const uploadAvatar = async (clientId, file) => {
     if (!file || !clientId || String(clientId).startsWith("booking-")) return;
     setUploadingId(String(clientId));
@@ -270,14 +280,12 @@ alter table public.bookings disable row level security;`;
 
     try {
       setError("");
-      const { data, error } = await supabase
-        .from("clients")
-        .select("id, name, email, project, service_type, status, invoice_status, invoice_paid, contract_signed, client_value, source, avatar_url, created_at")
-        .order("created_at", { ascending: false })
-        .limit(500);
+      const headers = await getAuthHeaders();
+      const resp = await fetch("/api/clients/list", { headers });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(json.error || "Failed to load clients");
 
-      if (error) throw error;
-      let nextClients = (data || [])
+      let nextClients = (json.clients || [])
         .map(normalizeClient)
         .filter((item) => (isBrandAmbassadorView ? isAmbassadorClient(item) : !isAmbassadorClient(item)));
 

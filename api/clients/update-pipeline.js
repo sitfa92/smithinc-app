@@ -1,38 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
+import { requireBusinessAccess } from "../_business-access";
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
-const ADMIN_EMAILS = new Set(["sitfa92@gmail.com", "chizzyboi72@gmail.com", "marthajohn223355@gmail.com"]);
-const normalizeEmail = (v) => (v || "").trim().toLowerCase();
-
 const admin = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
-
-async function requireBusinessAccess(req, res) {
-  const authHeader = req.headers.authorization || "";
-  if (!authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Authentication required" });
-    return false;
-  }
-
-  const token = authHeader.slice(7).trim();
-  try {
-    const {
-      data: { user },
-      error,
-    } = await admin.auth.getUser(token);
-
-    if (error || !user?.email || !ADMIN_EMAILS.has(normalizeEmail(user.email))) {
-      res.status(403).json({ error: "Forbidden" });
-      return false;
-    }
-  } catch (_err) {
-    res.status(401).json({ error: "Authentication failed" });
-    return false;
-  }
-
-  return true;
-}
 
 const ALLOWED_FIELDS = new Set([
   "pipeline_stage",
@@ -52,7 +24,7 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: "Missing Supabase server environment variables" });
   }
 
-  if (!(await requireBusinessAccess(req, res))) return;
+  if (!(await requireBusinessAccess({ req, res, admin }))) return;
 
   const { clientId, partnerId, updates } = req.body || {};
   const recordId = partnerId || clientId;

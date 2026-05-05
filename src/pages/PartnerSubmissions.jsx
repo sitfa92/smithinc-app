@@ -92,13 +92,12 @@ alter table public.partners add column if not exists last_updated timestamptz de
 alter table public.partners disable row level security;`;
 
   const loadAmbassadorClientRows = React.useCallback(async () => {
-    const { data: ambassadorClients, error: ambassadorClientsError } = await supabase
-      .from("clients")
-      .select("id, name, email, project, service_type, source, status, internal_notes, created_at")
-      .order("created_at", { ascending: false })
-      .limit(500);
+    const headers = await getAuthHeaders();
+    const resp = await fetch("/api/clients/list", { headers });
+    const json = await resp.json().catch(() => ({}));
+    if (!resp.ok) return [];
 
-    if (ambassadorClientsError) return [];
+    const ambassadorClients = json.clients || [];
 
     return (ambassadorClients || [])
       .filter((item) => isAmbassadorSubmission(item))
