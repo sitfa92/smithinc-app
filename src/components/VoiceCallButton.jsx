@@ -4,6 +4,8 @@ const VAPI_PUBLIC_KEY =
   import.meta.env.VITE_VAPI_PUBLIC_KEY || "33655707-5712-4b65-9d77-ffe3681f76e0";
 const VAPI_ASSISTANT_ID =
   import.meta.env.VITE_VAPI_ASSISTANT_ID || "806e0bca-a295-4eee-8a20-1e99639808a8";
+const VAPI_ASSISTANT_ID_FR =
+  import.meta.env.VITE_VAPI_ASSISTANT_ID_FR || VAPI_ASSISTANT_ID;
 
 const STATUS = { idle: "idle", connecting: "connecting", active: "active", error: "error" };
 
@@ -161,6 +163,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
       // 2. Get the preloaded Vapi constructor (already loading since page load)
       const VapiCtor = await getVapiCtorPromise();
       const { preferredLanguage, countryHint } = await detectPreferredLanguage();
+      const assistantId = preferredLanguage === "fr" ? VAPI_ASSISTANT_ID_FR : VAPI_ASSISTANT_ID;
 
       // 3. Create instance and set up listeners BEFORE starting the call
       const vapi = new VapiCtor(VAPI_PUBLIC_KEY);
@@ -199,7 +202,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
       });
 
       // 4. Start the call
-      await vapi.start(VAPI_ASSISTANT_ID, {
+      await vapi.start(assistantId, {
         firstMessage:
           preferredLanguage === "fr"
             ? "Bonjour, ici Serenity avec SmithInc. Comment puis-je vous aider aujourd'hui ?"
@@ -209,6 +212,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
           viewer_country: countryHint || "unknown",
         },
         metadata: {
+          assistant_variant: preferredLanguage === "fr" ? "french" : "default",
           preferred_language: preferredLanguage,
           viewer_country: countryHint || "unknown",
           ...(modelName ? { model_name: modelName } : {}),
