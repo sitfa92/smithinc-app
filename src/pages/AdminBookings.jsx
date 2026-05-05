@@ -74,6 +74,30 @@ export default function AdminBookings() {
       if (supabaseError) throw supabaseError;
 
       if (newStatus === "confirmed") {
+        const { error: scheduleTaskError } = await supabase
+          .from("ops_tasks")
+          .upsert(
+            {
+              task_key: `booking-schedule-${booking.id}`,
+              title: `Schedule consultation: ${booking.name || "Unknown"}`,
+              description: "Send consultation link and lock in the calendar schedule for this confirmed booking.",
+              role: "va",
+              assigned_email: "marthajohn223355@gmail.com",
+              source_type: "booking_schedule",
+              source_id: String(booking.id),
+              status: "pending",
+              due_at: booking.preferred_date || new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "task_key" }
+          );
+        if (scheduleTaskError) {
+          const msg = String(scheduleTaskError.message || "").toLowerCase();
+          if (!(msg.includes("does not exist") || msg.includes("relation") || msg.includes("permission") || msg.includes("policy") || msg.includes("rls"))) {
+            throw scheduleTaskError;
+          }
+        }
+
         sendBookingConfirmedEmail(booking);
         sendZapierEvent("booking.confirmed", {
           id: booking.id,

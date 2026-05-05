@@ -11,6 +11,7 @@ const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
 const ALERT_FROM_EMAIL = String(process.env.ALERT_FROM_EMAIL || "onboarding@meet-serenity.online").trim();
 const CALENDLY_US_LINK = String(process.env.CALENDLY_US_LINK || "https://calendly.com/").trim();
 const CALENDLY_INTL_LINK = String(process.env.CALENDLY_INTL_LINK || "https://calendly.com/").trim();
+const MJ_VA_EMAIL = "marthajohn223355@gmail.com";
 const REQUIRED_ADMIN_EMAILS = ["sitfa92@gmail.com", "marthajohn223355@gmail.com"];
 const ADMIN_NOTIFICATION_EMAILS = String(
   process.env.ADMIN_NOTIFICATION_EMAILS || ""
@@ -281,7 +282,9 @@ async function createBookingLeadFromCall({
   const now = new Date().toISOString();
   const fallbackId = Date.now();
 
-  const { error } = await supabase.from("bookings").insert({
+  const { data, error } = await supabase
+    .from("bookings")
+    .insert({
     name,
     email: email || `voice-lead-${fallbackId}@noemail.local`,
     company: "Voice AI Intake",
@@ -298,14 +301,46 @@ async function createBookingLeadFromCall({
     ].join("\n"),
     status: "pending",
     created_at: now,
-  });
+    })
+    .select("id")
+    .single();
 
   if (error) {
     console.error("Supabase booking insert error:", error.message);
     return { created: false, name, email };
   }
 
-  return { created: true, name, email };
+  return { created: true, name, email, bookingId: data?.id || "", createdAt: now };
+}
+
+async function createMjVoiceCallTask({ bookingId = "", callerPhone = "", callId = "", createdAt = "" }) {
+  if (!bookingId) return;
+
+  const payload = {
+    task_key: `voice-call-followup-${bookingId}`,
+    title: "Voice bot call follow-up",
+    description: [
+      "Review voice consultation lead, confirm details, and send scheduling follow-up.",
+      `Caller: ${callerPhone || "unknown"}`,
+      `Call ID: ${callId || "unknown"}`,
+    ].join("\n"),
+    role: "va",
+    assigned_email: MJ_VA_EMAIL,
+    source_type: "voice_call",
+    source_id: String(bookingId),
+    status: "pending",
+    due_at: createdAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabase.from("ops_tasks").upsert(payload, { onConflict: "task_key" });
+  if (!error) return;
+
+  const errText = String(error.message || "").toLowerCase();
+  if (errText.includes("does not exist") || errText.includes("relation") || errText.includes("permission") || errText.includes("policy") || errText.includes("rls")) {
+    return;
+  }
+  console.error("MJ voice task upsert error:", error.message || error);
 }
 
 function redactPII(text) {
@@ -576,6 +611,15 @@ export default async function handler(req, res) {
     if (!callerEmailResult.ok && !callerEmailResult.skipped) {
       console.error("Caller booking confirmation email failed:", callerEmailResult.error || "unknown");
     }
+  }
+
+  if (leadResult.created && leadResult.bookingId) {
+    await createMjVoiceCallTask({
+      bookingId: leadResult.bookingId,
+      callerPhone,
+      callId,
+      createdAt: leadResult.createdAt,
+    });
   }
 
   return res.status(200).json({ ok: true });

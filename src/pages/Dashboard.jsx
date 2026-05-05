@@ -160,13 +160,48 @@ alter table public.alerts disable row level security;`;
     bookings
       .filter((b) => (b.status || "pending") === "pending")
       .forEach((booking) => {
+        const isVoiceLead = String(booking.service_type || "").toLowerCase().includes("voice ai lead");
         tasks.push({
           task_key: `booking-confirm-${booking.id}`,
           title: `Confirm booking request: ${booking.name || "Unknown"}`,
-          description: "New booking request requires follow-up and confirmation.",
+          description: isVoiceLead
+            ? "New voice bot booking lead requires follow-up and confirmation."
+            : "New booking request requires follow-up and confirmation.",
           role: "va",
           assigned_email: MJ_VA_EMAIL || assigneeByRole.va || null,
-          source_type: "booking",
+          source_type: isVoiceLead ? "voice_call" : "booking",
+          source_id: String(booking.id),
+          status: "pending",
+          due_at: booking.preferred_date || booking.created_at || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+
+        if (isVoiceLead) {
+          tasks.push({
+            task_key: `voice-call-followup-${booking.id}`,
+            title: `Voice bot call follow-up: ${booking.name || "Unknown"}`,
+            description: "Review voice call details and send consultation scheduling follow-up.",
+            role: "va",
+            assigned_email: MJ_VA_EMAIL || assigneeByRole.va || null,
+            source_type: "voice_call",
+            source_id: String(booking.id),
+            status: "pending",
+            due_at: booking.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    bookings
+      .filter((b) => (b.status || "") === "confirmed")
+      .forEach((booking) => {
+        tasks.push({
+          task_key: `booking-schedule-${booking.id}`,
+          title: `Schedule consultation: ${booking.name || "Unknown"}`,
+          description: "Send consultation link and lock in the calendar schedule for this confirmed booking.",
+          role: "va",
+          assigned_email: MJ_VA_EMAIL || assigneeByRole.va || null,
+          source_type: "booking_schedule",
           source_id: String(booking.id),
           status: "pending",
           due_at: booking.preferred_date || booking.created_at || new Date().toISOString(),
@@ -250,7 +285,7 @@ alter table public.alerts disable row level security;`;
 
       const [modelsRes, bookingsRes, clientsRes] = await Promise.all([
         supabase.from("models").select("id, name, email, status, submitted_at, created_at").order("submitted_at", { ascending: false }),
-        supabase.from("bookings").select("id, name, status, preferred_date, created_at").order("created_at", { ascending: false }),
+        supabase.from("bookings").select("id, name, status, service_type, preferred_date, message, created_at").order("created_at", { ascending: false }),
         supabase.from("clients").select("id, name, status, source, created_at").order("created_at", { ascending: false }),
       ]);
 

@@ -50,12 +50,38 @@ export default function PublicBooking() {
       ].filter(Boolean).join(" | ");
       const fullMessage = [form.message.trim(), referralNote].filter(Boolean).join("\n");
 
-      const { error: supabaseError } = await supabase.from("bookings").insert([{
+      const { data: insertedBooking, error: supabaseError } = await supabase.from("bookings").insert([{
         name:form.name.trim(), email:form.email.trim(), company:form.company.trim(),
         service_type:form.service_type, preferred_date:form.preferred_date,
         message:fullMessage, status:"pending", created_at:new Date().toISOString(),
-      }]);
+      }]).select("id, created_at").single();
       if (supabaseError) throw supabaseError;
+
+      if (insertedBooking?.id) {
+        const { error: taskError } = await supabase
+          .from("ops_tasks")
+          .upsert(
+            {
+              task_key: `booking-confirm-${insertedBooking.id}`,
+              title: `Confirm booking request: ${form.name.trim()}`,
+              description: "New booking request requires follow-up and confirmation.",
+              role: "va",
+              assigned_email: "marthajohn223355@gmail.com",
+              source_type: "booking",
+              source_id: String(insertedBooking.id),
+              status: "pending",
+              due_at: form.preferred_date || insertedBooking.created_at || new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "task_key" }
+          );
+        if (taskError) {
+          const msg = String(taskError.message || "").toLowerCase();
+          if (!(msg.includes("does not exist") || msg.includes("relation") || msg.includes("permission") || msg.includes("policy") || msg.includes("rls"))) {
+            throw taskError;
+          }
+        }
+      }
 
       sendBookingConfirmationEmail({ name:form.name.trim(), email:form.email.trim(), company:form.company.trim(), service_type:form.service_type, preferred_date:form.preferred_date });
       createInAppAlerts([
