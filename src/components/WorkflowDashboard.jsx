@@ -97,6 +97,13 @@ export default function WorkflowDashboard() {
           min-height: 100vh;
         }
 
+        @media (max-width: 480px) {
+          .workflow-dashboard { padding: 16px 12px; }
+          .stats-grid { gap: 10px; margin-bottom: 20px; }
+          .stat-card { padding: 14px 12px; }
+          .stat-card .value { font-size: 24px; }
+        }
+
         .dashboard-header {
           margin-bottom: 32px;
         }
@@ -146,7 +153,11 @@ export default function WorkflowDashboard() {
           gap: 8px;
           margin-bottom: 24px;
           border-bottom: 1px solid #e5e7eb;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
         }
+        .tabs::-webkit-scrollbar { display: none; }
 
         .tab-button {
           padding: 12px 16px;
@@ -158,6 +169,8 @@ export default function WorkflowDashboard() {
           cursor: pointer;
           border-bottom: 2px solid transparent;
           transition: all 0.2s;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
 
         .tab-button.active {
@@ -173,11 +186,13 @@ export default function WorkflowDashboard() {
           background: white;
           border-radius: 8px;
           border: 1px solid #e5e7eb;
-          overflow: hidden;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
         }
 
         table {
           width: 100%;
+          min-width: 480px;
           border-collapse: collapse;
           font-size: 14px;
         }

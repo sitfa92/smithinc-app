@@ -929,7 +929,7 @@ alter table public.alerts disable row level security;`;
         <div style={card}>
           <h3 style={cardH}>Casting Calls</h3>
           {eventsTableReady && (
-            <form onSubmit={addCalendarEvent} style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
+            <form onSubmit={addCalendarEvent} style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))", gap:8, marginBottom:16 }}>
               <input placeholder="Casting call title" value={eventForm.title} onChange={(e)=>setEventForm(p=>({...p,title:e.target.value}))} style={{...inp2,gridColumn:"1/-1"}} />
               <input type="datetime-local" value={eventForm.event_at} onChange={(e)=>setEventForm(p=>({...p,event_at:e.target.value}))} style={inp2} />
               <select value={eventForm.event_type} onChange={(e)=>setEventForm(p=>({...p,event_type:e.target.value}))} style={{ ...inp2, appearance:"none" }}>

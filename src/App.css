@@ -620,3 +620,52 @@
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 .lx-success-pop { animation: lx-pop 0.5s var(--ease) both; }
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE RESPONSIVENESS IMPROVEMENTS
+   ═══════════════════════════════════════════════════════════ */
+
+/* Scrollable table wrapper — prevents horizontal overflow */
+.lx-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-sm);
+}
+
+/* Prevent iOS from zooming in on focused inputs (requires font-size >= 16px) */
+@media (max-width: 640px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  .lx-input, .lx-select, .lx-textarea {
+    font-size: 16px !important;
+    padding: 11px 12px;
+  }
+  /* Improve touch target size for buttons */
+  .lx-btn {
+    min-height: 44px;
+    padding: 10px 18px;
+  }
+  .lx-btn-sm { min-height: 36px; padding: 7px 12px; }
+  /* Banner padding */
+  .lx-banner { padding: 14px 16px; }
+  /* Reduce page-sub margin on mobile */
+  .lx-page-sub { margin-bottom: 20px; }
+  /* Stat value scaling */
+  .lx-stat-value { font-size: 28px; }
+  .lx-stat-card { padding: 16px 14px; }
+}
+
+@media (max-width: 480px) {
+  /* Card padding tightening */
+  .lx-card { padding: 18px 14px; }
+  .lx-card-compact { padding: 14px 12px; }
+  /* Stat grid tighter on very small screens */
+  .lx-stat-grid { gap: 10px; margin-bottom: 20px; }
+  /* Section titles */
+  .lx-section-title { font-size: 17px; margin-bottom: 10px; }
+  /* Divider spacing */
+  .lx-divider { margin: 18px 0; }
+  /* Page padding */
+  .lx-page { padding: 16px 12px; }
+}

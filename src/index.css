@@ -72,7 +72,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
   min-height: 100svh;
+  overflow-x: hidden;
 }
+
+html { overflow-x: hidden; }
 
 #root {
   width: 100%;
