@@ -1,7 +1,7 @@
 import React from "react";
 
 const VAPI_PUBLIC_KEY =
-  import.meta.env.VITE_VAPI_PUBLIC_KEY || "5bce534b-e6b2-479c-b6bb-02f2b94298e3";
+  import.meta.env.VITE_VAPI_PUBLIC_KEY || "33655707-5712-4b65-9d77-ffe3681f76e0";
 const VAPI_ASSISTANT_ID =
   import.meta.env.VITE_VAPI_ASSISTANT_ID || "806e0bca-a295-4eee-8a20-1e99639808a8";
 
