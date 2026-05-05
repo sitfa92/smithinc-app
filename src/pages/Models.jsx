@@ -38,9 +38,14 @@ export default function Models() {
   const toggleDigitals = async (model) => {
     const modelId = model?.id;
     if (!modelId) return;
+    const current = expandedDigitals[modelId];
+    if (current?.open) {
+      setExpandedDigitals(prev => ({ ...prev, [modelId]: { ...prev[modelId], open: false } }));
+      return;
+    }
+
     setExpandedDigitals(prev => {
       const cur = prev[modelId];
-      if (cur?.open) return { ...prev, [modelId]: { ...cur, open: false } };
       return { ...prev, [modelId]: { open: true, loading: true, files: cur?.files || [] } };
     });
     try {

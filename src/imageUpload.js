@@ -62,23 +62,35 @@ const pushUnique = (arr, value) => {
   if (!arr.includes(value)) arr.push(value);
 };
 
+const pushWithLegacyFolderVariants = (arr, value) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return;
+  pushUnique(arr, normalized);
+
+  // Legacy compatibility: older uploads flattened nested folders (e.g., digitals/123 -> digitals123).
+  const flattened = normalized.replace(/[^a-zA-Z0-9_-]/g, "");
+  if (flattened && flattened !== normalized) {
+    pushUnique(arr, flattened);
+  }
+};
+
 const buildDigitalsFolderCandidates = ({ id = "", email = "", instagram = "", folder = "" } = {}) => {
   const normalizedId = String(id || "").trim();
   const normalizedEmail = String(email || "").trim().toLowerCase();
   const normalizedHandle = String(instagram || "").replace(/^@+/, "").trim().toLowerCase();
   const folders = [];
 
-  pushUnique(folders, folder ? String(folder).trim() : "");
-  pushUnique(folders, normalizedId ? `digitals/${normalizedId}` : "");
-  pushUnique(folders, normalizedId ? `digitals/${normalizedId.toLowerCase()}` : "");
+  pushWithLegacyFolderVariants(folders, folder ? String(folder).trim() : "");
+  pushWithLegacyFolderVariants(folders, normalizedId ? `digitals/${normalizedId}` : "");
+  pushWithLegacyFolderVariants(folders, normalizedId ? `digitals/${normalizedId.toLowerCase()}` : "");
 
   if (normalizedEmail) {
-    pushUnique(folders, `digitals/${normalizedEmail}`);
+    pushWithLegacyFolderVariants(folders, `digitals/${normalizedEmail}`);
     const localPart = normalizedEmail.split("@")[0];
-    pushUnique(folders, localPart ? `digitals/${localPart}` : "");
+    pushWithLegacyFolderVariants(folders, localPart ? `digitals/${localPart}` : "");
   }
 
-  pushUnique(folders, normalizedHandle ? `digitals/${normalizedHandle}` : "");
+  pushWithLegacyFolderVariants(folders, normalizedHandle ? `digitals/${normalizedHandle}` : "");
 
   return folders.filter(Boolean);
 };
@@ -89,17 +101,17 @@ const buildPortfolioFolderCandidates = ({ id = "", email = "", instagram = "", f
   const normalizedHandle = String(instagram || "").replace(/^@+/, "").trim().toLowerCase();
   const folders = [];
 
-  pushUnique(folders, folder ? String(folder).trim() : "");
-  pushUnique(folders, normalizedId ? `portfolio/${normalizedId}` : "");
-  pushUnique(folders, normalizedId ? `portfolio/${normalizedId.toLowerCase()}` : "");
+  pushWithLegacyFolderVariants(folders, folder ? String(folder).trim() : "");
+  pushWithLegacyFolderVariants(folders, normalizedId ? `portfolio/${normalizedId}` : "");
+  pushWithLegacyFolderVariants(folders, normalizedId ? `portfolio/${normalizedId.toLowerCase()}` : "");
 
   if (normalizedEmail) {
-    pushUnique(folders, `portfolio/${normalizedEmail}`);
+    pushWithLegacyFolderVariants(folders, `portfolio/${normalizedEmail}`);
     const localPart = normalizedEmail.split("@")[0];
-    pushUnique(folders, localPart ? `portfolio/${localPart}` : "");
+    pushWithLegacyFolderVariants(folders, localPart ? `portfolio/${localPart}` : "");
   }
 
-  pushUnique(folders, normalizedHandle ? `portfolio/${normalizedHandle}` : "");
+  pushWithLegacyFolderVariants(folders, normalizedHandle ? `portfolio/${normalizedHandle}` : "");
 
   return folders.filter(Boolean);
 };
