@@ -7,48 +7,59 @@ const VAPI_ASSISTANT_ID =
 
 const STATUS = { idle: "idle", connecting: "connecting", active: "active", error: "error" };
 
-// Extract a human-readable message from any error shape Vapi SDK emits
+// ── Singleton module loader ────────────────────────────────
+// Starts loading the Vapi SDK immediately when this file is first imported,
+// so it's ready (or has already failed cleanly) before the user ever clicks.
+let _vapiCtorPromise = null;
+function getVapiCtorPromise() {
+  if (!_vapiCtorPromise) {
+    _vapiCtorPromise = import("@vapi-ai/web").then((mod) => {
+      let Ctor = mod?.default ?? mod;
+      if (typeof Ctor !== "function") Ctor = Ctor?.default;
+      if (typeof Ctor !== "function") throw new Error("Voice SDK could not be loaded. Please refresh and try again.");
+      return Ctor;
+    }).catch((err) => {
+      // Reset so a retry can try again
+      _vapiCtorPromise = null;
+      throw err;
+    });
+  }
+  return _vapiCtorPromise;
+}
+
+// Kick off the load now, in the background, so it's ready on first click
+getVapiCtorPromise().catch(() => { /* suppress noise — will surface on click */ });
+
+// ── Error message extractor ───────────────────────────────
 function extractErrMsg(err) {
   if (!err) return null;
-  // Standard JS Error
   if (typeof err === "string") return err;
   if (err.message) return err.message;
-  // Vapi SDK wraps errors as { error: { message } } or { errorMsg }
   if (err.error?.message) return err.error.message;
   if (err.errorMsg) return err.errorMsg;
   if (err.error && typeof err.error === "string") return err.error;
-  // Serialize if nothing else works
   try { return JSON.stringify(err); } catch { return "Unknown error"; }
 }
 
-// Dynamically load Vapi at call-time to avoid CJS/ESM interop issues in production build
-async function loadVapi(publicKey) {
-  const mod = await import("@vapi-ai/web");
-  let Ctor = mod?.default ?? mod;
-  if (typeof Ctor !== "function") Ctor = Ctor?.default;
-  if (typeof Ctor !== "function") throw new Error("Voice SDK could not be loaded. Please refresh and try again.");
-  return new Ctor(publicKey);
-}
-
-// Request mic permission explicitly before starting — surfaces a clear error instead of Vapi swallowing it
+// ── Mic permission check ──────────────────────────────────
 async function requestMicPermission() {
   if (!navigator?.mediaDevices?.getUserMedia) {
-    throw new Error("Microphone access is not supported in this browser.");
+    throw new Error("Microphone access is not supported in this browser. Try Chrome or Safari.");
   }
   let stream;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (err) {
     if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-      throw new Error("Microphone permission denied. Please allow microphone access in your browser settings and try again.");
+      throw new Error("Microphone permission denied. Please allow microphone access in your browser settings, then try again.");
     }
     if (err.name === "NotFoundError") {
       throw new Error("No microphone found. Please connect a microphone and try again.");
     }
     throw new Error(err.message || "Could not access microphone. Please check your browser settings.");
   }
-  // Release the stream immediately — Vapi will open its own
-  stream.getTracks().forEach((t) => t.stop());
+  // Release immediately — Vapi will open its own stream
+  try { stream.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
 }
 
 // metadata: arbitrary object merged into the VAPI call metadata
@@ -75,10 +86,14 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
     setErrorMsg("");
 
     try {
-      // Check mic permission first — surfaces a clear error before Vapi tries (and fails silently)
+      // 1. Check mic permission first
       await requestMicPermission();
 
-      const vapi = await loadVapi(VAPI_PUBLIC_KEY);
+      // 2. Get the preloaded Vapi constructor (already loading since page load)
+      const VapiCtor = await getVapiCtorPromise();
+
+      // 3. Create instance and set up listeners BEFORE starting the call
+      const vapi = new VapiCtor(VAPI_PUBLIC_KEY);
       vapiRef.current = vapi;
 
       vapi.on("call-start", () => setStatus(STATUS.active));
@@ -93,9 +108,11 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
         setStatus(STATUS.error);
         setErrorMsg(msg);
         setIsMuted(false);
+        try { vapi.stop(); } catch { /* ignore */ }
         vapiRef.current = null;
       });
 
+      // 4. Start the call
       await vapi.start(VAPI_ASSISTANT_ID, {
         metadata: {
           ...(modelName ? { model_name: modelName } : {}),
@@ -105,10 +122,10 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
     } catch (err) {
       console.error("VAPI startCall error:", err);
       setStatus(STATUS.error);
-      setErrorMsg(extractErrMsg(err) || "Could not start call. Check microphone permissions.");
+      setErrorMsg(extractErrMsg(err) || "Could not start call. Please check your microphone and try again.");
       vapiRef.current = null;
     }
-  }, [modelName]);
+  }, [modelName, metadata]);
 
   const stopCall = React.useCallback(() => {
     if (vapiRef.current) {

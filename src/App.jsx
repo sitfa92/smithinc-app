@@ -4,6 +4,42 @@ import { AuthProvider } from "./auth";
 import { useAuth } from "./auth";
 import Nav from "./components/Nav";
 import RoleRoute from "./components/RoleRoute";
+
+// ── Error Boundary — prevents entire app crash from showing a blank screen ──
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(err, info) {
+    console.error("App Error Boundary caught:", err, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, textAlign: "center", fontFamily: "'Inter', sans-serif", color: "#4a4a4a" }}>
+          <div style={{ fontSize: 32, marginBottom: 16 }}>✦</div>
+          <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, color: "#111", marginBottom: 8 }}>
+            Something went wrong
+          </h2>
+          <p style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>
+            {this.state.error?.message || "An unexpected error occurred."}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ padding: "10px 24px", background: "#111", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, cursor: "pointer", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: 600 }}
+          >
+            Reload page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 const WorkflowDashboard = React.lazy(() => import("./components/WorkflowDashboard"));
 
 const Login = React.lazy(() => import("./pages/Login"));
@@ -56,8 +92,9 @@ const ProtectedApp = () => {
   return (
     <>
       <Nav />
-      <React.Suspense fallback={<PageFallback />}>
-        <Routes>
+      <AppErrorBoundary>
+        <React.Suspense fallback={<PageFallback />}>
+          <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route
             path="/models"
@@ -171,6 +208,7 @@ const ProtectedApp = () => {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </React.Suspense>
+      </AppErrorBoundary>
     </>
   );
 };
@@ -179,23 +217,25 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <React.Suspense fallback={<PageFallback />}>
-          <Routes>
-            <Route path="/" element={<ModelDevelopment />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/model-development" element={<ModelDevelopment />} />
-            <Route path="/model-signup" element={<ModelSignup />} />
-            <Route path="/book" element={<PublicBooking />} />
-            <Route path="/partner-submit" element={<PublicPartnerSubmission />} />
-            <Route path="/brand-ambassador-submit" element={<PublicBrandAmbassadorSubmission />} />
-            <Route path="/talent/:id" element={<Portfolio />} />
-            <Route path="/contact-team" element={<ContactTeam />} />
-            <Route path="/digitals/:id" element={<DigitalsUpload />} />
-            <Route path="/event-response" element={<EventResponse />} />
-            <Route path="/*" element={<ProtectedApp />} />
-          </Routes>
-        </React.Suspense>
+        <AppErrorBoundary>
+          <React.Suspense fallback={<PageFallback />}>
+            <Routes>
+              <Route path="/" element={<ModelDevelopment />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/model-development" element={<ModelDevelopment />} />
+              <Route path="/model-signup" element={<ModelSignup />} />
+              <Route path="/book" element={<PublicBooking />} />
+              <Route path="/partner-submit" element={<PublicPartnerSubmission />} />
+              <Route path="/brand-ambassador-submit" element={<PublicBrandAmbassadorSubmission />} />
+              <Route path="/talent/:id" element={<Portfolio />} />
+              <Route path="/contact-team" element={<ContactTeam />} />
+              <Route path="/digitals/:id" element={<DigitalsUpload />} />
+              <Route path="/event-response" element={<EventResponse />} />
+              <Route path="/*" element={<ProtectedApp />} />
+            </Routes>
+          </React.Suspense>
+        </AppErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
   );
