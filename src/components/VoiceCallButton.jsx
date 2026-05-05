@@ -5,7 +5,7 @@ const VAPI_PUBLIC_KEY =
 const VAPI_ASSISTANT_ID =
   import.meta.env.VITE_VAPI_ASSISTANT_ID || "806e0bca-a295-4eee-8a20-1e99639808a8";
 const VAPI_ASSISTANT_ID_FR =
-  import.meta.env.VITE_VAPI_ASSISTANT_ID_FR || VAPI_ASSISTANT_ID;
+  import.meta.env.VITE_VAPI_ASSISTANT_ID_FR || "081b0fca-36cf-4de2-b0cc-01c7e107fbb6";
 
 const STATUS = { idle: "idle", connecting: "connecting", active: "active", error: "error" };
 
