@@ -151,6 +151,38 @@ alter table public.bookings disable row level security;`;
     };
   };
 
+  const getClientAvatarSrc = React.useCallback((avatarUrl) => {
+    const raw = String(avatarUrl || "").trim();
+    if (!raw) return "";
+
+    // Convert signed Supabase URLs into public URL form so expired signatures do not break avatars.
+    if (/^https?:\/\//i.test(raw)) {
+      const signMarker = "/storage/v1/object/sign/";
+      const signIndex = raw.indexOf(signMarker);
+      if (signIndex >= 0) {
+        const signedPath = raw.slice(signIndex + signMarker.length).split("?")[0];
+        return `${raw.slice(0, signIndex)}/storage/v1/object/public/${signedPath}`;
+      }
+      return raw;
+    }
+
+    const cleanPath = raw.replace(/^\/+/, "");
+    if (!cleanPath) return "";
+
+    const bucketCandidates = ["model-images", "models", "images"];
+    if (cleanPath.includes("/")) {
+      const [firstSegment, ...rest] = cleanPath.split("/");
+      if (bucketCandidates.includes(firstSegment) && rest.length) {
+        const fromBucketPath = rest.join("/");
+        const { data } = supabase.storage.from(firstSegment).getPublicUrl(fromBucketPath);
+        return data?.publicUrl || "";
+      }
+    }
+
+    const { data } = supabase.storage.from("model-images").getPublicUrl(cleanPath);
+    return data?.publicUrl || "";
+  }, []);
+
   const buildClientsFromBookings = (rows = []) => {
     const seen = new Map();
 
@@ -445,94 +477,108 @@ alter table public.bookings disable row level security;`;
       {!loading && clients.map(client => {
         const initials = (client.name || "?").split(" ").map(w => w[0]).slice(0,2).join("").toUpperCase();
         const isUploading = uploadingId === String(client.id);
-        const canUpload = !String(client.id).startsWith("booking-");
+        const isBookingBackfill = String(client.id).startsWith("booking-");
+        const canUpload = !isBookingBackfill;
+        const avatarSrc = getClientAvatarSrc(client.avatar_url);
+        const moveDisabled = !!moveToModelsLoading[client.id] || isBookingBackfill;
+
         return (
-          <div key={client.id} style={{ border:`1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderLeft:isBrandAmbassadorView ? `4px solid ${accent}` : `1px solid ${C.smoke}`, borderRadius:12, padding:"16px 18px", marginBottom:12, background:isBrandAmbassadorView ? accentBg : C.white, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
-            <div style={{ display:"flex", alignItems:"flex-start", gap:14, flexWrap:"wrap" }}>
-              {/* Avatar */}
-              <div style={{ position:"relative", flexShrink:0 }}>
-                <div
-                  onClick={() => canUpload && avatarInputRef.current[client.id]?.click()}
-                  title={canUpload ? "Click to upload photo" : ""}
-                  style={{ width:64, height:64, borderRadius:"50%", overflow:"hidden", border:`2px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, background:isBrandAmbassadorView ? accentBg : "#f0ede8", display:"flex", alignItems:"center", justifyContent:"center", cursor:canUpload?"pointer":"default", position:"relative" }}
-                >
-                  {client.avatar_url
-                    ? <img src={client.avatar_url} alt={client.name} style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
-                    : <span style={{ fontSize:20, fontWeight:600, color:isBrandAmbassadorView ? accent : C.slate, fontFamily:"'Cormorant Garamond',Georgia,serif" }}>{initials}</span>
-                  }
-                  {isUploading && (
-                    <div style={{ position:"absolute", inset:0, background:"rgba(255,255,255,0.7)", display:"flex", alignItems:"center", justifyContent:"center", borderRadius:"50%" }}>
-                      <span style={{ fontSize:11, color:C.slate }}>…</span>
-                    </div>
+          <div key={client.id} style={{ background:C.white, border:`1px solid ${isBrandAmbassadorView ? accentMid : C.smoke}`, borderRadius:12, padding:"16px 18px", marginBottom:12, boxShadow:"0 1px 4px rgba(17,17,17,0.04)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+                <div style={{ position:"relative", flexShrink:0 }}>
+                  <div
+                    onClick={() => canUpload && avatarInputRef.current[client.id]?.click()}
+                    title={canUpload ? "Click to upload avatar" : ""}
+                    style={{ width:52, height:52, borderRadius:10, overflow:"hidden", border:`1px solid ${C.smoke}`, background:C.ivory, display:"flex", alignItems:"center", justifyContent:"center", cursor:canUpload ? "pointer" : "default", position:"relative" }}
+                  >
+                    {avatarSrc ? (
+                      <img src={avatarSrc} alt={client.name} loading="lazy" decoding="async" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+                    ) : (
+                      <span style={{ fontSize:20, color:C.dust, fontFamily:"'Cormorant Garamond',Georgia,serif" }}>{initials || "?"}</span>
+                    )}
+                    {isUploading && (
+                      <div style={{ position:"absolute", inset:0, background:"rgba(255,255,255,0.7)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        <span style={{ fontSize:11, color:C.slate }}>…</span>
+                      </div>
+                    )}
+                  </div>
+                  {canUpload && (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display:"none" }}
+                      ref={el => { avatarInputRef.current[client.id] = el; }}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(client.id, f); e.target.value = ""; }}
+                    />
                   )}
                 </div>
-                {canUpload && (
-                  <div style={{ position:"absolute", bottom:0, right:0, width:18, height:18, borderRadius:"50%", background:accent, display:"flex", alignItems:"center", justifyContent:"center", border:"2px solid #fff", cursor:"pointer", pointerEvents:"none" }}>
-                    <span style={{ fontSize:10, color:"#fff", lineHeight:1 }}>+</span>
-                  </div>
-                )}
-                {canUpload && (
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display:"none" }}
-                    ref={el => { avatarInputRef.current[client.id] = el; }}
-                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadAvatar(client.id, f); e.target.value = ""; }}
-                  />
-                )}
-              </div>
-              {/* Info */}
-              <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ margin:"0 0 3px", fontSize:15, fontWeight:600, color:C.ink }}>{client.name}</p>
-                <p style={{ margin:"0 0 2px", fontSize:13, color:C.dust }}>{client.service_type || client.project || "General"}</p>
-                {client.email && <p style={{ margin:"0 0 4px", fontSize:13, color:C.dust }}>{client.email}</p>}
-                {Number(client.client_value || 0) > 0 && <p style={{ margin:"0 0 2px", fontSize:13, color:C.slate }}>Value: ${Number(client.client_value).toLocaleString()}</p>}
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center", marginTop:6 }}>
-                  <span style={statusBadge(client.status)}>{client.status}</span>
-                  <span style={invoiceBadge(client.invoice_status)}>{client.invoice_status}</span>
-                  {client.contract_signed && <span style={{ ...statusBadge("active"), background:C.purpleBg, color:C.purple }}>Contract ✓</span>}
+
+                <div>
+                  <p style={{ margin:"0 0 4px", fontSize:15, fontWeight:600, color:C.ink }}>{client.name}</p>
+                  <p style={{ margin:"0 0 2px", fontSize:13, color:C.dust }}>{client.email || "No email"}</p>
+                  <p style={{ margin:"0 0 2px", fontSize:13, color:C.dust }}>{client.service_type || client.project || "General"}</p>
+                  <p style={{ margin:0, fontSize:12, color:C.dust }}>Created: {new Date(client.created_at).toLocaleString()}</p>
+                  {Number(client.client_value || 0) > 0 && <p style={{ margin:"4px 0 0", fontSize:13, color:C.slate }}>Value: ${Number(client.client_value).toLocaleString()}</p>}
                 </div>
-                {canUpload && (
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:8 }}>
-                    {isBrandAmbassadorView && (
-                      <button
-                        onClick={() => moveBackToModels(client)}
-                        disabled={!!moveToModelsLoading[client.id]}
-                        style={{
-                          padding: "4px 10px",
-                          background: movedToModels[client.id] ? C.okBg : "rgba(146,86,10,0.1)",
-                          color: movedToModels[client.id] ? C.ok : C.warn,
-                          border: `1px solid ${movedToModels[client.id] ? "rgba(26,102,54,0.25)" : "rgba(146,86,10,0.25)"}`,
-                          borderRadius: 7,
-                          fontSize: 11,
-                          fontWeight: 600,
-                          letterSpacing: "0.05em",
-                          textTransform: "uppercase",
-                          cursor: moveToModelsLoading[client.id] ? "not-allowed" : "pointer",
-                          fontFamily: "'Inter',sans-serif",
-                          opacity: moveToModelsLoading[client.id] ? 0.65 : 1,
-                        }}
-                      >
-                        {moveToModelsLoading[client.id] ? "Moving..." : movedToModels[client.id] ? "Moved" : "Move Back to Models"}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => navigator.clipboard.writeText(`${window.location.origin}/digitals/${client.id}`)}
-                      title="Copy photo upload link"
-                      style={{ padding:"4px 10px", background:C.okBg, color:C.ok, border:`1px solid rgba(26,102,54,0.2)`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
-                    >
-                      Copy Upload Link
-                    </button>
-                    <button
-                      onClick={() => window.open(`${window.location.origin}/digitals/${client.id}`, "_blank", "noopener,noreferrer")}
-                      title="Open photo upload portal"
-                      style={{ padding:"4px 10px", background:C.ink, color:C.white, border:`1px solid ${C.ink}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
-                    >
-                      Open Upload
-                    </button>
-                  </div>
-                )}
               </div>
+
+              <div style={{ display:"flex", gap:8, alignItems:"center", flexWrap:"wrap" }}>
+                {isBrandAmbassadorView && <span style={{ ...statusBadge("active"), background:accentBg, color:accent }}>Brand Ambassador</span>}
+                <span style={statusBadge(client.status)}>{client.status}</span>
+                <span style={invoiceBadge(client.invoice_status)}>{client.invoice_status}</span>
+                {client.contract_signed && <span style={{ ...statusBadge("active"), background:C.purpleBg, color:C.purple }}>Contract ✓</span>}
+              </div>
+            </div>
+
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop:10, paddingTop:10, borderTop:`1px solid ${C.smoke}` }}>
+              {canUpload && (
+                <button
+                  onClick={() => avatarInputRef.current[client.id]?.click()}
+                  style={{ padding:"4px 10px", background:C.ivory, color:C.slate, border:`1px solid ${C.smoke}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+                >
+                  Upload Avatar
+                </button>
+              )}
+
+              {isBrandAmbassadorView && (
+                <button
+                  onClick={() => !moveDisabled && moveBackToModels(client)}
+                  disabled={moveDisabled}
+                  title={isBookingBackfill ? "Unavailable for fallback booking rows" : "Move this ambassador back into Models"}
+                  style={{
+                    padding: "4px 10px",
+                    background: movedToModels[client.id] ? C.okBg : "rgba(146,86,10,0.1)",
+                    color: movedToModels[client.id] ? C.ok : C.warn,
+                    border: `1px solid ${movedToModels[client.id] ? "rgba(26,102,54,0.25)" : "rgba(146,86,10,0.25)"}`,
+                    borderRadius: 7,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    cursor: moveDisabled ? "not-allowed" : "pointer",
+                    fontFamily: "'Inter',sans-serif",
+                    opacity: moveDisabled ? 0.65 : 1,
+                  }}
+                >
+                  {moveToModelsLoading[client.id] ? "Moving..." : movedToModels[client.id] ? "Moved" : "Move Back to Models"}
+                </button>
+              )}
+
+              <button
+                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/digitals/${client.id}`)}
+                title="Copy photo upload link"
+                style={{ padding:"4px 10px", background:C.okBg, color:C.ok, border:`1px solid rgba(26,102,54,0.2)`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+              >
+                Copy Upload Link
+              </button>
+              <button
+                onClick={() => window.open(`${window.location.origin}/digitals/${client.id}`, "_blank", "noopener,noreferrer")}
+                title="Open photo upload portal"
+                style={{ padding:"4px 10px", background:C.ink, color:C.white, border:`1px solid ${C.ink}`, borderRadius:7, fontSize:11, fontWeight:600, letterSpacing:"0.05em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif" }}
+              >
+                Open Upload
+              </button>
             </div>
           </div>
         );
