@@ -1,6 +1,8 @@
 const RESEND_API_URL = "https://api.resend.com/emails";
 const APP_BASE_URL = (process.env.APP_BASE_URL || "https://meet-serenity.online").trim().replace(/\/$/, "");
 const DEFAULT_ADMIN_EMAILS = ["sitfa92@gmail.com"];
+const CALENDLY_US_LINK = (process.env.CALENDLY_US_LINK || "https://calendly.com/").trim();
+const CALENDLY_INTL_LINK = (process.env.CALENDLY_INTL_LINK || "https://calendly.com/").trim();
 
 const escapeHtml = (str) =>
   String(str || "")
@@ -12,6 +14,33 @@ const escapeHtml = (str) =>
 
 const normalizeEmail = (v) => (v || "").trim().toLowerCase();
 const isValidEmail = (v) => /.+@.+\..+/.test(normalizeEmail(v));
+
+const extractCountryCodeFromMessage = (value = "") => {
+  const text = String(value || "");
+  const match = text.match(/(?:FromCountry|CallerCountry|Country)\s*:\s*([A-Za-z]{2,3})/i);
+  return (match?.[1] || "").trim().toUpperCase();
+};
+
+const extractCallerNumberFromMessage = (value = "") => {
+  const text = String(value || "");
+  const match = text.match(/(?:Caller\s*number|Phone)\s*:\s*([^\n]+)/i);
+  return String(match?.[1] || "").trim();
+};
+
+const isUSBooking = (data = {}) => {
+  const countryCode = String(data.countryCode || data.country || "").trim().toUpperCase();
+  if (countryCode) return countryCode === "US" || countryCode === "USA";
+
+  const fromMessage = extractCountryCodeFromMessage(data.message || "");
+  if (fromMessage) return fromMessage === "US" || fromMessage === "USA";
+
+  const callerPhone = String(data.phone || extractCallerNumberFromMessage(data.message || "")).trim();
+  if (callerPhone.startsWith("+1")) return true;
+
+  return false;
+};
+
+const chooseCalendlyLink = (data = {}) => (isUSBooking(data) ? CALENDLY_US_LINK : CALENDLY_INTL_LINK);
 
 const getAdminRecipients = () => {
   const configured = String(process.env.ADMIN_NOTIFICATION_EMAILS || "")
@@ -174,9 +203,13 @@ const templates = {
     };
   },
 
-  "booking-confirmed": ({ name: rawName = "there", serviceType: rawServiceType = "" }) => {
+  "booking-confirmed": (payload = {}) => {
+    const { name: rawName = "there", serviceType: rawServiceType = "" } = payload;
     const name = escapeHtml(rawName);
     const serviceType = escapeHtml(rawServiceType);
+    const calendlyLink = chooseCalendlyLink(payload);
+    const safeCalendlyLink = escapeHtml(calendlyLink);
+    const linkLabel = isUSBooking(payload) ? "Book Your US Consultation" : "Book Your International Consultation";
     return {
     subject: "Your booking is confirmed — Smith Inc",
     html: shell(`
@@ -189,9 +222,14 @@ const templates = {
       <p style="margin:0 0 20px;color:#444;line-height:1.7;">
         If you have any questions before then, feel free to reply to this email.
       </p>
+      <p style="margin:0 0 12px;color:#444;line-height:1.7;">Use the link below to schedule your consultation time:</p>
+      <p style="margin:0 0 20px;">
+        <a href="${safeCalendlyLink}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;letter-spacing:0.04em;">${linkLabel}</a>
+      </p>
+      <p style="margin:0 0 20px;color:#666;font-size:13px;line-height:1.7;">If the button does not work, copy this link into your browser:<br>${safeCalendlyLink}</p>
       <p style="margin:0;color:#444;line-height:1.7;">See you soon,<br><strong>The Smith Inc Team</strong></p>
     `),
-    text: `Hi ${rawName},\n\nYour booking${rawServiceType ? " for " + rawServiceType : ""} is confirmed. We're looking forward to working with you.\n\n— The Smith Inc Team`,
+    text: `Hi ${rawName},\n\nYour booking${rawServiceType ? " for " + rawServiceType : ""} is confirmed. We're looking forward to working with you.\n\nSchedule your consultation here: ${calendlyLink}\n\n— The Smith Inc Team`,
     };
   },
 };
@@ -218,8 +256,22 @@ export default async function handler(req, res) {
 
   const recipientEmail = normalizeEmail(data.email);
   const adminRecipients = getAdminRecipients();
-  if (adminRecipients.length === 0) {
-    return res.status(200).json({ ok: true, skipped: true, reason: "No admin recipients configured" });
+
+  const recipientTypes = new Set([
+    "model-submission",
+    "model-status",
+    "model-event",
+    "booking-confirmation",
+    "booking-confirmed",
+  ]);
+
+  const toRecipients = recipientTypes.has(type)
+    ? (isValidEmail(recipientEmail) ? [recipientEmail] : [])
+    : adminRecipients;
+
+  if (toRecipients.length === 0) {
+    const reason = recipientTypes.has(type) ? "No recipient email available" : "No admin recipients configured";
+    return res.status(200).json({ ok: true, skipped: true, reason });
   }
 
   const { subject, html, text } = templateFn(data);
@@ -231,7 +283,7 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${resendKey}`,
       },
-      body: JSON.stringify({ from: fromEmail, to: adminRecipients, subject, html, text, reply_to: isValidEmail(recipientEmail) ? recipientEmail : undefined }),
+      body: JSON.stringify({ from: fromEmail, to: toRecipients, subject, html, text, reply_to: isValidEmail(recipientEmail) ? recipientEmail : undefined }),
     });
 
     if (!resp.ok) {
@@ -242,7 +294,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       type,
-      sentTo: adminRecipients,
+      sentTo: toRecipients,
       intendedRecipient: recipientEmail,
     });
   } catch (err) {

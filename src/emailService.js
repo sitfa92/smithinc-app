@@ -57,5 +57,8 @@ export const sendBookingConfirmedEmail = (booking) =>
     name: booking.name,
     email: booking.email,
     serviceType: booking.service_type,
+    message: booking.message || "",
+    phone: booking.phone || "",
+    countryCode: booking.country_code || booking.country || "",
   });
 
