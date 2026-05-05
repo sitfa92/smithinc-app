@@ -164,6 +164,23 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
       const VapiCtor = await getVapiCtorPromise();
       const { preferredLanguage, countryHint } = await detectPreferredLanguage();
       const assistantId = preferredLanguage === "fr" ? VAPI_ASSISTANT_ID_FR : VAPI_ASSISTANT_ID;
+      const callOptions = {
+        firstMessage:
+          preferredLanguage === "fr"
+            ? "Bonjour, ici Serenity avec SmithInc. Comment puis-je vous aider aujourd'hui ?"
+            : "Hi, this is Serenity with SmithInc. How can I help you today?",
+        variableValues: {
+          preferred_language: preferredLanguage,
+          viewer_country: countryHint || "unknown",
+        },
+        metadata: {
+          assistant_variant: preferredLanguage === "fr" ? "french" : "default",
+          preferred_language: preferredLanguage,
+          viewer_country: countryHint || "unknown",
+          ...(modelName ? { model_name: modelName } : {}),
+          ...metadata,
+        },
+      };
 
       // 3. Create instance and set up listeners BEFORE starting the call
       const vapi = new VapiCtor(VAPI_PUBLIC_KEY);
@@ -202,23 +219,24 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
       });
 
       // 4. Start the call
-      await vapi.start(assistantId, {
-        firstMessage:
-          preferredLanguage === "fr"
-            ? "Bonjour, ici Serenity avec SmithInc. Comment puis-je vous aider aujourd'hui ?"
-            : "Hi, this is Serenity with SmithInc. How can I help you today?",
-        variableValues: {
-          preferred_language: preferredLanguage,
-          viewer_country: countryHint || "unknown",
-        },
-        metadata: {
-          assistant_variant: preferredLanguage === "fr" ? "french" : "default",
-          preferred_language: preferredLanguage,
-          viewer_country: countryHint || "unknown",
-          ...(modelName ? { model_name: modelName } : {}),
-          ...metadata,
-        },
-      });
+      try {
+        await vapi.start(assistantId, callOptions);
+      } catch (startErr) {
+        // If the FR assistant is unavailable, retry with default assistant while preserving French instructions.
+        if (preferredLanguage !== "fr") throw startErr;
+
+        console.warn("FR assistant start failed; retrying with default assistant:", startErr);
+        const fallbackOptions = {
+          ...callOptions,
+          metadata: {
+            ...callOptions.metadata,
+            assistant_variant: "french-fallback",
+            fallback_reason: "fr_assistant_unavailable",
+          },
+        };
+
+        await vapi.start(VAPI_ASSISTANT_ID, fallbackOptions);
+      }
     } catch (err) {
       console.error("VAPI startCall error:", err);
       setStatus(STATUS.error);
