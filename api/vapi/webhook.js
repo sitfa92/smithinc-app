@@ -7,6 +7,14 @@ const supabase = createClient(
 );
 
 const ZAPIER_WEBHOOK_URL = String(process.env.ZAPIER_WEBHOOK_URL || "").trim();
+const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
+const ALERT_FROM_EMAIL = String(process.env.ALERT_FROM_EMAIL || "onboarding@meet-serenity.online").trim();
+const ADMIN_NOTIFICATION_EMAILS = String(
+  process.env.ADMIN_NOTIFICATION_EMAILS || "sitfa92@gmail.com,marthajohn223355@gmail.com"
+)
+  .split(",")
+  .map((value) => String(value || "").trim().toLowerCase())
+  .filter((value, idx, arr) => /.+@.+\..+/.test(value) && arr.indexOf(value) === idx);
 
 const SEO_TOPIC_PATTERNS = [
   { topic: "sleep", pattern: /sleep|insomnia|bedtime|rest(ed)?|night routine/i },
@@ -22,6 +30,202 @@ const CITY_PATTERN = /\b(?:in|from|near|around)\s+([A-Z][a-z]+(?:\s[A-Z][a-z]+){
 
 function normalizeText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeSpokenEmail(text = "") {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/\s*\(at\)\s*/g, "@")
+    .replace(/\s+at\s+/g, "@")
+    .replace(/\s*\(dot\)\s*/g, ".")
+    .replace(/\s+dot\s+/g, ".")
+    .replace(/\s+underscore\s+/g, "_")
+    .replace(/\s+dash\s+/g, "-")
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9@._+-]/g, "");
+}
+
+function extractEmail(text = "") {
+  const raw = String(text || "").trim();
+  const direct = raw.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+  if (direct?.[0]) return direct[0].toLowerCase();
+
+  const spokenCue = raw.match(/(?:email(?:\s+address)?\s*(?:is|:)?\s*)(.+)$/i);
+  const spokenTail = spokenCue?.[1] ? spokenCue[1].split(/[,;]|\s(?:and|i|my|please|thank)\s/i)[0] : "";
+  const normalizedTail = normalizeSpokenEmail(spokenTail);
+  const tailMatch = normalizedTail.match(/[a-z0-9._%+-]{1,64}@[a-z0-9.-]{3,255}\.[a-z]{2,}/i);
+  if (tailMatch?.[0]) return tailMatch[0].toLowerCase();
+
+  const normalized = normalizeSpokenEmail(raw);
+  const candidates = normalized.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) || [];
+  for (const candidate of candidates) {
+    const [localPart = "", domainPart = ""] = candidate.split("@");
+    if (localPart.length > 32 || domainPart.length > 255) continue;
+    return candidate.toLowerCase();
+  }
+
+  return "";
+}
+
+function extractName(text = "") {
+  const cleaned = String(text || "").replace(/\s+/g, " ").trim();
+  if (!cleaned) return "";
+  const match = cleaned.match(/(?:my name is|this is|i am|je m'appelle|je suis)\s+([a-zA-Z][a-zA-Z' -]{1,60})/i);
+  const raw = (match?.[1] || "").trim();
+  if (!raw) return "";
+  return raw
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ")
+    .slice(0, 80);
+}
+
+function detectConsultIntent(text = "") {
+  return /consult(ation)?|book(ing)?|schedule|call me|follow\s*up|appointment|rendez[-\s]?vous|reservation/i.test(
+    String(text || "")
+  );
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
+async function sendVoiceCallAlertEmail({
+  callId = "",
+  callerPhone = "",
+  summary = "",
+  transcript = "",
+  duration = null,
+  startedAt = "",
+  endedAt = "",
+  endedReason = "",
+  leadCreated = false,
+  extractedName = "",
+  extractedEmail = "",
+}) {
+  if (!RESEND_API_KEY || ADMIN_NOTIFICATION_EMAILS.length === 0) return { ok: false, skipped: true };
+
+  const subject = leadCreated
+    ? "Voice Call Lead Captured - Action Needed"
+    : "Voice Call Completed - Follow-up Summary";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#f7f7f8; padding:20px; color:#111;">
+  <div style="max-width:640px; margin:0 auto; background:#fff; border:1px solid #eee; border-radius:10px; overflow:hidden;">
+    <div style="background:#111; color:#fff; padding:16px 20px; font-weight:700; letter-spacing:0.04em;">SMITH INC - VOICE CALL ALERT</div>
+    <div style="padding:20px; line-height:1.6;">
+      <p style="margin:0 0 14px;">${leadCreated ? "A consultation lead was captured from the actual phone number." : "A voice call completed on the actual phone number."}</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; margin:0 0 14px;">
+        <tr><td style="padding:8px 0; color:#666; width:170px;">Call ID</td><td style="padding:8px 0;">${escapeHtml(callId || "unknown")}</td></tr>
+        <tr><td style="padding:8px 0; color:#666;">Caller Phone</td><td style="padding:8px 0;">${escapeHtml(callerPhone || "unknown")}</td></tr>
+        <tr><td style="padding:8px 0; color:#666;">Duration</td><td style="padding:8px 0;">${duration ?? "unknown"} sec</td></tr>
+        <tr><td style="padding:8px 0; color:#666;">Started</td><td style="padding:8px 0;">${escapeHtml(startedAt || "unknown")}</td></tr>
+        <tr><td style="padding:8px 0; color:#666;">Ended</td><td style="padding:8px 0;">${escapeHtml(endedAt || "unknown")}</td></tr>
+        <tr><td style="padding:8px 0; color:#666;">End Reason</td><td style="padding:8px 0;">${escapeHtml(endedReason || "unknown")}</td></tr>
+        <tr><td style="padding:8px 0; color:#666;">Lead Created</td><td style="padding:8px 0;">${leadCreated ? "yes" : "no"}</td></tr>
+        <tr><td style="padding:8px 0; color:#666;">Name</td><td style="padding:8px 0;">${escapeHtml(extractedName || "not detected")}</td></tr>
+        <tr><td style="padding:8px 0; color:#666;">Email</td><td style="padding:8px 0;">${escapeHtml(extractedEmail || "not detected")}</td></tr>
+      </table>
+      <p style="margin:0 0 8px;"><strong>Summary</strong></p>
+      <div style="margin:0 0 14px; padding:12px; border:1px solid #eee; background:#fafafa; border-radius:8px;">${escapeHtml(summary || "No summary").replace(/\n/g, "<br>")}</div>
+      <p style="margin:0 0 8px;"><strong>Transcript</strong></p>
+      <div style="margin:0; padding:12px; border:1px solid #eee; background:#fafafa; border-radius:8px;">${escapeHtml(transcript || "No transcript").replace(/\n/g, "<br>")}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const text = [
+    leadCreated ? "A consultation lead was captured from the actual phone number." : "A voice call completed on the actual phone number.",
+    `Call ID: ${callId || "unknown"}`,
+    `Caller Phone: ${callerPhone || "unknown"}`,
+    `Duration: ${duration ?? "unknown"} sec`,
+    `Started: ${startedAt || "unknown"}`,
+    `Ended: ${endedAt || "unknown"}`,
+    `End Reason: ${endedReason || "unknown"}`,
+    `Lead Created: ${leadCreated ? "yes" : "no"}`,
+    `Name: ${extractedName || "not detected"}`,
+    `Email: ${extractedEmail || "not detected"}`,
+    "",
+    "Summary:",
+    summary || "No summary",
+    "",
+    "Transcript:",
+    transcript || "No transcript",
+  ].join("\n");
+
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: ALERT_FROM_EMAIL,
+      to: ADMIN_NOTIFICATION_EMAILS,
+      subject,
+      html,
+      text,
+      reply_to: /.+@.+\..+/.test(String(extractedEmail || "")) ? extractedEmail : undefined,
+    }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    return { ok: false, error: body || `status_${resp.status}` };
+  }
+
+  return { ok: true };
+}
+
+async function createBookingLeadFromCall({
+  transcript = "",
+  summary = "",
+  callerPhone = "",
+  startedAt = "",
+  endedAt = "",
+  callId = "",
+}) {
+  const combined = normalizeText(`${summary || ""}\n${transcript || ""}`);
+  if (!detectConsultIntent(combined)) return { created: false, name: "", email: "" };
+
+  const email = extractEmail(combined);
+  const name = extractName(combined) || "Voice Caller";
+  const now = new Date().toISOString();
+  const fallbackId = Date.now();
+
+  const { error } = await supabase.from("bookings").insert({
+    name,
+    email: email || `voice-lead-${fallbackId}@noemail.local`,
+    company: "Voice AI Intake",
+    service_type: "Consultation - Voice AI Lead",
+    preferred_date: null,
+    message: [
+      "Voice consultation lead captured from Vapi webhook.",
+      `Call ID: ${callId || "unknown"}`,
+      `Caller number: ${callerPhone || "unknown"}`,
+      `StartedAt: ${startedAt || "unknown"}`,
+      `EndedAt: ${endedAt || "unknown"}`,
+      `Summary: ${summary || "none"}`,
+      `Transcript: ${transcript || "none"}`,
+    ].join("\n"),
+    status: "pending",
+    created_at: now,
+  });
+
+  if (error) {
+    console.error("Supabase booking insert error:", error.message);
+    return { created: false, name, email };
+  }
+
+  return { created: true, name, email };
 }
 
 function redactPII(text) {
@@ -211,6 +415,15 @@ export default async function handler(req, res) {
   const endedReason = call?.endedReason || null;
   const seoSignals = buildSeoSignals({ transcript, summary });
 
+  const leadResult = await createBookingLeadFromCall({
+    transcript,
+    summary,
+    callerPhone,
+    startedAt,
+    endedAt,
+    callId,
+  });
+
   // 1 — Log to Supabase
   const { error: dbError } = await supabase.from("call_logs").insert({
     call_id: callId,
@@ -253,6 +466,24 @@ export default async function handler(req, res) {
   const rejected = forwardResults.filter((result) => result.status === "rejected");
   if (rejected.length) {
     console.error("Zapier forward rejected:", rejected.length);
+  }
+
+  const emailResult = await sendVoiceCallAlertEmail({
+    callId,
+    callerPhone,
+    summary: summary || "",
+    transcript: transcript || "",
+    duration,
+    startedAt,
+    endedAt,
+    endedReason,
+    leadCreated: leadResult.created,
+    extractedName: leadResult.name,
+    extractedEmail: leadResult.email,
+  });
+
+  if (!emailResult.ok && !emailResult.skipped) {
+    console.error("Voice call alert email failed:", emailResult.error || "unknown");
   }
 
   return res.status(200).json({ ok: true });
