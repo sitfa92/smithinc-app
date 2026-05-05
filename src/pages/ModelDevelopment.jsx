@@ -58,6 +58,16 @@ const sections = [
         ],
       },
       {
+        currency: "XOF",
+        symbol: "CFA",
+        label: "Ivory Coast — West African CFA franc",
+        tiers: [
+          { label: "Starter", price: "CFA 30,000", text: "Affordable entry support for confidence, structure, and steady early progress." },
+          { label: "Growth", price: "CFA 45,000", text: "Balanced coaching depth for sharper positioning, stronger assets, and better accountability." },
+          { label: "Elite", price: "CFA 75,000", text: "Premium support for committed talent who want the highest-touch development experience." },
+        ],
+      },
+      {
         currency: "USD",
         symbol: "$",
         label: "United States — Dollar",
@@ -156,12 +166,16 @@ function getDefaultTierCurrency() {
   const inSet = (...codes) => codes.some((code) => regionHints.has(code));
 
   if (inSet("NG")) return "NGN";
+  if (inSet("CI", "SN", "BJ", "BF", "ML", "NE", "TG", "GW")) return "XOF";
   if (inSet("UG", "KE", "TZ", "RW", "BI", "SS", "ET")) return "UGX";
   if (inSet("GB", "IE")) return "GBP";
   if (inSet("US", "CA", "MX", "BR", "AR", "CL", "CO", "PE")) return "USD";
 
   const timeZone = String(Intl.DateTimeFormat().resolvedOptions().timeZone || "").toLowerCase();
-  if (timeZone.includes("africa/lagos") || timeZone.includes("africa/accra") || timeZone.includes("africa/abidjan")) {
+  if (timeZone.includes("africa/abidjan")) {
+    return "XOF";
+  }
+  if (timeZone.includes("africa/lagos") || timeZone.includes("africa/accra")) {
     return "NGN";
   }
   if (timeZone.includes("africa/kampala") || timeZone.includes("africa/nairobi") || timeZone.includes("africa/kigali") || timeZone.includes("africa/dar_es_salaam")) {
