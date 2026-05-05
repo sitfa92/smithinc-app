@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [syncingTasks, setSyncingTasks] = React.useState(false);
   const [taskFilter, setTaskFilter] = React.useState("all");
   const [roleKpiRange, setRoleKpiRange] = React.useState("30d");
+  const [alertsOpen, setAlertsOpen] = React.useState(true);
   const [currentDataSyncState, setCurrentDataSyncState] = React.useState({ loading: false, message: "", error: false, syncedAt: "" });
   const [savingEvent, setSavingEvent] = React.useState(false);
   const [updatingAlertId, setUpdatingAlertId] = React.useState("");
@@ -817,31 +818,48 @@ alter table public.alerts disable row level security;`;
         <div style={card}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8, marginBottom:12 }}>
             <h3 style={cardH}>Alerts</h3>
-            <span style={{ color:C.dust, fontSize:12, letterSpacing:"0.06em", textTransform:"uppercase" }}>{unreadAlerts} unread</span>
+            <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+              <span style={{ color:C.dust, fontSize:12, letterSpacing:"0.06em", textTransform:"uppercase" }}>{unreadAlerts} unread</span>
+              <button
+                onClick={() => setAlertsOpen(v => !v)}
+                style={btn(C.ivory, C.slate, { padding:"7px 12px", fontSize:11, border:`1px solid ${C.smoke}` })}
+                aria-expanded={alertsOpen}
+                aria-controls="dashboard-alerts-menu"
+              >
+                {alertsOpen ? "Hide Alerts" : "Show Alerts"}
+              </button>
+            </div>
           </div>
           <p style={{ color:C.dust, fontSize:13, marginBottom:12, lineHeight:1.6 }}>Internal alerts for admins and team members.</p>
-          {!alertsTableReady && <p style={{ color:C.dust, fontSize:13 }}>Run the dashboard setup SQL above to enable alerts.</p>}
-          {alertsTableReady && alertsForViewer.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No alerts yet.</p>}
-          {alertsForViewer.slice(0,10).map(item => {
-            const lvlColor = { info:[C.infoBg,C.info], success:[C.okBg,C.ok], warning:[C.warnBg,C.warn], error:[C.errBg,C.err] }[item.level] || [C.ivory,C.slate];
-            return (
-              <div key={item.id} style={{ border:`1px solid ${C.smoke}`, borderRadius:10, padding:"12px 14px", marginBottom:10, background:item.status==="read"?C.ivory:C.white }}>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
-                  <p style={{ margin:0, fontWeight:600, fontSize:14, color:C.ink }}>{item.title}</p>
-                  <span style={{ padding:"3px 10px", borderRadius:99, background:lvlColor[0], color:lvlColor[1], fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>{item.level||"info"}</span>
-                </div>
-                <p style={{ margin:"4px 0 8px", color:C.slate, fontSize:13, lineHeight:1.6 }}>{item.message||"No details provided."}</p>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-                  <p style={{ margin:0, color:C.dust, fontSize:11 }}>{new Date(item.created_at).toLocaleString()}</p>
-                  {item.status !== "read" && (
-                    <button onClick={()=>markAlertRead(item.id)} disabled={updatingAlertId===item.id} style={btn(C.ink,C.white,{padding:"6px 12px",fontSize:11,opacity:updatingAlertId===item.id?0.55:1,cursor:updatingAlertId===item.id?"not-allowed":"pointer"})}>
-                      {updatingAlertId===item.id?"…":"Mark Read"}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {!alertsOpen && alertsTableReady && alertsForViewer.length > 0 && (
+            <p style={{ color:C.dust, fontSize:12, margin:0 }}>Alerts list collapsed. Click "Show Alerts" to view recent items.</p>
+          )}
+          {alertsOpen && (
+            <div id="dashboard-alerts-menu">
+              {!alertsTableReady && <p style={{ color:C.dust, fontSize:13 }}>Run the dashboard setup SQL above to enable alerts.</p>}
+              {alertsTableReady && alertsForViewer.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No alerts yet.</p>}
+              {alertsForViewer.slice(0,10).map(item => {
+                const lvlColor = { info:[C.infoBg,C.info], success:[C.okBg,C.ok], warning:[C.warnBg,C.warn], error:[C.errBg,C.err] }[item.level] || [C.ivory,C.slate];
+                return (
+                  <div key={item.id} style={{ border:`1px solid ${C.smoke}`, borderRadius:10, padding:"12px 14px", marginBottom:10, background:item.status==="read"?C.ivory:C.white }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
+                      <p style={{ margin:0, fontWeight:600, fontSize:14, color:C.ink }}>{item.title}</p>
+                      <span style={{ padding:"3px 10px", borderRadius:99, background:lvlColor[0], color:lvlColor[1], fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase" }}>{item.level||"info"}</span>
+                    </div>
+                    <p style={{ margin:"4px 0 8px", color:C.slate, fontSize:13, lineHeight:1.6 }}>{item.message||"No details provided."}</p>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:8, flexWrap:"wrap" }}>
+                      <p style={{ margin:0, color:C.dust, fontSize:11 }}>{new Date(item.created_at).toLocaleString()}</p>
+                      {item.status !== "read" && (
+                        <button onClick={()=>markAlertRead(item.id)} disabled={updatingAlertId===item.id} style={btn(C.ink,C.white,{padding:"6px 12px",fontSize:11,opacity:updatingAlertId===item.id?0.55:1,cursor:updatingAlertId===item.id?"not-allowed":"pointer"})}>
+                          {updatingAlertId===item.id?"…":"Mark Read"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Tasks */}
