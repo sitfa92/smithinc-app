@@ -7,6 +7,67 @@ const VAPI_ASSISTANT_ID =
 
 const STATUS = { idle: "idle", connecting: "connecting", active: "active", error: "error" };
 
+function getRegionHints() {
+  const localeList = [
+    ...(Array.isArray(navigator.languages) ? navigator.languages : []),
+    String(navigator.language || "").trim(),
+  ].filter(Boolean);
+
+  const regions = new Set();
+  for (const locale of localeList) {
+    const value = String(locale || "").trim();
+    if (!value) continue;
+    try {
+      if (typeof Intl !== "undefined" && typeof Intl.Locale === "function") {
+        const region = String(new Intl.Locale(value).region || "").toUpperCase();
+        if (region) regions.add(region);
+        continue;
+      }
+    } catch {
+      // Ignore parsing errors and continue with fallback.
+    }
+    const parts = value.replace("_", "-").split("-");
+    const maybeRegion = parts.find((part) => /^[A-Za-z]{2}$/.test(part));
+    if (maybeRegion) regions.add(maybeRegion.toUpperCase());
+  }
+  return regions;
+}
+
+let _countryHintPromise = null;
+async function getViewerCountryHint() {
+  if (_countryHintPromise) return _countryHintPromise;
+  _countryHintPromise = (async () => {
+    try {
+      const resp = await fetch("/api/geo/country");
+      const json = await resp.json().catch(() => ({}));
+      const country = String(json?.country || "").toUpperCase();
+      return country || "";
+    } catch {
+      return "";
+    }
+  })();
+  return _countryHintPromise;
+}
+
+async function detectPreferredLanguage() {
+  const regionHints = getRegionHints();
+  const countryHint = await getViewerCountryHint();
+  if (countryHint) regionHints.add(countryHint);
+
+  const timeZone = String(Intl.DateTimeFormat().resolvedOptions().timeZone || "").toLowerCase();
+  const inSet = (...codes) => codes.some((code) => regionHints.has(code));
+
+  // Force French in Ivory Coast and broader francophone West/Central Africa coverage.
+  if (inSet("CI", "SN", "BJ", "BF", "ML", "NE", "TG", "GW", "CM", "CD", "CG", "GA", "GN")) {
+    return { preferredLanguage: "fr", countryHint };
+  }
+  if (timeZone.includes("africa/abidjan") || timeZone.includes("africa/douala") || timeZone.includes("africa/porto-novo")) {
+    return { preferredLanguage: "fr", countryHint };
+  }
+
+  return { preferredLanguage: "en", countryHint };
+}
+
 // ── Singleton module loader ────────────────────────────────
 // Starts loading the Vapi SDK immediately when this file is first imported,
 // so it's ready (or has already failed cleanly) before the user ever clicks.
@@ -99,12 +160,29 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
 
       // 2. Get the preloaded Vapi constructor (already loading since page load)
       const VapiCtor = await getVapiCtorPromise();
+      const { preferredLanguage, countryHint } = await detectPreferredLanguage();
 
       // 3. Create instance and set up listeners BEFORE starting the call
       const vapi = new VapiCtor(VAPI_PUBLIC_KEY);
       vapiRef.current = vapi;
 
-      vapi.on("call-start", () => setStatus(STATUS.active));
+      vapi.on("call-start", () => {
+        setStatus(STATUS.active);
+        try {
+          vapi.send({
+            type: "add-message",
+            message: {
+              role: "system",
+              content:
+                preferredLanguage === "fr"
+                  ? "For this call, speak only French unless the caller explicitly asks to switch languages."
+                  : "For this call, speak only English unless the caller explicitly asks to switch languages.",
+            },
+          });
+        } catch {
+          // Ignore transient send failures; call can still continue.
+        }
+      });
       vapi.on("call-end", () => {
         setStatus(STATUS.idle);
         setIsMuted(false);
@@ -122,7 +200,17 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
 
       // 4. Start the call
       await vapi.start(VAPI_ASSISTANT_ID, {
+        firstMessage:
+          preferredLanguage === "fr"
+            ? "Bonjour, ici Serenity avec SmithInc. Comment puis-je vous aider aujourd'hui ?"
+            : "Hi, this is Serenity with SmithInc. How can I help you today?",
+        variableValues: {
+          preferred_language: preferredLanguage,
+          viewer_country: countryHint || "unknown",
+        },
         metadata: {
+          preferred_language: preferredLanguage,
+          viewer_country: countryHint || "unknown",
           ...(modelName ? { model_name: modelName } : {}),
           ...metadata,
         },
