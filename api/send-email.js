@@ -179,11 +179,15 @@ const templates = {
     };
   },
 
-  "booking-confirmation": ({ name: rawName = "there", company: rawCompany = "", serviceType: rawServiceType = "", preferredDate: rawPreferredDate = "" }) => {
+  "booking-confirmation": (payload = {}) => {
+    const { name: rawName = "there", company: rawCompany = "", serviceType: rawServiceType = "", preferredDate: rawPreferredDate = "" } = payload;
     const name = escapeHtml(rawName);
     const company = escapeHtml(rawCompany);
     const serviceType = escapeHtml(rawServiceType);
     const preferredDate = escapeHtml(rawPreferredDate);
+    const calendlyLink = chooseCalendlyLink(payload);
+    const safeCalendlyLink = escapeHtml(calendlyLink);
+    const linkLabel = isUSBooking(payload) ? "US Consultation Link" : "International Consultation Link";
     return {
     subject: "Booking request received — Smith Inc",
     html: shell(`
@@ -197,9 +201,14 @@ const templates = {
         ${serviceType ? `<tr><td style="padding:10px 16px;background:#fff;border-bottom:1px solid #eee;font-size:13px;color:#888;">Service</td><td style="padding:10px 16px;background:#fff;border-bottom:1px solid #eee;font-size:13px;color:#111;">${serviceType}</td></tr>` : ""}
         ${preferredDate ? `<tr><td style="padding:10px 16px;background:#fafafa;font-size:13px;color:#888;">Preferred date</td><td style="padding:10px 16px;background:#fafafa;font-size:13px;color:#111;">${preferredDate}</td></tr>` : ""}
       </table>
+      <p style="margin:0 0 12px;color:#444;line-height:1.7;">To speed up scheduling, use your consultation link below:</p>
+      <p style="margin:0 0 20px;">
+        <a href="${safeCalendlyLink}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;letter-spacing:0.04em;">${linkLabel}</a>
+      </p>
+      <p style="margin:0 0 20px;color:#666;font-size:13px;line-height:1.7;">If the button does not work, copy this link into your browser:<br>${safeCalendlyLink}</p>
       <p style="margin:0;color:#444;line-height:1.7;">We'll follow up with confirmation details soon.<br><strong>— The Smith Inc Team</strong></p>
     `),
-    text: `Hi ${rawName},\n\nWe've received your booking request for ${rawServiceType || "our services"}${rawPreferredDate ? " on " + rawPreferredDate : ""}. We'll be in touch shortly to confirm.\n\n— The Smith Inc Team`,
+    text: `Hi ${rawName},\n\nWe've received your booking request for ${rawServiceType || "our services"}${rawPreferredDate ? " on " + rawPreferredDate : ""}. We'll be in touch shortly to confirm.\n\nConsultation link: ${calendlyLink}\n\n— The Smith Inc Team`,
     };
   },
 

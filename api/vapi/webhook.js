@@ -9,6 +9,8 @@ const supabase = createClient(
 const ZAPIER_WEBHOOK_URL = String(process.env.ZAPIER_WEBHOOK_URL || "").trim();
 const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
 const ALERT_FROM_EMAIL = String(process.env.ALERT_FROM_EMAIL || "onboarding@meet-serenity.online").trim();
+const CALENDLY_US_LINK = String(process.env.CALENDLY_US_LINK || "https://calendly.com/").trim();
+const CALENDLY_INTL_LINK = String(process.env.CALENDLY_INTL_LINK || "https://calendly.com/").trim();
 const REQUIRED_ADMIN_EMAILS = ["sitfa92@gmail.com", "marthajohn223355@gmail.com"];
 const ADMIN_NOTIFICATION_EMAILS = String(
   process.env.ADMIN_NOTIFICATION_EMAILS || ""
@@ -87,6 +89,10 @@ function detectConsultIntent(text = "") {
   return /consult(ation)?|book(ing)?|schedule|call me|follow\s*up|appointment|rendez[-\s]?vous|reservation/i.test(
     String(text || "")
   );
+}
+
+function isUSPhone(phone = "") {
+  return String(phone || "").trim().startsWith("+1");
 }
 
 function escapeHtml(value) {
@@ -176,6 +182,78 @@ async function sendVoiceCallAlertEmail({
       html,
       text,
       reply_to: /.+@.+\..+/.test(String(extractedEmail || "")) ? extractedEmail : undefined,
+    }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    return { ok: false, error: body || `status_${resp.status}` };
+  }
+
+  return { ok: true };
+}
+
+async function sendCallerBookingConfirmationEmail({
+  name = "there",
+  email = "",
+  serviceType = "Consultation",
+  callerPhone = "",
+}) {
+  if (!RESEND_API_KEY) return { ok: false, skipped: true, reason: "missing_resend_api_key" };
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  if (!/.+@.+\..+/.test(normalizedEmail)) return { ok: false, skipped: true, reason: "invalid_email" };
+
+  const calendlyLink = isUSPhone(callerPhone) ? CALENDLY_US_LINK : CALENDLY_INTL_LINK;
+  const linkLabel = isUSPhone(callerPhone) ? "US Consultation Link" : "International Consultation Link";
+  const safeName = escapeHtml(name || "there");
+  const safeServiceType = escapeHtml(serviceType || "Consultation");
+  const safeCalendlyLink = escapeHtml(calendlyLink);
+
+  const subject = "Booking request received - Smith Inc";
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+    <tr><td align="center" style="padding:40px 16px;">
+      <table width="100%" style="max-width:560px;" cellpadding="0" cellspacing="0" role="presentation">
+        <tr><td style="background:#000;padding:24px 32px;border-radius:8px 8px 0 0;"><p style="margin:0;color:#fff;font-size:18px;font-weight:700;letter-spacing:3px;">SMITH INC</p></td></tr>
+        <tr><td style="background:#fff;padding:32px;border-radius:0 0 8px 8px;">
+          <h2 style="margin:0 0 20px;font-size:20px;color:#111;">Booking Request Received ✓</h2>
+          <p style="margin:0 0 12px;color:#444;line-height:1.7;">Hi <strong>${safeName}</strong>,</p>
+          <p style="margin:0 0 20px;color:#444;line-height:1.7;">We've received your ${safeServiceType} request and will follow up shortly.</p>
+          <p style="margin:0 0 12px;color:#444;line-height:1.7;">To speed up scheduling, use your consultation link below:</p>
+          <p style="margin:0 0 20px;"><a href="${safeCalendlyLink}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;letter-spacing:0.04em;">${linkLabel}</a></p>
+          <p style="margin:0 0 20px;color:#666;font-size:13px;line-height:1.7;">If the button does not work, copy this link into your browser:<br>${safeCalendlyLink}</p>
+          <p style="margin:0;color:#444;line-height:1.7;">— <strong>The Smith Inc Team</strong></p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  const text = [
+    `Hi ${name || "there"},`,
+    "",
+    `We've received your ${serviceType || "Consultation"} request and will follow up shortly.`,
+    "",
+    `Consultation link: ${calendlyLink}`,
+    "",
+    "- The Smith Inc Team",
+  ].join("\n");
+
+  const resp = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: ALERT_FROM_EMAIL,
+      to: [normalizedEmail],
+      subject,
+      html,
+      text,
+      reply_to: normalizedEmail,
     }),
   });
 
@@ -486,6 +564,18 @@ export default async function handler(req, res) {
 
   if (!emailResult.ok && !emailResult.skipped) {
     console.error("Voice call alert email failed:", emailResult.error || "unknown");
+  }
+
+  if (leadResult.created && leadResult.email) {
+    const callerEmailResult = await sendCallerBookingConfirmationEmail({
+      name: leadResult.name,
+      email: leadResult.email,
+      serviceType: "Consultation",
+      callerPhone,
+    });
+    if (!callerEmailResult.ok && !callerEmailResult.skipped) {
+      console.error("Caller booking confirmation email failed:", callerEmailResult.error || "unknown");
+    }
   }
 
   return res.status(200).json({ ok: true });
