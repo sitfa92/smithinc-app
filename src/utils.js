@@ -61,12 +61,22 @@ export const buildFallbackTasksFromBookings = (bookings) =>
       status: b.status === "pending" ? "pending" : "in_progress",
     }));
 
-export const sendZapierEvent = async (eventType, payload) => {
+export const sendZapierEvent = async (eventType, payload, metadata = {}) => {
   try {
     await fetch("/api/zapier/forward", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventType, payload }),
+      body: JSON.stringify({
+        eventType,
+        payload: {
+          ...payload,
+          happened_at: new Date().toISOString(),
+        },
+        metadata: {
+          source: typeof window !== "undefined" ? "web" : "server",
+          ...metadata,
+        },
+      }),
     });
   } catch (_err) {
     // Intentionally ignored to keep core user flows uninterrupted.
