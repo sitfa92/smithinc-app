@@ -139,6 +139,7 @@ async function requestMicPermission() {
 export default function VoiceCallButton({ modelName, metadata = {}, label = "Talk to Serenity", compact = false }) {
   const [status, setStatus] = React.useState(STATUS.idle);
   const [errorMsg, setErrorMsg] = React.useState("");
+  const [fallbackMsg, setFallbackMsg] = React.useState("");
   const [isMuted, setIsMuted] = React.useState(false);
   const vapiRef = React.useRef(null);
 
@@ -155,6 +156,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
   const startCall = React.useCallback(async () => {
     setStatus(STATUS.connecting);
     setErrorMsg("");
+    setFallbackMsg("");
 
     try {
       // 1. Check mic permission first
@@ -188,6 +190,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
 
       vapi.on("call-start", () => {
         setStatus(STATUS.active);
+        setFallbackMsg("");
         try {
           vapi.send({
             type: "add-message",
@@ -206,6 +209,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
       vapi.on("call-end", () => {
         setStatus(STATUS.idle);
         setIsMuted(false);
+        setFallbackMsg("");
         vapiRef.current = null;
       });
       vapi.on("error", (err) => {
@@ -214,6 +218,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
         setStatus(STATUS.error);
         setErrorMsg(msg);
         setIsMuted(false);
+        setFallbackMsg("");
         try { vapi.stop(); } catch { /* ignore */ }
         vapiRef.current = null;
       });
@@ -226,6 +231,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
         if (preferredLanguage !== "fr") throw startErr;
 
         console.warn("FR assistant start failed; retrying with default assistant:", startErr);
+        setFallbackMsg("Retrying in French. Please hold for a moment...");
         const fallbackOptions = {
           ...callOptions,
           metadata: {
@@ -241,6 +247,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
       console.error("VAPI startCall error:", err);
       setStatus(STATUS.error);
       setErrorMsg(String(extractErrMsg(err) || "Could not start call. Please check your microphone and try again."));
+      setFallbackMsg("");
       vapiRef.current = null;
     }
   }, [modelName, metadata]);
@@ -251,6 +258,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
     }
     setStatus(STATUS.idle);
     setIsMuted(false);
+    setFallbackMsg("");
     vapiRef.current = null;
   }, []);
 
@@ -303,11 +311,16 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
 
   if (status === STATUS.connecting) {
     return (
-      <div style={{ display: "inline-flex", alignItems: "center", gap: 12, padding: compact ? "9px 14px" : "14px 28px", background: C.smoke, borderRadius: 10 }}>
-        <PulsingDot color={C.gold} />
-        <span style={{ fontSize: compact ? 11 : 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", color: C.ink }}>
-          Connecting…
-        </span>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: compact ? 6 : 8 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 12, padding: compact ? "9px 14px" : "14px 28px", background: C.smoke, borderRadius: 10 }}>
+          <PulsingDot color={C.gold} />
+          <span style={{ fontSize: compact ? 11 : 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", color: C.ink }}>
+            Connecting…
+          </span>
+        </div>
+        {fallbackMsg && (
+          <p style={{ fontSize: 12, color: C.ok, margin: 0, maxWidth: 320 }}>{fallbackMsg}</p>
+        )}
       </div>
     );
   }
