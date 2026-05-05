@@ -31,14 +31,22 @@ function getVapiCtorPromise() {
 getVapiCtorPromise().catch(() => { /* suppress noise — will surface on click */ });
 
 // ── Error message extractor ───────────────────────────────
+// Always returns a string or null — never an object (which would crash React render)
 function extractErrMsg(err) {
   if (!err) return null;
   if (typeof err === "string") return err;
-  if (err.message) return err.message;
-  if (err.error?.message) return err.error.message;
-  if (err.errorMsg) return err.errorMsg;
-  if (err.error && typeof err.error === "string") return err.error;
-  try { return JSON.stringify(err); } catch { return "Unknown error"; }
+  // Walk common error shape fields, coercing everything to string
+  const candidates = [
+    err.message,
+    err.error?.message,
+    err.errorMsg,
+    typeof err.error === "string" ? err.error : null,
+    err.statusCode ? `Error ${err.statusCode}` : null,
+  ];
+  for (const c of candidates) {
+    if (c != null) return typeof c === "string" ? c : JSON.stringify(c);
+  }
+  try { return JSON.stringify(err); } catch { return "Unknown call error"; }
 }
 
 // ── Mic permission check ──────────────────────────────────
@@ -104,7 +112,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
       });
       vapi.on("error", (err) => {
         console.error("VAPI error event:", err);
-        const msg = extractErrMsg(err) || "Call failed. Please try again.";
+        const msg = String(extractErrMsg(err) || "Call failed. Please try again.");
         setStatus(STATUS.error);
         setErrorMsg(msg);
         setIsMuted(false);
@@ -122,7 +130,7 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
     } catch (err) {
       console.error("VAPI startCall error:", err);
       setStatus(STATUS.error);
-      setErrorMsg(extractErrMsg(err) || "Could not start call. Please check your microphone and try again.");
+      setErrorMsg(String(extractErrMsg(err) || "Could not start call. Please check your microphone and try again."));
       vapiRef.current = null;
     }
   }, [modelName, metadata]);
