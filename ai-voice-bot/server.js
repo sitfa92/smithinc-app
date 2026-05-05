@@ -29,9 +29,17 @@ const SYSTEM_PROMPT = String(
   process.env.SYSTEM_PROMPT ||
     "You are a concise, friendly phone assistant. Keep answers brief and clear for voice calls."
 ).trim();
+const MAIN_PROGRAM_INFO_EN = String(
+  process.env.MAIN_PROGRAM_INFO_EN ||
+    "Main info: Meet Serenity is SmithInc's fashion consulting and model development platform. SmithInc is not a modeling agency. The program helps manage model portfolios, coordinate brand bookings, and track pipeline workflows. Starter, Growth, and Elite tiers provide coaching, positioning support, and accountability to prepare top models for placement across different areas of the industry."
+).trim();
+const MAIN_PROGRAM_INFO_FR = String(
+  process.env.MAIN_PROGRAM_INFO_FR ||
+    "Information principale: Meet Serenity est la plateforme de conseil mode et de developpement de modeles de SmithInc. SmithInc n'est pas une agence de mannequinat. Le programme aide a gerer les portfolios, coordonner les reservations de marques et suivre le pipeline. Les niveaux Starter, Growth et Elite offrent coaching, accompagnement de positionnement et suivi pour preparer des top modeles au placement dans differents secteurs de l'industrie."
+).trim();
 const PROGRAM_INFO_MESSAGE = String(
   process.env.PROGRAM_INFO_MESSAGE ||
-    "Meet Serenity is SmithInc's fashion consulting and model development platform. We are not a modeling agency. It helps manage model portfolios, coordinate brand bookings, and track pipeline workflows, while the Starter, Growth, and Elite tiers provide coaching, positioning support, and accountability to prepare top models for placement across different areas of the industry. To apply, visit meet-serenity.online and select apply for the program."
+    `${MAIN_PROGRAM_INFO_EN} To apply, visit meet-serenity.online and select apply for the program.`
 ).trim();
 const BOOKING_INFO_MESSAGE = String(
   process.env.BOOKING_INFO_MESSAGE ||
@@ -39,7 +47,7 @@ const BOOKING_INFO_MESSAGE = String(
 ).trim();
 const PROGRAM_INFO_MESSAGE_FR = String(
   process.env.PROGRAM_INFO_MESSAGE_FR ||
-    "Meet Serenity est la plateforme de conseil mode et de developpement de modeles de SmithInc. Nous ne sommes pas une agence de mannequinat. La plateforme aide a gerer les portfolios, coordonner les reservations de marques et suivre le pipeline, tandis que les niveaux Starter, Growth et Elite apportent coaching, accompagnement de positionnement et suivi pour preparer des top modeles au placement dans differents secteurs de l'industrie. Pour candidater, visitez meet-serenity.online et choisissez apply for the program."
+    `${MAIN_PROGRAM_INFO_FR} Pour candidater, visitez meet-serenity.online et choisissez apply for the program.`
 ).trim();
 const BOOKING_INFO_MESSAGE_FR = String(
   process.env.BOOKING_INFO_MESSAGE_FR ||
@@ -493,8 +501,12 @@ async function askOpenAI(userText, lang = "en") {
     lang === "fr"
       ? "Always answer in French unless the caller asks to switch languages."
       : "Always answer in English unless the caller asks to switch languages.";
+  const mainInfoGuard =
+    lang === "fr"
+      ? `Use this as the main info section when callers ask who you are or what the program is: ${MAIN_PROGRAM_INFO_FR}`
+      : `Use this as the main info section when callers ask who you are or what the program is: ${MAIN_PROGRAM_INFO_EN}`;
   return callOpenAI({
-    systemPrompt: `${SYSTEM_PROMPT}\n\n${languageGuard}`,
+    systemPrompt: `${SYSTEM_PROMPT}\n\n${languageGuard}\n\n${mainInfoGuard}`,
     messages: [{ role: "user", content: userText }],
   });
 }

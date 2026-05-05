@@ -7,6 +7,11 @@ const VAPI_ASSISTANT_ID =
 const VAPI_ASSISTANT_ID_FR =
   import.meta.env.VITE_VAPI_ASSISTANT_ID_FR || "081b0fca-36cf-4de2-b0cc-01c7e107fbb6";
 
+const MAIN_PROGRAM_INFO_EN =
+  "Main info: Meet Serenity is SmithInc's fashion consulting and model development platform. SmithInc is not a modeling agency. The program helps manage model portfolios, coordinate brand bookings, and track pipeline workflows. Starter, Growth, and Elite tiers provide coaching, positioning support, and accountability to prepare top models for placement across different areas of the industry.";
+const MAIN_PROGRAM_INFO_FR =
+  "Information principale: Meet Serenity est la plateforme de conseil mode et de developpement de modeles de SmithInc. SmithInc n'est pas une agence de mannequinat. Le programme aide a gerer les portfolios, coordonner les reservations de marques et suivre le pipeline. Les niveaux Starter, Growth et Elite offrent coaching, accompagnement de positionnement et suivi pour preparer des top modeles au placement dans differents secteurs de l'industrie.";
+
 const STATUS = { idle: "idle", connecting: "connecting", active: "active", error: "error" };
 
 function getRegionHints() {
@@ -198,8 +203,8 @@ export default function VoiceCallButton({ modelName, metadata = {}, label = "Tal
               role: "system",
               content:
                 preferredLanguage === "fr"
-                  ? "For this call, speak only French unless the caller explicitly asks to switch languages. Identify SmithInc as a fashion consulting agency with a model development program focused on preparing top models for placement across different areas of the fashion industry."
-                  : "For this call, speak only English unless the caller explicitly asks to switch languages. Identify SmithInc as a fashion consulting agency with a model development program focused on preparing top models for placement across different areas of the fashion industry.",
+                  ? `For this call, speak only French unless the caller explicitly asks to switch languages. Use this as the main info section whenever callers ask about the company or program: ${MAIN_PROGRAM_INFO_FR}`
+                  : `For this call, speak only English unless the caller explicitly asks to switch languages. Use this as the main info section whenever callers ask about the company or program: ${MAIN_PROGRAM_INFO_EN}`,
             },
           });
         } catch {
