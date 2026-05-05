@@ -19,6 +19,7 @@ export default async function handler(req, res) {
     ],
     webhook_endpoint: "/api/zapier/webhook",
     forward_endpoint: "/api/zapier/forward",
+    dedupe_endpoint: "/api/zapier/dedupe",
     payload_shape: {
       source: "meet-serenity-app",
       event_type: "<string>",
@@ -29,6 +30,20 @@ export default async function handler(req, res) {
         cluster_key: "<topic cluster key>",
       },
       metadata: { source: "meet-serenity-app", environment: "production" },
+    },
+    dedupe_contract: {
+      request: {
+        dedupe_key: "<required string>",
+        event_type: "<string>",
+        seo_pillar: "<string>",
+        cluster_key: "<string>",
+        ttl_hours: "<number, optional>",
+        happened_at: "<ISO 8601, optional>",
+      },
+      response: {
+        should_process: "<boolean>",
+        duplicate: "<boolean>",
+      },
     },
   });
 }
