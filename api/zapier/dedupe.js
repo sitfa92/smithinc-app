@@ -5,7 +5,7 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ZAPIER_WEBHOOK_SECRET = process.env.ZAPIER_WEBHOOK_SECRET;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-const DEDUPE_EVENT_TYPE = "SEO_DEDUPE_GUARD";
+const FALLBACK_EVENT_TYPE = "SEO_DEDUPE_GUARD";
 
 function validateSecret(req) {
   if (!ZAPIER_WEBHOOK_SECRET) return;
@@ -19,6 +19,89 @@ function clampTtlHours(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 24 * 30;
   return Math.max(1, Math.min(24 * 180, Math.floor(parsed)));
+}
+
+async function fallbackDedupeUsingWorkflowEvents({
+  dedupeKey,
+  eventType,
+  seoPillar,
+  clusterKey,
+  happenedAt,
+  ttlHours,
+}) {
+  const cutoffIso = new Date(Date.now() - ttlHours * 60 * 60 * 1000).toISOString();
+
+  const { data: rows, error: readError } = await supabase
+    .from("workflow_events")
+    .select("id, created_at, event_data")
+    .eq("event_type", FALLBACK_EVENT_TYPE)
+    .eq("source", "zapier")
+    .gte("created_at", cutoffIso)
+    .order("created_at", { ascending: false })
+    .limit(250);
+
+  if (readError) {
+    return {
+      ok: true,
+      should_process: true,
+      duplicate: false,
+      degraded: true,
+      warning: "fallback_lookup_failed",
+    };
+  }
+
+  const duplicate = (rows || []).find((row) => {
+    const key = row?.event_data?.dedupe_key || "";
+    return String(key).trim() === dedupeKey;
+  });
+
+  if (duplicate) {
+    return {
+      ok: true,
+      should_process: false,
+      duplicate: true,
+      dedupe_key: dedupeKey,
+      existing_id: duplicate.id,
+      first_seen_at: duplicate.created_at,
+      degraded: true,
+      warning: "fallback_mode",
+    };
+  }
+
+  const { error: storeError } = await supabase.from("workflow_events").insert({
+    event_type: FALLBACK_EVENT_TYPE,
+    event_data: {
+      dedupe_key: dedupeKey,
+      event_type: eventType,
+      seo_pillar: seoPillar,
+      cluster_key: clusterKey || null,
+      ttl_hours: ttlHours,
+      happened_at: happenedAt,
+    },
+    status: "success",
+    source: "zapier",
+    happened_at: happenedAt,
+    created_at: new Date().toISOString(),
+  });
+
+  if (storeError) {
+    return {
+      ok: true,
+      should_process: true,
+      duplicate: false,
+      degraded: true,
+      warning: "fallback_store_failed",
+    };
+  }
+
+  return {
+    ok: true,
+    should_process: true,
+    duplicate: false,
+    dedupe_key: dedupeKey,
+    degraded: true,
+    warning: "fallback_mode",
+  };
 }
 
 export default async function handler(req, res) {
@@ -41,19 +124,55 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: "Missing dedupe_key" });
     }
 
-    const cutoffIso = new Date(Date.now() - ttlHours * 60 * 60 * 1000).toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const expiresAt = new Date(now.getTime() + ttlHours * 60 * 60 * 1000).toISOString();
+
+    const { error: insertError } = await supabase.from("zapier_dedupe_keys").insert({
+      dedupe_key: dedupeKey,
+      event_type: eventType,
+      seo_pillar: seoPillar,
+      cluster_key: clusterKey || null,
+      first_seen_at: nowIso,
+      last_seen_at: nowIso,
+      ttl_hours: ttlHours,
+      expires_at: expiresAt,
+      metadata: {
+        happened_at: happenedAt,
+      },
+    });
+
+    if (!insertError) {
+      return res.status(200).json({
+        ok: true,
+        should_process: true,
+        duplicate: false,
+        dedupe_key: dedupeKey,
+        ttl_hours: ttlHours,
+        expires_at: expiresAt,
+      });
+    }
+
+    const isDuplicate = /duplicate key|already exists/i.test(String(insertError.message || ""));
+    if (!isDuplicate) {
+      const fallback = await fallbackDedupeUsingWorkflowEvents({
+        dedupeKey,
+        eventType,
+        seoPillar,
+        clusterKey,
+        happenedAt,
+        ttlHours,
+      });
+      return res.status(200).json(fallback);
+    }
 
     const { data: existing, error: readError } = await supabase
-      .from("workflow_events")
-      .select("id, created_at, event_data")
-      .eq("event_type", DEDUPE_EVENT_TYPE)
-      .eq("source", "zapier")
-      .contains("event_data", { dedupe_key: dedupeKey })
-      .gte("created_at", cutoffIso)
-      .limit(1);
+      .from("zapier_dedupe_keys")
+      .select("dedupe_key, first_seen_at, expires_at")
+      .eq("dedupe_key", dedupeKey)
+      .single();
 
-    if (readError) {
-      // Fail open: if dedupe lookup fails, let Zapier continue processing.
+    if (readError || !existing) {
       return res.status(200).json({
         ok: true,
         should_process: true,
@@ -63,45 +182,39 @@ export default async function handler(req, res) {
       });
     }
 
-    if (existing && existing.length > 0) {
+    const stillActive = new Date(existing.expires_at).getTime() > now.getTime();
+    if (stillActive) {
       return res.status(200).json({
         ok: true,
         should_process: false,
         duplicate: true,
         dedupe_key: dedupeKey,
-        existing_id: existing[0].id,
-        first_seen_at: existing[0].created_at,
+        first_seen_at: existing.first_seen_at,
+        expires_at: existing.expires_at,
       });
     }
 
-    const { data: inserted, error: insertError } = await supabase
-      .from("workflow_events")
-      .insert({
-        event_type: DEDUPE_EVENT_TYPE,
-        event_data: {
-          dedupe_key: dedupeKey,
-          cluster_key: clusterKey || null,
-          event_type: eventType,
-          seo_pillar: seoPillar,
-          ttl_hours: ttlHours,
-          happened_at: happenedAt,
-        },
-        status: "success",
-        source: "zapier",
-        happened_at: happenedAt,
-        created_at: new Date().toISOString(),
+    const { error: refreshError } = await supabase
+      .from("zapier_dedupe_keys")
+      .update({
+        event_type: eventType,
+        seo_pillar: seoPillar,
+        cluster_key: clusterKey || null,
+        first_seen_at: nowIso,
+        last_seen_at: nowIso,
+        ttl_hours: ttlHours,
+        expires_at: expiresAt,
+        metadata: { happened_at: happenedAt },
       })
-      .select("id")
-      .single();
+      .eq("dedupe_key", dedupeKey);
 
-    if (insertError) {
-      // Fail open: do not block content generation if state write fails.
+    if (refreshError) {
       return res.status(200).json({
         ok: true,
         should_process: true,
         duplicate: false,
         degraded: true,
-        warning: "dedupe_store_failed",
+        warning: "dedupe_refresh_failed",
       });
     }
 
@@ -110,8 +223,8 @@ export default async function handler(req, res) {
       should_process: true,
       duplicate: false,
       dedupe_key: dedupeKey,
-      dedupe_id: inserted?.id || null,
       ttl_hours: ttlHours,
+      expires_at: expiresAt,
     });
   } catch (error) {
     return res.status(401).json({ ok: false, error: error.message || "Unauthorized" });
