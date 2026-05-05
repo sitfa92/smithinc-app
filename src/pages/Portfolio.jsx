@@ -1,6 +1,7 @@
 import React from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../supabase";
+import VoiceCallButton from "../components/VoiceCallButton";
 
 export default function Portfolio() {
   const { id } = useParams();
@@ -137,14 +138,23 @@ export default function Portfolio() {
               For bookings, collaborations, and rate inquiries, please use the link below.
             </p>
 
-            <Link
-              to="/book"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", background: C.ink, color: C.white, borderRadius: 10, fontSize: 12, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", textDecoration: "none", boxShadow: "0 4px 20px rgba(17,17,17,0.18)", transition: "all 0.2s ease" }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(17,17,17,0.24)"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 20px rgba(17,17,17,0.18)"; }}
-            >
-              ✦ Book a Consultation
-            </Link>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Link
+                to="/book"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "14px 28px", background: C.ink, color: C.white, borderRadius: 10, fontSize: 12, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase", fontFamily: "'Inter',sans-serif", textDecoration: "none", boxShadow: "0 4px 20px rgba(17,17,17,0.18)", transition: "all 0.2s ease" }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(17,17,17,0.24)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 20px rgba(17,17,17,0.18)"; }}
+              >
+                ✦ Book a Consultation
+              </Link>
+
+              <div style={{ borderTop: `1px solid ${C.smoke}`, paddingTop: 14 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.dust, marginBottom: 10 }}>
+                  Speak with Serenity
+                </p>
+                <VoiceCallButton modelName={model?.name} />
+              </div>
+            </div>
           </div>
         </div>
 
