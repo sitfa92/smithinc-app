@@ -1,6 +1,6 @@
 import React from "react";
 import { supabase } from "../supabase";
-import { sendBookingConfirmedEmail } from "../emailService";
+import { sendBookingConfirmedEmail, sendBookingDecisionEmail } from "../emailService";
 import { sendZapierEvent, createInAppAlerts, sendInternalTeamEmailAlert } from "../utils";
 
 export default function AdminBookings() {
@@ -136,6 +136,45 @@ export default function AdminBookings() {
         });
       }
 
+      if (newStatus === "declined" || newStatus === "rejected") {
+        sendBookingDecisionEmail(booking, newStatus);
+        sendZapierEvent("booking.decision", {
+          id: booking.id,
+          name: booking.name,
+          email: booking.email,
+          company: booking.company,
+          service_type: booking.service_type,
+          preferred_date: booking.preferred_date,
+          status: newStatus,
+        });
+
+        createInAppAlerts([
+          {
+            title: `Booking ${newStatus}`,
+            message: `${booking.name || "A booking"} was marked as ${newStatus}.`,
+            audience_role: "admin",
+            source_type: "booking_status",
+            source_id: bookingId,
+            level: "warning",
+          },
+          {
+            title: `Booking ${newStatus}`,
+            message: `${booking.name || "A booking"} was marked as ${newStatus}.`,
+            audience_role: "va",
+            source_type: "booking_status",
+            source_id: bookingId,
+            level: "warning",
+          },
+        ]);
+
+        sendInternalTeamEmailAlert({
+          subject: `Booking ${newStatus}: ${booking.name || "Booking"}`,
+          message: `${booking.name || "A booking"} was marked as ${newStatus}.\nEmail: ${booking.email || "N/A"}\nCompany: ${booking.company || "N/A"}`,
+          roles: ["admin", "va"],
+          submissionEmail: booking.email || "",
+        });
+      }
+
       setBookings((prev) => {
         const next = prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b));
         try {
@@ -155,7 +194,7 @@ export default function AdminBookings() {
   const C = { ink:"#111111", slate:"#4a4a4a", dust:"#888888", smoke:"#e8e4dc", ivory:"#faf8f4", white:"#ffffff", warn:"#92560a", warnBg:"#fef8ec", ok:"#1a6636", okBg:"#edf7ee", err:"#9b1c1c", errBg:"#fef2f2", info:"#1e3a5f", infoBg:"#eff6ff" };
   const btnS = (bg,fg,extra={}) => ({ padding:"9px 14px", background:bg, color:fg, border:"none", borderRadius:8, fontSize:12, fontWeight:600, letterSpacing:"0.07em", textTransform:"uppercase", cursor:"pointer", fontFamily:"'Inter',sans-serif", transition:"opacity 0.2s", ...extra });
   const statusBadge = (st) => {
-    const m = { pending:[C.warnBg,C.warn], confirmed:[C.okBg,C.ok], completed:[C.infoBg,C.info], cancelled:[C.errBg,C.err] };
+    const m = { pending:[C.warnBg,C.warn], confirmed:[C.okBg,C.ok], completed:[C.infoBg,C.info], cancelled:[C.errBg,C.err], declined:[C.errBg,C.err], rejected:[C.errBg,C.err] };
     const [bg,clr] = m[st] || [C.ivory,C.slate];
     return { padding:"3px 12px", borderRadius:99, fontSize:11, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", background:bg, color:clr, display:"inline-flex" };
   };
@@ -210,10 +249,20 @@ export default function AdminBookings() {
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:8, alignItems:"flex-end" }}>
               {booking.status === "pending" && (
-                <button onClick={()=>updateBookingStatus(booking.id,"confirmed")} disabled={actionLoading[booking.id]}
-                  style={btnS(C.okBg,C.ok,{ border:`1px solid rgba(26,102,54,0.2)`, opacity:actionLoading[booking.id]?0.5:1, cursor:actionLoading[booking.id]?"not-allowed":"pointer" })}>
-                  {actionLoading[booking.id] ? "…" : "✓ Confirm"}
-                </button>
+                <>
+                  <button onClick={()=>updateBookingStatus(booking.id,"confirmed")} disabled={actionLoading[booking.id]}
+                    style={btnS(C.okBg,C.ok,{ border:`1px solid rgba(26,102,54,0.2)`, opacity:actionLoading[booking.id]?0.5:1, cursor:actionLoading[booking.id]?"not-allowed":"pointer" })}>
+                    {actionLoading[booking.id] ? "…" : "✓ Confirm"}
+                  </button>
+                  <button onClick={()=>updateBookingStatus(booking.id,"declined")} disabled={actionLoading[booking.id]}
+                    style={btnS(C.warnBg,C.warn,{ border:`1px solid rgba(146,86,10,0.2)`, opacity:actionLoading[booking.id]?0.5:1, cursor:actionLoading[booking.id]?"not-allowed":"pointer" })}>
+                    {actionLoading[booking.id] ? "…" : "Decline"}
+                  </button>
+                  <button onClick={()=>updateBookingStatus(booking.id,"rejected")} disabled={actionLoading[booking.id]}
+                    style={btnS(C.errBg,C.err,{ border:`1px solid rgba(155,28,28,0.2)`, opacity:actionLoading[booking.id]?0.5:1, cursor:actionLoading[booking.id]?"not-allowed":"pointer" })}>
+                    {actionLoading[booking.id] ? "…" : "Reject"}
+                  </button>
+                </>
               )}
               {booking.status === "confirmed" && (
                 <button onClick={()=>updateBookingStatus(booking.id,"completed")} disabled={actionLoading[booking.id]}

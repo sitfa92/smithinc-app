@@ -241,6 +241,27 @@ const templates = {
     text: `Hi ${rawName},\n\nYour booking${rawServiceType ? " for " + rawServiceType : ""} is confirmed. We're looking forward to working with you.\n\nSchedule your consultation here: ${calendlyLink}\n\n— The Smith Inc Team`,
     };
   },
+
+  "booking-decision": (payload = {}) => {
+    const { name: rawName = "there", serviceType: rawServiceType = "", decision = "declined" } = payload;
+    const name = escapeHtml(rawName);
+    const serviceType = escapeHtml(rawServiceType);
+    const normalizedDecision = String(decision || "declined").toLowerCase() === "rejected" ? "rejected" : "declined";
+    const heading = normalizedDecision === "rejected" ? "Booking Not Accepted" : "Booking Declined";
+    return {
+      subject: "Booking update — Smith Inc",
+      html: shell(`
+        <h2 style="margin:0 0 20px;font-size:20px;color:#9b1c1c;">${heading}</h2>
+        <p style="margin:0 0 12px;color:#444;line-height:1.7;">Hi <strong>${name}</strong>,</p>
+        <p style="margin:0 0 18px;color:#444;line-height:1.7;">
+          Thank you for your interest${serviceType ? ` in <strong>${serviceType}</strong>` : ""}. At this time, your booking request was marked as <strong>${normalizedDecision}</strong>.
+        </p>
+        <p style="margin:0 0 18px;color:#444;line-height:1.7;">You can reply to this email if you would like feedback or to discuss alternative options.</p>
+        <p style="margin:0;color:#444;line-height:1.7;">Best regards,<br><strong>The Smith Inc Team</strong></p>
+      `),
+      text: `Hi ${rawName},\n\nThank you for your interest${rawServiceType ? " in " + rawServiceType : ""}. At this time, your booking request was marked as ${normalizedDecision}.\n\nReply to this email if you would like to discuss alternatives.\n\n— The Smith Inc Team`,
+    };
+  },
 };
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -272,6 +293,7 @@ export default async function handler(req, res) {
     "model-event",
     "booking-confirmation",
     "booking-confirmed",
+    "booking-decision",
   ]);
 
   const toRecipients = recipientTypes.has(type)

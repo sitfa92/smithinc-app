@@ -62,3 +62,11 @@ export const sendBookingConfirmedEmail = (booking) =>
     countryCode: booking.country_code || booking.country || "",
   });
 
+export const sendBookingDecisionEmail = (booking, decision = "declined") =>
+  sendEmail("booking-decision", {
+    name: booking.name,
+    email: booking.email,
+    serviceType: booking.service_type,
+    decision,
+  });
+
