@@ -12,6 +12,8 @@ const staticRoutes = [
   { path: "/model-development", changefreq: "weekly", priority: "0.95" },
   { path: "/book", changefreq: "weekly", priority: "0.95" },
   { path: "/contact-team", changefreq: "weekly", priority: "0.85" },
+  { path: "/leave-review", changefreq: "weekly", priority: "0.8" },
+  { path: "/legal-attorney-ai", changefreq: "weekly", priority: "0.8" },
   { path: "/model-signup", changefreq: "weekly", priority: "0.9" },
   { path: "/partner-submit", changefreq: "weekly", priority: "0.85" },
   { path: "/brand-ambassador-submit", changefreq: "weekly", priority: "0.85" },

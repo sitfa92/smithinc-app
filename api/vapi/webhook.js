@@ -165,6 +165,23 @@ function detectConsultIntent(text = "") {
   );
 }
 
+function detectLegalIntent(text = "") {
+  return /legal|attorney|lawyer|lawsuit|court|contract|agreement|compliance|dispute|litigation|juridique|avocat|tribunal|contrat/i.test(
+    String(text || "")
+  );
+}
+
+function detectReviewIntent(text = "") {
+  return /review|feedback|testimonial|experience|rating|avis|temoignage|retour/i.test(String(text || ""));
+}
+
+function extractRating(text = "") {
+  const match = String(text || "").match(/\b([1-5])\b/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
 function isUSPhone(phone = "") {
   return String(phone || "").trim().startsWith("+1");
 }
@@ -193,6 +210,7 @@ async function sendVoiceCallAlertEmail({
   endedAt = "",
   endedReason = "",
   leadCreated = false,
+  leadType = "consultation",
   extractedName = "",
   extractedEmail = "",
 }) {
@@ -202,13 +220,19 @@ async function sendVoiceCallAlertEmail({
     ? "Voice Call Lead Captured - Action Needed"
     : "Voice Call Completed - Follow-up Summary";
 
+  const leadLine = leadCreated
+    ? leadType === "legal"
+      ? "A legal intake lead was captured from the actual phone number."
+      : "A consultation lead was captured from the actual phone number."
+    : "A voice call completed on the actual phone number.";
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:#f7f7f8; padding:20px; color:#111;">
   <div style="max-width:640px; margin:0 auto; background:#fff; border:1px solid #eee; border-radius:10px; overflow:hidden;">
     <div style="background:#111; color:#fff; padding:16px 20px; font-weight:700; letter-spacing:0.04em;">SMITH INC - VOICE CALL ALERT</div>
     <div style="padding:20px; line-height:1.6;">
-      <p style="margin:0 0 14px;">${leadCreated ? "A consultation lead was captured from the actual phone number." : "A voice call completed on the actual phone number."}</p>
+      <p style="margin:0 0 14px;">${leadLine}</p>
       <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; margin:0 0 14px;">
         <tr><td style="padding:8px 0; color:#666; width:170px;">Call ID</td><td style="padding:8px 0;">${escapeHtml(callId || "unknown")}</td></tr>
         <tr><td style="padding:8px 0; color:#666;">Caller Phone</td><td style="padding:8px 0;">${escapeHtml(callerPhone || "unknown")}</td></tr>
@@ -230,7 +254,7 @@ async function sendVoiceCallAlertEmail({
 </html>`;
 
   const text = [
-    leadCreated ? "A consultation lead was captured from the actual phone number." : "A voice call completed on the actual phone number.",
+    leadLine,
     `Call ID: ${callId || "unknown"}`,
     `Caller Phone: ${callerPhone || "unknown"}`,
     `Duration: ${duration ?? "unknown"} sec`,
@@ -356,12 +380,19 @@ async function createBookingLeadFromCall({
   callId = "",
 }) {
   const combined = normalizeText(`${summary || ""}\n${transcript || ""}`);
-  if (!detectConsultIntent(combined)) return { created: false, name: "", email: "" };
+  const isLegal = detectLegalIntent(combined);
+  const isConsult = detectConsultIntent(combined);
+  if (!isLegal && !isConsult) return { created: false, name: "", email: "", intent: "general_inquiry" };
 
   const email = extractEmail(combined);
   const name = extractName(combined) || "Voice Caller";
   const now = new Date().toISOString();
   const fallbackId = Date.now();
+  const leadIntent = isLegal ? "legal_intake_request" : "consultation_request";
+  const serviceType = isLegal ? "Legal Affairs - Voice AI Lead" : "Consultation - Voice AI Lead";
+  const captureTypeLine = isLegal
+    ? "Voice legal intake lead captured from Vapi webhook."
+    : "Voice consultation lead captured from Vapi webhook.";
 
   const { data, error } = await supabase
     .from("bookings")
@@ -369,10 +400,10 @@ async function createBookingLeadFromCall({
     name,
     email: email || `voice-lead-${fallbackId}@noemail.local`,
     company: "Voice AI Intake",
-    service_type: "Consultation - Voice AI Lead",
+    service_type: serviceType,
     preferred_date: null,
     message: [
-      "Voice consultation lead captured from Vapi webhook.",
+      captureTypeLine,
       `Call ID: ${callId || "unknown"}`,
       `Caller number: ${callerPhone || "unknown"}`,
       `StartedAt: ${startedAt || "unknown"}`,
@@ -388,10 +419,59 @@ async function createBookingLeadFromCall({
 
   if (error) {
     console.error("Supabase booking insert error:", error.message);
-    return { created: false, name, email };
+    return { created: false, name, email, intent: leadIntent };
   }
 
-  return { created: true, name, email, bookingId: data?.id || "", createdAt: now };
+  return { created: true, name, email, bookingId: data?.id || "", createdAt: now, intent: leadIntent, serviceType };
+}
+
+async function createReviewFromCall({
+  transcript = "",
+  summary = "",
+  callerPhone = "",
+  startedAt = "",
+  endedAt = "",
+  callId = "",
+}) {
+  const combined = normalizeText(`${summary || ""}\n${transcript || ""}`);
+  if (!detectReviewIntent(combined)) {
+    return { created: false };
+  }
+
+  const email = extractEmail(combined);
+  const name = extractName(combined) || "Voice Caller";
+  const rating = extractRating(combined);
+  const reviewType = /program|meet serenity/i.test(combined) ? "program" : "company";
+  const now = new Date().toISOString();
+
+  const { error } = await supabase.from("voice_reviews").insert({
+    source: "vapi",
+    call_id: callId || null,
+    reviewer_name: name,
+    reviewer_email: email || null,
+    reviewer_phone: callerPhone || null,
+    review_type: reviewType,
+    review_text: combined.slice(0, 8000),
+    rating,
+    status: "new",
+    metadata: {
+      started_at: startedAt || null,
+      ended_at: endedAt || null,
+    },
+    created_at: now,
+    updated_at: now,
+  });
+
+  if (error) {
+    const msg = String(error?.message || "").toLowerCase();
+    if (msg.includes("does not exist") || msg.includes("relation") || msg.includes("permission") || msg.includes("policy") || msg.includes("rls")) {
+      return { created: false, skipped: true };
+    }
+    console.error("Supabase review insert error:", error.message || error);
+    return { created: false };
+  }
+
+  return { created: true, name, email, rating, reviewType };
 }
 
 async function createMjVoiceCallTask({ bookingId = "", callerPhone = "", callId = "", createdAt = "" }) {
@@ -621,6 +701,21 @@ export default async function handler(req, res) {
     callId,
   });
 
+  const reviewResult = await createReviewFromCall({
+    transcript,
+    summary,
+    callerPhone,
+    startedAt,
+    endedAt,
+    callId,
+  });
+
+  const inferredIntent = leadResult?.created
+    ? (leadResult?.intent || "consultation_request")
+    : reviewResult?.created
+      ? "review_submission"
+      : "general_inquiry";
+
   await learnCallerMemoryFromVapiCall({
     callerPhone,
     callerKeyHint,
@@ -628,7 +723,7 @@ export default async function handler(req, res) {
     email: leadResult?.email || "",
     summary: summary || "",
     transcript: transcript || "",
-    intent: leadResult?.created ? "consultation_request" : "general_inquiry",
+    intent: inferredIntent,
     endedAt: endedAt || new Date().toISOString(),
   });
 
@@ -663,6 +758,13 @@ export default async function handler(req, res) {
   const forwardResults = await Promise.allSettled([
     forwardToZapier("vapi.call.completed", basePayload, { workflow: "voice-analytics" }),
     forwardToZapier("seo.question.captured", basePayload, { workflow: "seo-faq" }),
+    reviewResult?.created
+      ? forwardToZapier("voice.review.captured", {
+          ...basePayload,
+          review_type: reviewResult.reviewType,
+          review_rating: reviewResult.rating,
+        }, { workflow: "voice-reviews" })
+      : Promise.resolve({ ok: true, skipped: true }),
     seoSignals.local_landing_candidate
       ? forwardToZapier("seo.local_landing.signal", basePayload, { workflow: "seo-local-pages" })
       : Promise.resolve({ ok: true, skipped: true }),
@@ -686,6 +788,7 @@ export default async function handler(req, res) {
     endedAt,
     endedReason,
     leadCreated: leadResult.created,
+    leadType: leadResult?.intent === "legal_intake_request" ? "legal" : "consultation",
     extractedName: leadResult.name,
     extractedEmail: leadResult.email,
   });
@@ -694,7 +797,7 @@ export default async function handler(req, res) {
     console.error("Voice call alert email failed:", emailResult.error || "unknown");
   }
 
-  if (leadResult.created && leadResult.email) {
+  if (leadResult.created && leadResult.email && leadResult?.intent !== "legal_intake_request") {
     const callerEmailResult = await sendCallerBookingConfirmationEmail({
       name: leadResult.name,
       email: leadResult.email,

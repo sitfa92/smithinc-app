@@ -476,6 +476,7 @@ export default function ModelDevelopment() {
               <Link to="/partner-submit" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Partner Submission</Link>
               <Link to="/brand-ambassador-submit" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Ambassador Submission</Link>
               <Link to="/contact-team" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Contact Team</Link>
+              <Link to="/leave-review" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Leave a Review</Link>
               <Link to="/insights" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Insights Hub</Link>
             </div>
           </div>

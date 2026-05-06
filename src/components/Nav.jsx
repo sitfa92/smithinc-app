@@ -57,6 +57,7 @@ const GROUPS = [
     label: "Settings",
     items: [
       { key: "integrations", label: "Integrations", to: "/integrations" },
+      { key: "voice-reviews", label: "Voice Reviews", to: "/voice-reviews" },
       { key: "workflows",    label: "Workflows",    to: "/workflows" },
       { key: "team",         label: "Team",         to: "/team" },
       { key: "team-docs",    label: "Team Docs",    to: "/team-docs" },
@@ -138,7 +139,7 @@ export default function Nav() {
 
   const canAccess = (section) => {
     if (role === "admin") return true;
-    if (role === "va")    return ["dashboard","dashboard-group","notifications","models","model-pipeline","bookings","partners","partner-pipeline","partner-submissions","brand-ambassadors","brand-ambassador-pipeline","brand-ambassador-submissions","integrations","workflows"].includes(section);
+    if (role === "va")    return ["dashboard","dashboard-group","notifications","models","model-pipeline","submissions","bookings","partners","partner-pipeline","partner-submissions","brand-ambassadors","brand-ambassador-pipeline","brand-ambassador-submissions","analytics","integrations","voice-reviews","team","team-docs","contact-team"].includes(section);
     if (role === "agent") return ["dashboard","dashboard-group","notifications","models","model-pipeline","submissions","analytics"].includes(section);
     if (role === "user")  return ["dashboard","dashboard-group","notifications","models"].includes(section);
     return false;

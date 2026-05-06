@@ -47,6 +47,16 @@ export const PUBLIC_ROUTE_META = {
     description: "Contact the SmithInc team for support, partnerships, and booking questions.",
     robots: "index, follow",
   },
+  "/leave-review": {
+    title: "Leave a Review | Meet Serenity",
+    description: "Share your experience with Meet Serenity and SmithInc services, coaching, and app workflows.",
+    robots: "index, follow",
+  },
+  "/legal-attorney-ai": {
+    title: "Legal Attorney Affairs AI Assistant | Meet Serenity",
+    description: "Use SmithInc's legal affairs AI assistant for legal intake preparation, issue triage, and attorney follow-up planning.",
+    robots: "index, follow",
+  },
   ...getInsightRouteMetaEntries(),
   "/login": {
     title: "Team Login | Meet Serenity",

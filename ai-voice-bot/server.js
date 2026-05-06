@@ -54,6 +54,31 @@ const BOOKING_INFO_MESSAGE_FR = String(
   process.env.BOOKING_INFO_MESSAGE_FR ||
     "Pour les reservations et consultations, visitez meet-serenity.online slash book. Vous pouvez envoyer votre nom, email, entreprise, type de service et date souhaitee. Notre equipe examinera puis confirmera votre demande rapidement."
 ).trim();
+const LEGAL_INFO_MESSAGE = String(
+  process.env.LEGAL_INFO_MESSAGE ||
+    "For legal attorney affairs support, visit meet-serenity.online slash legal-attorney-ai. I can collect your intake details now for legal operations follow-up. This is general information only and not legal advice."
+).trim();
+const LEGAL_INFO_MESSAGE_FR = String(
+  process.env.LEGAL_INFO_MESSAGE_FR ||
+    "Pour les affaires juridiques, visitez meet-serenity.online slash legal-attorney-ai. Je peux aussi enregistrer vos details maintenant pour un suivi de l'equipe juridique. Ceci est une information generale et non un avis juridique."
+).trim();
+const LEGAL_VOICE_PLAYBOOK = String(
+  process.env.LEGAL_VOICE_PLAYBOOK ||
+    [
+      "Use these facts when callers ask legal, contract, pricing, tier, cancellation, or rights questions:",
+      "Tier 1 Starter is GBP 22.06 monthly with affordable entry, basic portfolio development, and photographer network access.",
+      "Tier 2 Growth is GBP 44.12 monthly with all Tier 1 benefits plus deeper coaching and stronger agency placement support.",
+      "Tier 3 Elite is GBP 62.51 monthly with highest-touch support and priority access to top industry professionals.",
+      "Program timeline options are 3-6 months or 6-9 months.",
+      "Cancellation requires 14 days written notice.",
+      "Referral credits can reduce future fees.",
+      "No commission is taken from models.",
+      "Portfolio ownership: model keeps full ownership of photos and portfolio materials; business may request permission to showcase progress examples.",
+      "Explain contract terms in plain language: non-compete if applicable, IP rights, liability limits, payment terms, late fees, and what happens to portfolio materials after cancellation.",
+      "Ask pre-qualification questions naturally: modeling experience, current agency representation, goals (commercial/fashion/runway), timeline, and photo readiness.",
+      "Safety rules: disclose you are an AI assistant, explanations are informational and not legal advice, and escalate to legal team for contract modifications, liability disputes, negligence claims, discrimination or harassment issues, or requests for legal strategy.",
+    ].join(" ")
+).trim();
 const CALENDLY_US_LINK = String(process.env.CALENDLY_US_LINK || "https://calendly.com/meetserenity").trim();
 const CALENDLY_INTL_LINK = String(process.env.CALENDLY_INTL_LINK || "").trim();
 const CALENDLY_GENERAL_LINK = String(process.env.CALENDLY_GENERAL_LINK || "https://calendly.com/meetserenity").trim();
@@ -70,12 +95,12 @@ const VOICE_CONFIG = {
 
 const COPY = {
   intro: {
-    en: "Hi, this is {bot}. Press 1 for Meet Serenity program info. Press 2 for booking help. Press 3 to leave a callback request. Or tell me how I can help you today.",
-    fr: "Bonjour, ici {bot}. Appuyez sur 1 pour les informations du programme Meet Serenity. Appuyez sur 2 pour l'aide de reservation. Appuyez sur 3 pour demander un rappel. Ou dites-moi comment je peux vous aider aujourd'hui.",
+    en: "Hi, this is {bot}. Press 1 for Meet Serenity program info. Press 2 for booking help. Press 3 to leave a callback request. Press 4 for legal attorney affairs intake. Press 5 to share a review about your experience. Or tell me how I can help you today.",
+    fr: "Bonjour, ici {bot}. Appuyez sur 1 pour les informations du programme Meet Serenity. Appuyez sur 2 pour l'aide de reservation. Appuyez sur 3 pour demander un rappel. Appuyez sur 4 pour l'accueil des affaires juridiques. Appuyez sur 5 pour laisser un avis sur votre experience. Ou dites-moi comment je peux vous aider aujourd'hui.",
   },
   gatherPrompt: {
-    en: "Press 1 for program info. Press 2 for booking help. Press 3 to leave a callback request. Or speak now.",
-    fr: "Appuyez sur 1 pour les informations du programme. Appuyez sur 2 pour l'aide de reservation. Appuyez sur 3 pour demander un rappel. Ou parlez maintenant.",
+    en: "Press 1 for program info. Press 2 for booking help. Press 3 to leave a callback request. Press 4 for legal attorney affairs intake. Press 5 to leave a review. Or speak now.",
+    fr: "Appuyez sur 1 pour les informations du programme. Appuyez sur 2 pour l'aide de reservation. Appuyez sur 3 pour demander un rappel. Appuyez sur 4 pour l'accueil des affaires juridiques. Appuyez sur 5 pour laisser un avis. Ou parlez maintenant.",
   },
   missedInput: {
     en: "I did not catch that. Goodbye.",
@@ -116,6 +141,38 @@ const COPY = {
   consultMissing: {
     en: "I did not hear your details clearly. Please call again or visit meet-serenity.online slash book.",
     fr: "Je n'ai pas bien entendu vos informations. Veuillez rappeler ou visiter meet-serenity.online slash book.",
+  },
+  legalAsk: {
+    en: "For legal attorney affairs intake, please say your full name, email address, jurisdiction, and a short summary of the legal issue.",
+    fr: "Pour l'accueil des affaires juridiques, veuillez indiquer votre nom complet, votre adresse email, votre juridiction, et un court resume de la situation juridique.",
+  },
+  legalPrompt: {
+    en: "You can share your legal intake details now.",
+    fr: "Vous pouvez partager vos details juridiques maintenant.",
+  },
+  legalSaved: {
+    en: "Thank you. Your legal intake request has been saved for attorney affairs follow-up. This is not legal advice. You can also continue at meet-serenity.online slash legal-attorney-ai.",
+    fr: "Merci. Votre demande juridique a ete enregistree pour le suivi des affaires juridiques. Ceci n'est pas un avis juridique. Vous pouvez aussi continuer sur meet-serenity.online slash legal-attorney-ai.",
+  },
+  legalMissing: {
+    en: "I did not hear your legal intake details clearly. Please call again or visit meet-serenity.online slash legal-attorney-ai.",
+    fr: "Je n'ai pas bien entendu vos details juridiques. Veuillez rappeler ou visiter meet-serenity.online slash legal-attorney-ai.",
+  },
+  reviewAsk: {
+    en: "We'd love your feedback. Please share your name, your experience with Smith Inc or the Meet Serenity program, and an optional rating from 1 to 5.",
+    fr: "Nous aimerions votre avis. Veuillez partager votre nom, votre experience avec Smith Inc ou le programme Meet Serenity, et une note optionnelle de 1 a 5.",
+  },
+  reviewPrompt: {
+    en: "You can share your review now.",
+    fr: "Vous pouvez partager votre avis maintenant.",
+  },
+  reviewSaved: {
+    en: "Thank you. Your review has been saved and sent to our admin team.",
+    fr: "Merci. Votre avis a ete enregistre et transmis a notre equipe admin.",
+  },
+  reviewMissing: {
+    en: "I did not hear your review clearly. Please call again if you would like to leave feedback.",
+    fr: "Je n'ai pas bien entendu votre avis. Veuillez rappeler si vous souhaitez laisser un retour.",
   },
   silenceEnd: {
     en: "I could not hear anything. Please call again.",
@@ -484,7 +541,15 @@ async function sendLeadNotificationEmail({
   const safeDetails = escapeHtml(details || "").replace(/\n/g, "<br>");
   const formattedDate = escapeHtml(formatEmailDate(createdAt));
 
-  const subject = `New Voice AI ${leadType === "callback" ? "Callback" : "Consultation"} Lead`;
+  const leadTypeLabel =
+    leadType === "callback"
+      ? "Callback"
+      : leadType === "legal"
+        ? "Legal Affairs"
+        : leadType === "review"
+          ? "Review"
+        : "Consultation";
+  const subject = `New Voice AI ${leadTypeLabel} Lead`;
   const html = `<!DOCTYPE html>
 <html lang="en">
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7f7f8; padding: 20px; color: #111;">
@@ -509,7 +574,7 @@ async function sendLeadNotificationEmail({
 </html>`;
 
   const text = [
-    `New Voice AI ${leadType === "callback" ? "Callback" : "Consultation"} Lead`,
+    `New Voice AI ${leadTypeLabel} Lead`,
     `Name: ${name || "Voice Caller"}`,
     `Email: ${email || "not provided"}`,
     `Phone: ${phone || "unknown"}`,
@@ -609,6 +674,167 @@ async function createVoiceConsultLead({ said = "", from = "", lang = "en", fromC
   return true;
 }
 
+function detectLegalIntent(text = "") {
+  return /legal|attorney|lawyer|lawsuit|court|contract|agreement|compliance|dispute|litigation|juridique|avocat|tribunal|contrat/i.test(
+    String(text || "")
+  );
+}
+
+function detectReviewIntent(text = "") {
+  return /review|feedback|testimonial|experience|rating|avis|temoignage|retour/i.test(String(text || ""));
+}
+
+function extractRating(text = "") {
+  const match = String(text || "").match(/\b([1-5])\b/);
+  if (!match) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
+async function createVoiceLegalLead({ said = "", from = "", lang = "en", fromCountry = "", callerCountry = "" }) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn("Voice legal lead not saved: missing Supabase env vars in ai-voice-bot.");
+    return false;
+  }
+
+  const now = new Date().toISOString();
+  const extractedEmail = extractEmail(said);
+  const extractedName = extractName(said);
+  const fallbackId = Date.now();
+  const payload = {
+    name: extractedName || "Voice Caller",
+    email: extractedEmail || `voice-legal-${fallbackId}@noemail.local`,
+    company: "Voice AI Legal Intake",
+    service_type: "Legal Affairs - Voice AI Intake",
+    preferred_date: null,
+    message: [
+      "Voice legal intake captured from phone bot.",
+      "Not legal advice. Requires licensed attorney review.",
+      `Caller number: ${from || "unknown"}`,
+      `Detected language: ${lang || "unknown"}`,
+      `FromCountry: ${fromCountry || "unknown"}`,
+      `CallerCountry: ${callerCountry || "unknown"}`,
+      `Captured legal intake details: ${said}`,
+    ].join("\n"),
+    status: "pending",
+    created_at: now,
+  };
+
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify([payload]),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`Supabase legal intake insert failed (${resp.status}): ${body || "unknown error"}`);
+  }
+
+  try {
+    await sendLeadNotificationEmail({
+      leadType: "legal",
+      name: payload.name,
+      email: extractedEmail,
+      phone: from,
+      lang,
+      fromCountry,
+      callerCountry,
+      details: said,
+      createdAt: payload.created_at,
+    });
+  } catch (err) {
+    console.warn("legal lead email notification failed:", err?.message || err);
+  }
+
+  return true;
+}
+
+async function createVoiceReview({ said = "", from = "", lang = "en", fromCountry = "", callerCountry = "", callId = "" }) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn("Voice review not saved: missing Supabase env vars in ai-voice-bot.");
+    return false;
+  }
+
+  const now = new Date().toISOString();
+  const extractedName = extractName(said);
+  const extractedEmail = extractEmail(said);
+  const rating = extractRating(said);
+  const reviewType = /program|meet serenity/i.test(String(said || "")) ? "program" : "company";
+
+  const payload = {
+    source: "twilio",
+    call_id: callId || null,
+    reviewer_name: extractedName || "Voice Caller",
+    reviewer_email: extractedEmail || null,
+    reviewer_phone: from || null,
+    language: lang || null,
+    from_country: fromCountry || null,
+    caller_country: callerCountry || null,
+    review_type: reviewType,
+    review_text: String(said || "").trim().slice(0, 8000),
+    rating,
+    status: "new",
+    metadata: {
+      channel: "voice-bot",
+      captured_at: now,
+    },
+    created_at: now,
+    updated_at: now,
+  };
+
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/voice_reviews`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify([payload]),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`Supabase review insert failed (${resp.status}): ${body || "unknown error"}`);
+  }
+
+  try {
+    await sendLeadNotificationEmail({
+      leadType: "review",
+      name: payload.reviewer_name,
+      email: extractedEmail,
+      phone: from,
+      lang,
+      fromCountry,
+      callerCountry,
+      details: payload.review_text,
+      createdAt: payload.created_at,
+    });
+  } catch (err) {
+    console.warn("voice review email notification failed:", err?.message || err);
+  }
+
+  return true;
+}
+
+function twimlCollectLegalRequest(lang = "en") {
+  const cfg = getLanguageConfig(lang);
+  const actionUrl = `${PUBLIC_BASE_URL}/gather?mode=legal_collect&lang=${lang}`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Say voice="${cfg.voice}">${escapeXml(copy("legalAsk", lang))}</Say>\n  <Gather input="speech" speechTimeout="auto" timeout="8" action="${escapeXml(actionUrl)}" method="POST" language="${cfg.locale}">\n    <Say voice="${cfg.voice}">${escapeXml(copy("legalPrompt", lang))}</Say>\n  </Gather>\n  <Say voice="${cfg.voice}">${escapeXml(copy("legalMissing", lang))}</Say>\n  <Hangup/>\n</Response>`;
+}
+
+function twimlCollectReviewRequest(lang = "en") {
+  const cfg = getLanguageConfig(lang);
+  const actionUrl = `${PUBLIC_BASE_URL}/gather?mode=review_collect&lang=${lang}`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<Response>\n  <Say voice="${cfg.voice}">${escapeXml(copy("reviewAsk", lang))}</Say>\n  <Gather input="speech" speechTimeout="auto" timeout="8" action="${escapeXml(actionUrl)}" method="POST" language="${cfg.locale}">\n    <Say voice="${cfg.voice}">${escapeXml(copy("reviewPrompt", lang))}</Say>\n  </Gather>\n  <Say voice="${cfg.voice}">${escapeXml(copy("reviewMissing", lang))}</Say>\n  <Hangup/>\n</Response>`;
+}
+
 function twimlEnd(message, lang = "en") {
   const cfg = getLanguageConfig(lang);
   return `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Response>\n  <Say voice=\"${cfg.voice}\">${escapeXml(message)}</Say>\n  <Hangup/>\n</Response>`;
@@ -648,8 +874,16 @@ async function askOpenAI(userText, lang = "en", callerMemoryPrompt = "") {
     lang === "fr"
       ? `Use this as the main info section when callers ask who you are or what the program is: ${MAIN_PROGRAM_INFO_FR}`
       : `Use this as the main info section when callers ask who you are or what the program is: ${MAIN_PROGRAM_INFO_EN}`;
+  const legalHandoffGuard =
+    lang === "fr"
+      ? "Si l'appelant pose une question juridique, rappelez que vous fournissez une information generale uniquement, pas un avis juridique, puis orientez vers meet-serenity.online slash legal-attorney-ai."
+      : "If the caller asks legal questions, explain this is general information only and not legal advice, then direct them to meet-serenity.online slash legal-attorney-ai.";
+  const legalPlaybookGuard =
+    lang === "fr"
+      ? `Directives legales et commerciales a respecter: ${LEGAL_VOICE_PLAYBOOK}`
+      : `Legal and commercial guidance to follow: ${LEGAL_VOICE_PLAYBOOK}`;
   return callOpenAI({
-    systemPrompt: `${SYSTEM_PROMPT}\n\n${languageGuard}\n\n${mainInfoGuard}${callerMemoryPrompt ? `\n\n${callerMemoryPrompt}` : ""}`,
+    systemPrompt: `${SYSTEM_PROMPT}\n\n${languageGuard}\n\n${mainInfoGuard}\n\n${legalHandoffGuard}\n\n${legalPlaybookGuard}${callerMemoryPrompt ? `\n\n${callerMemoryPrompt}` : ""}`,
     messages: [{ role: "user", content: userText }],
   });
 }
@@ -799,6 +1033,69 @@ app.post("/gather", async (req, res) => {
     return;
   }
 
+  if (mode === "legal_collect") {
+    if (!said) {
+      res.type("text/xml").status(200).send(twimlEnd(copy("legalMissing", lang), lang));
+      return;
+    }
+
+    const from = String(req.body?.From || "unknown").trim();
+    try {
+      await createVoiceLegalLead({
+        said,
+        from,
+        lang,
+        fromCountry: req.body?.FromCountry,
+        callerCountry: req.body?.CallerCountry,
+      });
+      await learnCallerMemory({
+        phone: from,
+        name: extractName(said),
+        email: extractEmail(said),
+        language: lang,
+        intent: "legal_intake_request",
+        summary: said,
+      });
+    } catch (err) {
+      console.error("legal lead save error:", err?.message || err);
+    }
+
+    res.type("text/xml").status(200).send(twimlEnd(copy("legalSaved", lang), lang));
+    return;
+  }
+
+  if (mode === "review_collect") {
+    if (!said) {
+      res.type("text/xml").status(200).send(twimlEnd(copy("reviewMissing", lang), lang));
+      return;
+    }
+
+    const from = String(req.body?.From || "unknown").trim();
+    try {
+      await createVoiceReview({
+        said,
+        from,
+        lang,
+        fromCountry: req.body?.FromCountry,
+        callerCountry: req.body?.CallerCountry,
+        callId: String(req.body?.CallSid || "").trim(),
+      });
+      await learnCallerMemory({
+        phone: from,
+        name: extractName(said),
+        email: extractEmail(said),
+        language: lang,
+        intent: "review_submission",
+        summary: said,
+      });
+    } catch (err) {
+      console.error("review save error:", err?.message || err);
+    }
+
+    res.type("text/xml").status(200).send(twimlEnd(copy("reviewSaved", lang), lang));
+    return;
+  }
+
   if (digits === "1") {
     const infoMessage = lang === "fr" ? PROGRAM_INFO_MESSAGE_FR : PROGRAM_INFO_MESSAGE;
     await learnCallerMemory({
@@ -828,6 +1125,27 @@ app.post("/gather", async (req, res) => {
       summary: "Caller selected callback option.",
     });
     res.type("text/xml").status(200).send(twimlCollectCallbackRequest(lang));
+    return;
+  }
+  if (digits === "4") {
+    const legalInfo = lang === "fr" ? LEGAL_INFO_MESSAGE_FR : LEGAL_INFO_MESSAGE;
+    await learnCallerMemory({
+      phone: fromNumber,
+      language: lang,
+      intent: "legal_menu",
+      summary: legalInfo,
+    });
+    res.type("text/xml").status(200).send(twimlCollectLegalRequest(lang));
+    return;
+  }
+  if (digits === "5") {
+    await learnCallerMemory({
+      phone: fromNumber,
+      language: lang,
+      intent: "review_menu",
+      summary: "Caller selected review option.",
+    });
+    res.type("text/xml").status(200).send(twimlCollectReviewRequest(lang));
     return;
   }
 
@@ -867,6 +1185,22 @@ app.post("/gather", async (req, res) => {
     lowered.includes("rappel")
   ) {
     res.type("text/xml").status(200).send(twimlCollectCallbackRequest(lang));
+    return;
+  }
+  if (
+    lowered.includes("option 4") ||
+    lowered.includes("press 4") ||
+    detectLegalIntent(lowered)
+  ) {
+    res.type("text/xml").status(200).send(twimlCollectLegalRequest(lang));
+    return;
+  }
+  if (
+    lowered.includes("option 5") ||
+    lowered.includes("press 5") ||
+    detectReviewIntent(lowered)
+  ) {
+    res.type("text/xml").status(200).send(twimlCollectReviewRequest(lang));
     return;
   }
   if (

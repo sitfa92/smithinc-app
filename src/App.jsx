@@ -78,6 +78,9 @@ const Team = React.lazy(() => import("./pages/Team"));
 const TeamDocs = React.lazy(() => import("./pages/TeamDocs"));
 const Notifications = React.lazy(() => import("./pages/Notifications"));
 const ContactTeam = React.lazy(() => import("./pages/ContactTeam"));
+const LegalAssistant = React.lazy(() => import("./pages/LegalAssistant"));
+const VoiceReviews = React.lazy(() => import("./pages/VoiceReviews"));
+const LeaveReview = React.lazy(() => import("./pages/LeaveReview"));
 const InsightsHub = React.lazy(() => import("./pages/InsightsHub"));
 const InsightsArticle = React.lazy(() => import("./pages/InsightsArticle"));
 
@@ -95,6 +98,7 @@ const PRIVATE_ROUTE_PREFIXES = [
   "/brand-ambassador-submissions",
   "/analytics",
   "/integrations",
+  "/voice-reviews",
   "/workflows",
   "/team",
   "/notifications",
@@ -379,6 +383,14 @@ const ProtectedApp = () => {
               </RoleRoute>
             }
           />
+          <Route
+            path="/voice-reviews"
+            element={
+              <RoleRoute routeKey="voice-reviews">
+                <VoiceReviews />
+              </RoleRoute>
+            }
+          />
           <Route path="/team" element={<RoleRoute routeKey="team"><Team /></RoleRoute>} />
           <Route path="/team-docs" element={<TeamDocs />} />
           <Route path="/notifications" element={<Notifications />} />
@@ -408,6 +420,8 @@ function App() {
               <Route path="/brand-ambassador-submit" element={<PublicBrandAmbassadorSubmission />} />
               <Route path="/talent/:id" element={<Portfolio />} />
               <Route path="/contact-team" element={<ContactTeam />} />
+              <Route path="/leave-review" element={<LeaveReview />} />
+              <Route path="/legal-attorney-ai" element={<LegalAssistant />} />
               <Route path="/insights" element={<InsightsHub />} />
               <Route path="/insights/:slug" element={<InsightsArticle />} />
               <Route path="/digitals/:id" element={<DigitalsUpload />} />

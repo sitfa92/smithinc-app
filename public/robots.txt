@@ -10,6 +10,8 @@ Allow: /model-signup
 Allow: /partner-submit
 Allow: /brand-ambassador-submit
 Allow: /insights
+Allow: /leave-review
+Allow: /legal-attorney-ai
 
 # Internal app pages — disallow crawling
 Disallow: /login
@@ -19,11 +21,22 @@ Disallow: /model-pipeline
 Disallow: /submissions
 Disallow: /bookings
 Disallow: /clients
+Disallow: /partners
+Disallow: /partner-pipeline
+Disallow: /partner-submissions
+Disallow: /brand-ambassadors
+Disallow: /brand-ambassador-pipeline
+Disallow: /brand-ambassador-submissions
 Disallow: /analytics
 Disallow: /integrations
 Disallow: /workflows
 Disallow: /team
 Disallow: /notifications
+Disallow: /voice-reviews
+Disallow: /onboarding
+Disallow: /digitals/
+Disallow: /portfolio/
+Disallow: /event-response
 
 Host: https://meet-serenity.online
 Sitemap: https://meet-serenity.online/sitemap.xml
