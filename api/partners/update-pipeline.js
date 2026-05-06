@@ -1,1 +1,1 @@
-export { default } from "../clients/update-pipeline";
+export { default } from "../clients/update-pipeline.js";
