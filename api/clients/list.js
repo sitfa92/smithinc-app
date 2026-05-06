@@ -25,12 +25,14 @@ export default async function handler(req, res) {
   ].join(", ");
 
   // First try full select with pipeline columns
+  let pipelineSchemaReady = true;
   let { data, error } = await admin
     .from("clients")
     .select(selectFields)
     .order("last_updated", { ascending: false });
 
   if (error) {
+    pipelineSchemaReady = false;
     // Fallback: strip pipeline columns if schema not yet updated
     const fallbackFields = "id, name, email, project, service_type, status, invoice_status, invoice_paid, contract_signed, client_value, source, avatar_url, created_at";
     const fallback = await admin
@@ -44,5 +46,5 @@ export default async function handler(req, res) {
     data = fallback.data;
   }
 
-  return res.status(200).json({ clients: data || [] });
+  return res.status(200).json({ clients: data || [], pipelineSchemaReady });
 }

@@ -139,7 +139,7 @@ alter table public.clients disable row level security;`;
       const json = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(json.error || "Failed to load clients");
 
-      setPipelineSchemaReady(true);
+      setPipelineSchemaReady(json.pipelineSchemaReady !== false);
       const rawClients = json.clients || [];
       let nextClients = rawClients.map(normalizeClient);
 
@@ -222,7 +222,11 @@ alter table public.clients disable row level security;`;
         )
       );
     } catch (err) {
-      setError(err.message || "Failed to update partner");
+      const msg = err.message || "Failed to update partner";
+      if (msg.toLowerCase().includes("column") || msg.toLowerCase().includes("schema")) {
+        setPipelineSchemaReady(false);
+      }
+      setError(msg);
     } finally {
       setActionLoading((prev) => ({ ...prev, [clientId]: false }));
     }
