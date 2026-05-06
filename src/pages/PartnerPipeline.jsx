@@ -1,7 +1,6 @@
 import React from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
-import { isMissingColumnError } from "../utils";
 
 const EMERGENCY_AMBASSADOR_EMAILS = new Set([
   "kouassibenedicta46@gmail.com",
@@ -19,6 +18,24 @@ const STAGE_LABELS = {
   inactive: "Inactive",
 };
 const PRIORITY_RANK = { high: 3, medium: 2, low: 1 };
+const CHAMP_FIELDS = [
+  { letter: "C", label: "Challenges", scoreKey: "champ_c_score", notesKey: "champ_c_notes" },
+  { letter: "H", label: "Authority", scoreKey: "champ_h_score", notesKey: "champ_h_notes" },
+  { letter: "M", label: "Money", scoreKey: "champ_m_score", notesKey: "champ_m_notes" },
+  { letter: "P", label: "Priority", scoreKey: "champ_p_score", notesKey: "champ_p_notes" },
+];
+
+const getChampTotal = (client) =>
+  Number(client.champ_c_score || 0) +
+  Number(client.champ_h_score || 0) +
+  Number(client.champ_m_score || 0) +
+  Number(client.champ_p_score || 0);
+
+const getChampRecommendation = (total) => {
+  if (total >= 9) return "sign_now";
+  if (total >= 6) return "nurture";
+  return "decline";
+};
 
 const inferStageFromStatus = (status) => {
   const s = String(status || "").toLowerCase();
@@ -46,13 +63,16 @@ export default function PartnerPipeline() {
   const [error, setError] = React.useState("");
   const [actionLoading, setActionLoading] = React.useState({});
   const [pipelineSchemaReady, setPipelineSchemaReady] = React.useState(true);
+  const [champSchemaReady, setChampSchemaReady] = React.useState(true);
   const [viewMode, setViewMode] = React.useState("kanban");
   const [bannerDismissed, setBannerDismissed] = React.useState(() => {
     try { return localStorage.getItem("cp_banner_dismissed") === "1"; } catch { return false; }
   });
-  const [filters, setFilters] = React.useState({ stage: "all", priority: "all", status: "all", sortBy: "recent" });
+  const [filters, setFilters] = React.useState({ stage: "all", priority: "all", status: "all", champ: "all", sortBy: "recent" });
 
   const canEditPipeline = role === "admin" || role === "va";
+  const getClientChampRecommendation = (client) =>
+    client.champ_recommendation || getChampRecommendation(Number(client.champ_total || getChampTotal(client)));
 
   const isAmbassadorClient = React.useCallback((item) => {
     const source = String(item?.source || "").toLowerCase();
@@ -105,7 +125,17 @@ export default function PartnerPipeline() {
   add column if not exists priority_level text default 'medium',
   add column if not exists internal_notes text,
   add column if not exists next_step text,
-  add column if not exists last_updated timestamptz default now();
+    add column if not exists last_updated timestamptz default now(),
+    add column if not exists champ_c_score integer default 0,
+    add column if not exists champ_h_score integer default 0,
+    add column if not exists champ_m_score integer default 0,
+    add column if not exists champ_p_score integer default 0,
+    add column if not exists champ_c_notes text,
+    add column if not exists champ_h_notes text,
+    add column if not exists champ_m_notes text,
+    add column if not exists champ_p_notes text,
+    add column if not exists champ_total integer default 0,
+    add column if not exists champ_recommendation text default 'nurture';
 
 update public.clients
 set
@@ -124,6 +154,16 @@ alter table public.clients disable row level security;`;
     service_type: row.service_type || row.project || "General",
     avatar_url: row.avatar_url || "",
     last_updated: row.last_updated || row.updated_at || row.created_at,
+    champ_c_score: Number(row.champ_c_score || 0),
+    champ_h_score: Number(row.champ_h_score || 0),
+    champ_m_score: Number(row.champ_m_score || 0),
+    champ_p_score: Number(row.champ_p_score || 0),
+    champ_c_notes: row.champ_c_notes || "",
+    champ_h_notes: row.champ_h_notes || "",
+    champ_m_notes: row.champ_m_notes || "",
+    champ_p_notes: row.champ_p_notes || "",
+    champ_total: Number(row.champ_total || 0),
+    champ_recommendation: row.champ_recommendation || "nurture",
   });
 
   const fetchClients = async () => {
@@ -140,6 +180,7 @@ alter table public.clients disable row level security;`;
       if (!resp.ok) throw new Error(json.error || "Failed to load clients");
 
       setPipelineSchemaReady(json.pipelineSchemaReady !== false);
+      setChampSchemaReady(json.champSchemaReady !== false);
       const rawClients = json.clients || [];
       let nextClients = rawClients.map(normalizeClient);
 
@@ -223,7 +264,10 @@ alter table public.clients disable row level security;`;
       );
     } catch (err) {
       const msg = err.message || "Failed to update partner";
-      if (msg.toLowerCase().includes("column") || msg.toLowerCase().includes("schema")) {
+      const lower = msg.toLowerCase();
+      if (lower.includes("champ_")) {
+        setChampSchemaReady(false);
+      } else if (lower.includes("column") || lower.includes("schema")) {
         setPipelineSchemaReady(false);
       }
       setError(msg);
@@ -235,10 +279,29 @@ alter table public.clients disable row level security;`;
   const scopedClients = clients
     .filter((client) => (isBrandAmbassadorView ? isAmbassadorClient(client) : !isAmbassadorClient(client)));
 
+  const updateChamp = async (client, patch) => {
+    const merged = { ...client, ...patch };
+    const champ_total = getChampTotal(merged);
+    const champ_recommendation = getChampRecommendation(champ_total);
+    await updatePartnerPipeline(client.id, { ...patch, champ_total, champ_recommendation });
+  };
+
+  const applyChampPreset = async (client, preset) => {
+    const scoresByPreset = {
+      strong: { champ_c_score: 3, champ_h_score: 3, champ_m_score: 2, champ_p_score: 3 },
+      nurture: { champ_c_score: 2, champ_h_score: 2, champ_m_score: 2, champ_p_score: 2 },
+      decline: { champ_c_score: 1, champ_h_score: 1, champ_m_score: 0, champ_p_score: 1 },
+    };
+    const scorePatch = scoresByPreset[preset] || scoresByPreset.nurture;
+    setClients((prev) => prev.map((c) => (c.id === client.id ? { ...c, ...scorePatch } : c)));
+    await updateChamp(client, scorePatch);
+  };
+
   const filteredClients = scopedClients
     .filter((client) => (filters.stage === "all" ? true : client.pipeline_stage === filters.stage))
     .filter((client) => (filters.priority === "all" ? true : client.priority_level === filters.priority))
     .filter((client) => (filters.status === "all" ? true : client.status === filters.status))
+    .filter((client) => (filters.champ === "all" ? true : getClientChampRecommendation(client) === filters.champ))
     .sort((a, b) => {
       if (filters.sortBy === "priority") {
         return (PRIORITY_RANK[b.priority_level] || 0) - (PRIORITY_RANK[a.priority_level] || 0);
@@ -314,6 +377,47 @@ alter table public.clients disable row level security;`;
         </div>
       )}
 
+      {isBrandAmbassadorView && !loading && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          {[
+            ["all", "All CHAMP"],
+            ["sign_now", "Sign now"],
+            ["nurture", "Nurture"],
+            ["decline", "Decline"],
+          ].map(([value, label]) => {
+            const count = value === "all" ? scopedClients.length : scopedClients.filter((c) => getClientChampRecommendation(c) === value).length;
+            const isActive = filters.champ === value;
+            return (
+              <button
+                key={value}
+                onClick={() => setFilters((prev) => ({ ...prev, champ: value }))}
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 99,
+                  border: `1px solid ${isActive ? C.ink : C.smoke}`,
+                  background: isActive ? C.ink : C.white,
+                  color: isActive ? C.white : C.slate,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "'Inter',sans-serif",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {label}{count > 0 ? ` · ${count}` : ""}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {isBrandAmbassadorView && !champSchemaReady && (
+        <div style={{ background: C.warnBg, border: `1px solid rgba(146,86,10,0.2)`, borderRadius: 12, padding: "14px 18px", marginBottom: 16 }}>
+          <p style={{ margin: "0 0 6px", fontWeight: 600, color: C.warn, fontSize: 13 }}>CHAMP fields are not set up in the database yet</p>
+          <p style={{ margin: 0, color: C.slate, fontSize: 12 }}>Use the SQL shown below to enable CHAMP scoring for brand ambassadors.</p>
+        </div>
+      )}
+
       {!pipelineSchemaReady && !bannerDismissed && (
         <div style={{ background: C.warnBg, border: `1px solid rgba(146,86,10,0.2)`, borderRadius: 12, padding: "18px 22px", marginBottom: 24 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
@@ -383,6 +487,13 @@ alter table public.clients disable row level security;`;
                 const isBusy = !!actionLoading[client.id];
                 const [pbg, pclr] = priorityBadge[client.priority_level] || [C.ivory, C.dust];
                 const avatarSrc = getClientAvatarSrc(client.avatar_url);
+                const champTotal = Number(client.champ_total || getChampTotal(client));
+                const champRec = getClientChampRecommendation(client);
+                const champTone = champRec === "sign_now"
+                  ? [C.okBg, C.ok, "Sign now"]
+                  : champRec === "decline"
+                    ? [C.errBg, C.err, "Decline"]
+                    : [C.warnBg, C.warn, "Nurture"];
 
                 return (
                   <div key={client.id} style={{ background: C.white, border: `1px solid ${C.smoke}`, borderRadius: 10, padding: 12, marginBottom: 10 }}>
@@ -403,7 +514,16 @@ alter table public.clients disable row level security;`;
 
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                       <span style={{ padding: "3px 9px", borderRadius: 99, background: pbg, color: pclr, fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>{client.priority_level}</span>
+                      {isBrandAmbassadorView && (
+                        <span style={{ padding: "3px 9px", borderRadius: 99, background: champTone[0], color: champTone[1], fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                          {champTone[2]}
+                        </span>
+                      )}
                     </div>
+
+                    {isBrandAmbassadorView && (
+                      <p style={{ margin: "0 0 10px", color: C.slate, fontSize: 11, fontWeight: 600 }}>CHAMP: {champTotal}/12</p>
+                    )}
 
                     <p style={{ margin: "0 0 10px", color: C.slate, fontSize: 12, lineHeight: 1.5 }}>
                       {String(notesPreview).slice(0, 100)}{String(notesPreview).length > 100 ? "…" : ""}
@@ -421,6 +541,46 @@ alter table public.clients disable row level security;`;
 
                     {canEditPipeline && pipelineSchemaReady && (
                       <div style={{ display: "grid", gap: 8 }}>
+                        {isBrandAmbassadorView && champSchemaReady && (
+                          <div style={{ border: `1px solid ${C.smoke}`, borderRadius: 8, padding: 10, background: C.ivory }}>
+                            <p style={{ margin: "0 0 8px", color: C.ink, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>CHAMP Qualification</p>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                              <button onClick={() => applyChampPreset(client, "strong")} disabled={isBusy} style={{ padding: "5px 10px", borderRadius: 99, border: `1px solid rgba(26,102,54,0.25)`, background: C.okBg, color: C.ok, fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: isBusy ? "not-allowed" : "pointer", fontFamily: "'Inter',sans-serif", opacity: isBusy ? 0.6 : 1 }}>Strong</button>
+                              <button onClick={() => applyChampPreset(client, "nurture")} disabled={isBusy} style={{ padding: "5px 10px", borderRadius: 99, border: `1px solid rgba(146,86,10,0.25)`, background: C.warnBg, color: C.warn, fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: isBusy ? "not-allowed" : "pointer", fontFamily: "'Inter',sans-serif", opacity: isBusy ? 0.6 : 1 }}>Nurture</button>
+                              <button onClick={() => applyChampPreset(client, "decline")} disabled={isBusy} style={{ padding: "5px 10px", borderRadius: 99, border: `1px solid rgba(155,28,28,0.25)`, background: C.errBg, color: C.err, fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: isBusy ? "not-allowed" : "pointer", fontFamily: "'Inter',sans-serif", opacity: isBusy ? 0.6 : 1 }}>Decline</button>
+                            </div>
+                            <div style={{ display: "grid", gap: 8 }}>
+                              {CHAMP_FIELDS.map((field) => (
+                                <div key={`${client.id}-${field.letter}`} style={{ display: "grid", gridTemplateColumns: "62px 1fr", gap: 8, alignItems: "center" }}>
+                                  <select
+                                    value={client[field.scoreKey] ?? 0}
+                                    onChange={(e) => {
+                                      const nextScore = Number(e.target.value);
+                                      setClients((prev) => prev.map((c) => (c.id === client.id ? { ...c, [field.scoreKey]: nextScore } : c)));
+                                      updateChamp(client, { [field.scoreKey]: nextScore });
+                                    }}
+                                    disabled={isBusy}
+                                    style={{ ...sel, padding: "8px 8px", fontSize: 12 }}
+                                  >
+                                    <option value={0}>{field.letter}: 0</option>
+                                    <option value={1}>{field.letter}: 1</option>
+                                    <option value={2}>{field.letter}: 2</option>
+                                    <option value={3}>{field.letter}: 3</option>
+                                  </select>
+                                  <input
+                                    value={client[field.notesKey] || ""}
+                                    placeholder={`${field.label} notes...`}
+                                    onChange={(e) => setClients((prev) => prev.map((c) => (c.id === client.id ? { ...c, [field.notesKey]: e.target.value } : c)))}
+                                    onBlur={() => updateChamp(client, { [field.notesKey]: client[field.notesKey] || "" })}
+                                    disabled={isBusy}
+                                    style={{ ...sel, width: "100%", boxSizing: "border-box", fontSize: 12 }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         <select value={client.pipeline_stage} onChange={(e) => updatePartnerPipeline(client.id, { pipeline_stage: e.target.value })} disabled={isBusy} style={sel}>
                           {STAGES.map((item) => <option key={item} value={item}>{STAGE_LABELS[item]}</option>)}
                         </select>

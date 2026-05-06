@@ -6,6 +6,11 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 const admin = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
 
+const isMissingColumnError = (err) =>
+  err?.code === "42703" ||
+  (err?.message || "").toLowerCase().includes("column") ||
+  (err?.message || "").toLowerCase().includes("schema cache");
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -26,6 +31,7 @@ export default async function handler(req, res) {
 
   // First try full select with pipeline columns
   let pipelineSchemaReady = true;
+  let champSchemaReady = true;
   let { data, error } = await admin
     .from("clients")
     .select(selectFields)
@@ -46,5 +52,18 @@ export default async function handler(req, res) {
     data = fallback.data;
   }
 
-  return res.status(200).json({ clients: data || [], pipelineSchemaReady });
+  const champFields = "id, champ_c_score, champ_h_score, champ_m_score, champ_p_score, champ_c_notes, champ_h_notes, champ_m_notes, champ_p_notes, champ_total, champ_recommendation";
+  const { data: champRows, error: champError } = await admin.from("clients").select(champFields);
+
+  if (champError) {
+    champSchemaReady = false;
+    if (!isMissingColumnError(champError)) {
+      console.error("Failed to load CHAMP data:", champError.message || champError);
+    }
+  } else if (Array.isArray(data) && Array.isArray(champRows)) {
+    const champById = new Map((champRows || []).map((row) => [row.id, row]));
+    data = data.map((row) => ({ ...row, ...(champById.get(row.id) || {}) }));
+  }
+
+  return res.status(200).json({ clients: data || [], pipelineSchemaReady, champSchemaReady });
 }

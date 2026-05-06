@@ -14,6 +14,16 @@ const ALLOWED_FIELDS = new Set([
   "status",
   "last_updated",
   "avatar_url",
+  "champ_c_score",
+  "champ_h_score",
+  "champ_m_score",
+  "champ_p_score",
+  "champ_c_notes",
+  "champ_h_notes",
+  "champ_m_notes",
+  "champ_p_notes",
+  "champ_total",
+  "champ_recommendation",
 ]);
 
 const isMissingColumnError = (err) =>
