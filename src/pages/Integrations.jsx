@@ -174,6 +174,10 @@ export default function Integrations() {
 
   const upcoming = bookings.filter((b) => b.preferred_date).slice(0, 5);
   const calendlyUrl = "https://calendly.com/meetserenity";
+  const mainHomepageUrl = `${window.location.origin}/`;
+  const contactTeamUrl = `${window.location.origin}/contact-team`;
+  const brandSubmissionUrl = `${window.location.origin}/brand-ambassador-submit`;
+  const partnerSubmissionUrl = `${window.location.origin}/partner-submit`;
   const embedModelSignup = `${window.location.origin}/model-signup`;
   const embedBooking = `${window.location.origin}/book`;
   const canRunCurrentDataSync = role === "admin";
@@ -303,6 +307,10 @@ export default function Integrations() {
       <div style={sec()}>
         <p style={secTitle}>Website Integration</p>
         <p style={{ color:C.dust, fontSize:13, margin:"0 0 8px" }}>Embed-ready public pages:</p>
+        <p style={{ color:C.slate, fontSize:13, margin:"0 0 4px" }}>Main Homepage: <span style={{ color:C.ink }}>{mainHomepageUrl}</span></p>
+        <p style={{ color:C.slate, fontSize:13, margin:"0 0 4px" }}>Contact Team Page: <span style={{ color:C.ink }}>{contactTeamUrl}</span></p>
+        <p style={{ color:C.slate, fontSize:13, margin:"0 0 4px" }}>Brand Submission Page: <span style={{ color:C.ink }}>{brandSubmissionUrl}</span></p>
+        <p style={{ color:C.slate, fontSize:13, margin:"0 0 4px" }}>Partner Submission Page: <span style={{ color:C.ink }}>{partnerSubmissionUrl}</span></p>
         <p style={{ color:C.slate, fontSize:13, margin:"0 0 4px" }}>Model Signup: <span style={{ color:C.ink }}>{embedModelSignup}</span></p>
         <p style={{ color:C.slate, fontSize:13, margin:"0 0 4px" }}>Booking Form: <span style={{ color:C.ink }}>{embedBooking}</span></p>
         <p style={{ color:C.dust, fontSize:13, marginTop:10 }}>Backend status: {backendStatus.loading ? "Checking…" : backendStatus.message || "Not configured"}</p>
