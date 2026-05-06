@@ -121,7 +121,7 @@ export default function PartnerSubmissions() {
         saveResp = await fetch("/api/clients/update-pipeline", {
           method: "POST",
           headers,
-          body: JSON.stringify({ partnerId: submissionId, updates: { avatar_url: publicUrl, last_updated: new Date().toISOString() } }),
+          body: JSON.stringify({ partnerId: `partner-${submissionId}`, updates: { avatar_url: publicUrl, last_updated: new Date().toISOString() } }),
         });
       }
       const saveJson = await saveResp.json().catch(() => ({}));
@@ -216,6 +216,20 @@ alter table public.partners disable row level security;`;
 
       if (isBrandAmbassadorView) {
         const synthesized = await loadAmbassadorClientRows();
+        const synthesizedByKey = new Map(
+          synthesized.map((row) => [`${String(row.email || "").toLowerCase()}|${String(row.name || "").toLowerCase()}`, row])
+        );
+
+        nextRows = nextRows.map((row) => {
+          const key = `${String(row.email || "").toLowerCase()}|${String(row.name || "").toLowerCase()}`;
+          const linked = synthesizedByKey.get(key);
+          if (!linked) return row;
+          return {
+            ...row,
+            avatar_url: linked.avatar_url || row.avatar_url || "",
+          };
+        });
+
         const deduped = new Set(
           nextRows.map((row) => `${String(row.email || "").toLowerCase()}|${String(row.name || "").toLowerCase()}`)
         );
