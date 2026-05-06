@@ -8,6 +8,7 @@ import {
   sendInternalTeamEmailAlert,
   sendBackendWebhook,
 } from "../utils";
+import SeoTopicCluster from "../components/SeoTopicCluster";
 import "../App.css";
 
 const inp = {
@@ -404,6 +405,8 @@ export default function ModelSignup() {
 
           </div>
         </div>
+
+        <SeoTopicCluster title="Application growth guides" />
       </div>
     </div>
   );

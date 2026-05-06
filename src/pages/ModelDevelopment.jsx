@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import "../App.css";
 import VoiceCallButton from "../components/VoiceCallButton";
+import SeoTopicCluster from "../components/SeoTopicCluster";
 
 const sections = [
   {
@@ -212,6 +213,7 @@ export default function ModelDevelopment() {
   const [intent] = React.useState(getIntent);
   const [isMobile, setIsMobile] = React.useState(() => window.innerWidth <= 768);
   const [tierCurrency, setTierCurrency] = React.useState(getDefaultTierCurrency);
+  const [calendlyLinks, setCalendlyLinks] = React.useState([]);
   const callLine = (import.meta.env.VITE_PUBLIC_CALL_LINE || "").trim();
   const callLineHref = callLine ? `tel:${callLine.replace(/\s+/g, "")}` : "";
 
@@ -227,6 +229,43 @@ export default function ModelDevelopment() {
     const onResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  React.useEffect(() => {
+    const isCalendlyUrl = (value) => /^https?:\/\/(www\.)?calendly\.com\//i.test(String(value || "").trim());
+
+    const loadCalendlyLinks = async () => {
+      try {
+        const resp = await fetch("/api/calendly/links");
+        const json = await resp.json();
+        if (!resp.ok) throw new Error("Calendly unavailable");
+        const links = Array.isArray(json?.links) ? json.links : [];
+        const cleaned = links.filter((item) => isCalendlyUrl(item?.url));
+        if (cleaned.length) {
+          setCalendlyLinks(cleaned);
+          return;
+        }
+      } catch (_err) {
+        // Fall through to frontend env fallback.
+      }
+
+      const fallback = [
+        import.meta.env.VITE_CALENDLY_US_LINK,
+        import.meta.env.VITE_CALENDLY_INTL_LINK,
+        import.meta.env.VITE_CALENDLY_GENERAL_LINK,
+      ]
+        .map((url) => String(url || "").trim())
+        .filter((url) => isCalendlyUrl(url));
+
+      const mapped = fallback.map((url, idx) => ({
+        label: idx === 0 ? "US" : idx === 1 ? "International" : "General",
+        url,
+      }));
+
+      setCalendlyLinks(mapped);
+    };
+
+    loadCalendlyLinks();
   }, []);
 
   const applyPath = `/model-signup?intent=${encodeURIComponent(intent)}`;
@@ -334,6 +373,37 @@ export default function ModelDevelopment() {
                 </a>
               )}
             </div>
+            {calendlyLinks.length > 0 && (
+              <div style={{ borderTop: "1px solid #efe9dc", paddingTop: 10 }}>
+                <p style={{ margin: "0 0 8px", color: "#4a4a4a", fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Schedule instantly
+                </p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {calendlyLinks.map((item, idx) => (
+                    <a
+                      key={`${item.url}-${idx}`}
+                      href={item.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        textDecoration: "none",
+                        padding: isMobile ? "8px 11px" : "9px 13px",
+                        borderRadius: 9,
+                        border: "1px solid #111",
+                        color: "#111",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        letterSpacing: "0.05em",
+                        textTransform: "uppercase",
+                        background: "#fff",
+                      }}
+                    >
+                      {item.label || `Link ${idx + 1}`}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div
@@ -395,6 +465,22 @@ export default function ModelDevelopment() {
               </div>
             </div>
           </div>
+
+          <div style={{ marginTop: 12, border: "1px solid #e8e4dc", borderRadius: 12, background: "#fff", padding: isMobile ? "10px 10px" : "12px 14px" }}>
+            <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888" }}>
+              Explore public pages
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Link to="/book" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Book a Consultation</Link>
+              <Link to="/model-signup" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Model Application</Link>
+              <Link to="/partner-submit" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Partner Submission</Link>
+              <Link to="/brand-ambassador-submit" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Ambassador Submission</Link>
+              <Link to="/contact-team" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Contact Team</Link>
+              <Link to="/insights" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Insights Hub</Link>
+            </div>
+          </div>
+
+          <SeoTopicCluster title="Deep-dive growth guides" />
         </div>
 
         {sections.map((section) => (

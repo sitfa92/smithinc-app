@@ -54,6 +54,9 @@ const BOOKING_INFO_MESSAGE_FR = String(
   process.env.BOOKING_INFO_MESSAGE_FR ||
     "Pour les reservations et consultations, visitez meet-serenity.online slash book. Vous pouvez envoyer votre nom, email, entreprise, type de service et date souhaitee. Notre equipe examinera puis confirmera votre demande rapidement."
 ).trim();
+const CALENDLY_US_LINK = String(process.env.CALENDLY_US_LINK || "https://calendly.com/meetserenity").trim();
+const CALENDLY_INTL_LINK = String(process.env.CALENDLY_INTL_LINK || "").trim();
+const CALENDLY_GENERAL_LINK = String(process.env.CALENDLY_GENERAL_LINK || "https://calendly.com/meetserenity").trim();
 
 const WHATSAPP_SYSTEM_PROMPT = String(
   process.env.WHATSAPP_SYSTEM_PROMPT ||
@@ -240,6 +243,42 @@ function detectCallLanguage({ queryLang, speechLanguage, text, fromCountry, call
   if (browserDetected) return browserDetected;
 
   return looksFrench(text) ? "fr" : "en";
+}
+
+function isUSCaller({ fromCountry, callerCountry, fromNumber }) {
+  const from = normalizeCountry(fromCountry);
+  const caller = normalizeCountry(callerCountry);
+  const phone = normalizePhone(fromNumber);
+  return from === "US" || caller === "US" || phone.startsWith("+1");
+}
+
+function chooseCalendlyLink({ fromCountry, callerCountry, fromNumber }) {
+  if (isUSCaller({ fromCountry, callerCountry, fromNumber })) {
+    return CALENDLY_US_LINK || CALENDLY_GENERAL_LINK;
+  }
+  return CALENDLY_INTL_LINK || CALENDLY_GENERAL_LINK || CALENDLY_US_LINK;
+}
+
+function toSpokenCalendly(url = "") {
+  return String(url || "")
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/\//g, " slash ")
+    .replace(/-/g, " ")
+    .replace(/\./g, " dot ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildConsultSavedMessage({ lang = "en", fromCountry = "", callerCountry = "", fromNumber = "" }) {
+  const link = chooseCalendlyLink({ fromCountry, callerCountry, fromNumber });
+  const spokenLink = toSpokenCalendly(link);
+
+  if (lang === "fr") {
+    return `Merci. Votre demande de consultation a ete enregistree et notre equipe vous contactera rapidement. Vous pouvez aussi reserver tout de suite sur meet serenity dot online slash book. Votre lien Calendly: ${spokenLink}.`;
+  }
+
+  return `Thank you. Your consultation request has been saved and our team will follow up shortly. You can also schedule right away at meet serenity dot online slash book. Your Calendly link is: ${spokenLink}.`;
 }
 
 async function getCallerMemory(phone = "") {
@@ -749,7 +788,14 @@ app.post("/gather", async (req, res) => {
       console.error("consult lead save error:", err?.message || err);
     }
 
-    res.type("text/xml").status(200).send(twimlEnd(copy("consultSaved", lang), lang));
+    const consultSavedMessage = buildConsultSavedMessage({
+      lang,
+      fromCountry: req.body?.FromCountry,
+      callerCountry: req.body?.CallerCountry,
+      fromNumber: from,
+    });
+
+    res.type("text/xml").status(200).send(twimlEnd(consultSavedMessage, lang));
     return;
   }
 

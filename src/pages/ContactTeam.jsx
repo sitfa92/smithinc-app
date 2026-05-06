@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import VoiceCallButton from "../components/VoiceCallButton";
+import SeoTopicCluster from "../components/SeoTopicCluster";
 
 const TEAM = [
   {
@@ -81,6 +82,8 @@ export default function ContactTeam() {
             ✦ Book a Consultation
           </Link>
         </div>
+
+        <SeoTopicCluster title="Explore strategy guides" />
 
         <div style={{ marginTop: 40, textAlign: "center" }}>
           <p style={{ fontSize: 11, color: C.dust, letterSpacing: "0.1em", textTransform: "uppercase" }}>

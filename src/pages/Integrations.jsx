@@ -6,6 +6,7 @@ import { BACKEND_BASE_URL, buildFallbackTasksFromBookings, runAuthenticatedCurre
 export default function Integrations() {
   const { role } = useAuth();
   const [bookings, setBookings] = React.useState([]);
+  const [calendlyStatus, setCalendlyStatus] = React.useState({ loading: true, links: [] });
   const [zapierStatus, setZapierStatus] = React.useState({ loading: true, configured: false, events: [] });
   const [zapierTestState, setZapierTestState] = React.useState({ loading: false, message: "" });
   const [backendStatus, setBackendStatus] = React.useState({ loading: !!BACKEND_BASE_URL, connected: false });
@@ -17,6 +18,47 @@ export default function Integrations() {
   const [perplexityState, setPerplexityState] = React.useState({ loading: false, error: "", answer: "", citations: [] });
 
   React.useEffect(() => {
+    const buildClientCalendlyFallback = () => {
+      const envKeys = [
+        "VITE_CALENDLY_LINKS",
+        "VITE_CALENDLY_US_LINK",
+        "VITE_CALENDLY_INTL_LINK",
+        "VITE_CALENDLY_GENERAL_LINK",
+      ];
+
+      const splitValues = (value) =>
+        String(value || "")
+          .split(/[\n,;]+/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+
+      const isCalendlyUrl = (value) => /^https?:\/\/(www\.)?calendly\.com\//i.test(String(value || "").trim());
+      const collected = [];
+
+      envKeys.forEach((key) => {
+        splitValues(import.meta.env[key]).forEach((url) => {
+          if (!isCalendlyUrl(url)) return;
+          collected.push({
+            key,
+            label: key.replace(/^VITE_CALENDLY_?/i, "").replace(/_LINKS?$/i, "").replace(/_/g, " "),
+            url,
+          });
+        });
+      });
+
+      if (!collected.length) {
+        collected.push({ key: "fallback", label: "General", url: "https://calendly.com/meetserenity" });
+      }
+
+      const seen = new Set();
+      return collected.filter((item) => {
+        const normalized = item.url.toLowerCase();
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      });
+    };
+
     const fetchBookings = async () => {
       const { data } = await supabase.from("bookings").select("id, name, status, preferred_date, created_at").order("created_at", { ascending: false });
       const list = data || [];
@@ -53,6 +95,19 @@ export default function Integrations() {
       }
     };
 
+    const fetchCalendlyLinks = async () => {
+      try {
+        const resp = await fetch("/api/calendly/links");
+        const json = await resp.json();
+        if (!resp.ok) throw new Error("Calendly links unavailable");
+        const links = Array.isArray(json?.links) ? json.links : [];
+        if (!links.length) throw new Error("No Calendly links returned");
+        setCalendlyStatus({ loading: false, links });
+      } catch (_err) {
+        setCalendlyStatus({ loading: false, links: buildClientCalendlyFallback() });
+      }
+    };
+
     const fetchBackendHealth = async () => {
       if (!BACKEND_BASE_URL) {
         setBackendStatus({ loading: false, connected: false, message: "Not configured" });
@@ -71,6 +126,7 @@ export default function Integrations() {
     const init = async () => {
       const [loadedBookings] = await Promise.all([
         fetchBookings(),
+        fetchCalendlyLinks(),
         fetchZapierStatus(),
         fetchBackendHealth(),
       ]);
@@ -173,7 +229,7 @@ export default function Integrations() {
   };
 
   const upcoming = bookings.filter((b) => b.preferred_date).slice(0, 5);
-  const calendlyUrl = "https://calendly.com/meetserenity";
+  const calendlyLinks = calendlyStatus.links;
   const mainHomepageUrl = `${window.location.origin}/`;
   const contactTeamUrl = `${window.location.origin}/contact-team`;
   const brandSubmissionUrl = `${window.location.origin}/brand-ambassador-submit`;
@@ -199,7 +255,12 @@ export default function Integrations() {
       {/* Calendly */}
       <div style={sec()}>
         <p style={secTitle}>Calendly</p>
-        <p style={{ color:C.dust, fontSize:13, margin:"0 0 10px" }}>Scheduling link: <a href={calendlyUrl} target="_blank" rel="noreferrer" style={{ color:C.ink }}>{calendlyUrl}</a></p>
+        {calendlyStatus.loading && <p style={{ color:C.dust, fontSize:13, margin:"0 0 10px" }}>Loading scheduling links…</p>}
+        {!calendlyStatus.loading && calendlyLinks.map((item, idx) => (
+          <p key={`${item.url}-${idx}`} style={{ color:C.dust, fontSize:13, margin:"0 0 6px" }}>
+            {item.label || `Scheduling ${idx + 1}`}: <a href={item.url} target="_blank" rel="noreferrer" style={{ color:C.ink }}>{item.url}</a>
+          </p>
+        ))}
         <p style={{ fontWeight:600, color:C.slate, fontSize:13, margin:"0 0 8px" }}>Upcoming Appointments</p>
         {upcoming.length === 0 && <p style={{ color:C.dust, fontSize:13 }}>No upcoming appointments yet.</p>}
         {upcoming.map(booking => (

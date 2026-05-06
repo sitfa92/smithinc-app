@@ -1,4 +1,5 @@
 import React from "react";
+import SeoTopicCluster from "../components/SeoTopicCluster";
 import "../App.css";
 
 const inp = {
@@ -190,6 +191,8 @@ export default function PublicBrandAmbassadorSubmission() {
           >
             {loading ? "Submitting..." : "Submit Brand Ambassador Application"}
           </button>
+
+          <SeoTopicCluster title="Ambassador growth guides" />
         </form>
       </div>
     </div>

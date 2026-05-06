@@ -1,4 +1,5 @@
 import React from "react";
+import SeoTopicCluster from "../components/SeoTopicCluster";
 import "../App.css";
 
 const inp = {
@@ -189,6 +190,8 @@ export default function PublicPartnerSubmission() {
           >
             {loading ? "Submitting…" : "Submit Partner Application"}
           </button>
+
+          <SeoTopicCluster title="Partner strategy guides" />
         </form>
       </div>
     </div>

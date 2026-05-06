@@ -1,4 +1,6 @@
 import React from "react";
+import { Link } from "react-router-dom";
+import SeoTopicCluster from "../components/SeoTopicCluster";
 import { supabase } from "../supabase";
 import { sendBookingConfirmationEmail } from "../emailService";
 import { createInAppAlerts, sendInternalTeamEmailAlert, sendZapierEvent, sendBackendWebhook } from "../utils";
@@ -194,6 +196,20 @@ export default function PublicBooking() {
           <button disabled={loading} className={`lx-btn lx-btn-primary lx-btn-full${loading?" lx-btn-disabled":""}`} style={{ marginTop:4, padding:"14px 22px", fontSize:12 }}>
             {loading ? "Sending…" : bookingContent.button}
           </button>
+
+          <div style={{ marginTop: 16, borderTop: "1px solid #e8e4dc", paddingTop: 14 }}>
+            <p style={{ margin: "0 0 8px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888" }}>
+              Explore related pages
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <Link to="/model-development" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Program Overview</Link>
+              <Link to="/model-signup" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Model Application</Link>
+              <Link to="/contact-team" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Contact Team</Link>
+              <Link to="/insights" style={{ textDecoration: "none", padding: "8px 10px", borderRadius: 8, border: "1px solid #e8e4dc", color: "#111", fontSize: 12 }}>Insights Hub</Link>
+            </div>
+          </div>
+
+          <SeoTopicCluster title="Related strategy guides" />
         </form>
       </div>
     </div>

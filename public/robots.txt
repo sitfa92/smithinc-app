@@ -2,9 +2,14 @@ User-agent: *
 
 # Public pages — allow crawling
 Allow: /
+Allow: /model-development
 Allow: /book
+Allow: /contact-team
 Allow: /talent/
 Allow: /model-signup
+Allow: /partner-submit
+Allow: /brand-ambassador-submit
+Allow: /insights
 
 # Internal app pages — disallow crawling
 Disallow: /login
@@ -20,4 +25,5 @@ Disallow: /workflows
 Disallow: /team
 Disallow: /notifications
 
+Host: https://meet-serenity.online
 Sitemap: https://meet-serenity.online/sitemap.xml

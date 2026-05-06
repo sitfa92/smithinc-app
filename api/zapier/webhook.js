@@ -18,7 +18,7 @@ const ZAPIER_WEBHOOK_SECRET = process.env.ZAPIER_WEBHOOK_SECRET;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const resolveExternalRecordId = (payload = {}) =>
-  payload.external_record_id || payload.crm_record_id || payload.honeybook_id || "";
+  payload.external_record_id || payload.crm_record_id || "";
 
 // Validate webhook secret from Zapier (skip check if secret not configured — dev/staging safety)
 function validateSecret(req) {
@@ -76,7 +76,6 @@ async function handleNewLead(data) {
     phone,
     service_type,
     message,
-    honeybook_id: externalRecordId,
     source: "zapier",
     status: "new",
     metadata: data.metadata || null,
@@ -117,7 +116,6 @@ async function handleClientConverted(data) {
     .from("leads")
     .update({
       status: "converted",
-      honeybook_id: externalRecordId || lead.honeybook_id,
       conversion_date: new Date().toISOString(),
     })
     .eq("id", lead.id);
@@ -129,7 +127,6 @@ async function handleClientConverted(data) {
   const { data: client, error: clientError } = await supabase.from("clients").insert({
     name: lead.name,
     email,
-    honeybook_id: externalRecordId,
     service_type,
     client_value: client_value || 0,
     status: "active",
@@ -179,7 +176,6 @@ async function handleProgramEnrollment(data) {
       program_name,
       program_tier,
       start_date,
-      honeybook_id: externalRecordId,
       status: "active",
       source: "zapier",
       metadata: data.metadata || null,

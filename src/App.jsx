@@ -1,9 +1,17 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider } from "./auth";
 import { useAuth } from "./auth";
 import Nav from "./components/Nav";
 import RoleRoute from "./components/RoleRoute";
+import { getArticleFaqBySlug } from "./content/insights";
+import {
+  BOOKING_FAQ_ENTITIES,
+  DEFAULT_META,
+  MODEL_DEVELOPMENT_FAQ_ENTITIES,
+  PUBLIC_ROUTE_META,
+  TALENT_ROUTE_META,
+} from "./content/routeSeo";
 
 // ── Error Boundary — prevents entire app crash from showing a blank screen ──
 class AppErrorBoundary extends React.Component {
@@ -70,6 +78,174 @@ const Team = React.lazy(() => import("./pages/Team"));
 const TeamDocs = React.lazy(() => import("./pages/TeamDocs"));
 const Notifications = React.lazy(() => import("./pages/Notifications"));
 const ContactTeam = React.lazy(() => import("./pages/ContactTeam"));
+const InsightsHub = React.lazy(() => import("./pages/InsightsHub"));
+const InsightsArticle = React.lazy(() => import("./pages/InsightsArticle"));
+
+const PRIVATE_ROUTE_PREFIXES = [
+  "/dashboard",
+  "/models",
+  "/model-pipeline",
+  "/submissions",
+  "/bookings",
+  "/partners",
+  "/partner-pipeline",
+  "/partner-submissions",
+  "/brand-ambassadors",
+  "/brand-ambassador-pipeline",
+  "/brand-ambassador-submissions",
+  "/analytics",
+  "/integrations",
+  "/workflows",
+  "/team",
+  "/notifications",
+  "/onboarding",
+  "/digitals",
+  "/portfolio",
+  "/event-response",
+];
+
+const upsertMeta = (selector, attributes) => {
+  let node = document.head.querySelector(selector);
+  if (!node) {
+    node = document.createElement("meta");
+    if (attributes.name) node.setAttribute("name", attributes.name);
+    if (attributes.property) node.setAttribute("property", attributes.property);
+    document.head.appendChild(node);
+  }
+  Object.entries(attributes).forEach(([key, value]) => {
+    if (value == null) return;
+    node.setAttribute(key, String(value));
+  });
+};
+
+const upsertLink = (rel, href) => {
+  let node = document.head.querySelector(`link[rel="${rel}"]`);
+  if (!node) {
+    node = document.createElement("link");
+    node.setAttribute("rel", rel);
+    document.head.appendChild(node);
+  }
+  node.setAttribute("href", href);
+};
+
+const upsertJsonLd = (id, payload) => {
+  let node = document.head.querySelector(`script#${id}`);
+  if (!node) {
+    node = document.createElement("script");
+    node.setAttribute("type", "application/ld+json");
+    node.setAttribute("id", id);
+    document.head.appendChild(node);
+  }
+  node.textContent = JSON.stringify(payload);
+};
+
+const removeJsonLd = (id) => {
+  const node = document.head.querySelector(`script#${id}`);
+  if (node) node.remove();
+};
+
+function RouteSeo() {
+  const location = useLocation();
+
+  React.useEffect(() => {
+    const path = location.pathname || "/";
+    const isTalentRoute = path.startsWith("/talent/");
+    const isPrivate = PRIVATE_ROUTE_PREFIXES.some((prefix) => path.startsWith(prefix));
+    const routeMeta = PUBLIC_ROUTE_META[path] || (isTalentRoute ? TALENT_ROUTE_META : null);
+
+    const defaultMeta = {
+      ...DEFAULT_META,
+      robots: isPrivate ? "noindex, nofollow" : "index, follow",
+    };
+
+    const meta = routeMeta || defaultMeta;
+    const canonicalUrl = `${window.location.origin}${path}`;
+
+    document.title = meta.title;
+    upsertMeta('meta[name="description"]', { name: "description", content: meta.description });
+    upsertMeta('meta[name="robots"]', { name: "robots", content: meta.robots });
+    upsertMeta('meta[property="og:title"]', { property: "og:title", content: meta.title });
+    upsertMeta('meta[property="og:description"]', { property: "og:description", content: meta.description });
+    upsertMeta('meta[property="og:url"]', { property: "og:url", content: canonicalUrl });
+    upsertMeta('meta[name="twitter:title"]', { name: "twitter:title", content: meta.title });
+    upsertMeta('meta[name="twitter:description"]', { name: "twitter:description", content: meta.description });
+    upsertLink("canonical", canonicalUrl);
+
+    if (path === "/book") {
+      upsertJsonLd("route-faq-jsonld", {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: BOOKING_FAQ_ENTITIES,
+      });
+      removeJsonLd("route-article-jsonld");
+      removeJsonLd("route-breadcrumb-jsonld");
+    } else if (path === "/model-development" || path === "/") {
+      upsertJsonLd("route-faq-jsonld", {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: MODEL_DEVELOPMENT_FAQ_ENTITIES,
+      });
+      removeJsonLd("route-article-jsonld");
+      removeJsonLd("route-breadcrumb-jsonld");
+    } else if (path.startsWith("/insights/") && path !== "/insights") {
+      const slug = path.split("/").filter(Boolean)[1] || "insight";
+      const faq = getArticleFaqBySlug(slug);
+      upsertJsonLd("route-article-jsonld", {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: meta.title,
+        description: meta.description,
+        author: {
+          "@type": "Organization",
+          name: "Smith Inc",
+        },
+        publisher: {
+          "@type": "Organization",
+          name: "Meet Serenity",
+          logo: {
+            "@type": "ImageObject",
+            url: `${window.location.origin}/favicon.svg`,
+          },
+        },
+        mainEntityOfPage: canonicalUrl,
+        dateModified: "2026-05-06",
+        articleSection: "Model Growth Insights",
+        keywords: [slug.replace(/-/g, " "), "model development", "fashion consulting", "booking readiness"],
+      });
+      upsertJsonLd("route-breadcrumb-jsonld", {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: `${window.location.origin}/` },
+          { "@type": "ListItem", position: 2, name: "Insights", item: `${window.location.origin}/insights` },
+          { "@type": "ListItem", position: 3, name: meta.title, item: canonicalUrl },
+        ],
+      });
+      if (faq.length) {
+        upsertJsonLd("route-faq-jsonld", {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: faq.map((item) => ({
+            "@type": "Question",
+            name: item.q,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: item.a,
+            },
+          })),
+        });
+      } else {
+        removeJsonLd("route-faq-jsonld");
+      }
+    } else {
+      removeJsonLd("route-faq-jsonld");
+      removeJsonLd("route-article-jsonld");
+      removeJsonLd("route-breadcrumb-jsonld");
+    }
+  }, [location.pathname]);
+
+  return null;
+}
 
 const PageFallback = () => (
   <div style={{ padding: 40, textAlign: "center" }}>
@@ -217,6 +393,7 @@ const ProtectedApp = () => {
 function App() {
   return (
     <BrowserRouter>
+      <RouteSeo />
       <AuthProvider>
         <AppErrorBoundary>
           <React.Suspense fallback={<PageFallback />}>
@@ -231,6 +408,8 @@ function App() {
               <Route path="/brand-ambassador-submit" element={<PublicBrandAmbassadorSubmission />} />
               <Route path="/talent/:id" element={<Portfolio />} />
               <Route path="/contact-team" element={<ContactTeam />} />
+              <Route path="/insights" element={<InsightsHub />} />
+              <Route path="/insights/:slug" element={<InsightsArticle />} />
               <Route path="/digitals/:id" element={<DigitalsUpload />} />
               <Route path="/portfolio/:id" element={<PortfolioUpload />} />
               <Route path="/event-response" element={<EventResponse />} />

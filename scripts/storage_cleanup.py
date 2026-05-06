@@ -12,19 +12,16 @@ Only the OLDEST copy is deleted; the newest is kept.
 The script prints a dry-run report first; deletion is opt-in.
 """
 
-import json, re, sys, urllib.request, urllib.error
+import json, os, re, sys, urllib.request, urllib.error
 from collections import defaultdict
 
-SUPABASE_URL = "https://jjmmakbnjzzxbuflucck.supabase.co"
-SERVICE_KEY = (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-    ".eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impq"
-    "bW1ha2Juanp6eGJ1Zmx1Y2NrIiwicm9sZSI6"
-    "InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjAx"
-    "MzQzNCwiZXhwIjoyMDkxNTg5NDM0fQ"
-    ".Bjn1wl_XGzTwOBLEh6HkwY5IA_BANv2Dm9pVQ1LWWSE"
-)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
+SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", os.getenv("SUPABASE_SECRET_KEY", "")).strip()
 BUCKET = "model-images"
+
+if not SUPABASE_URL or not SERVICE_KEY:
+    print("Missing required env vars: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_SECRET_KEY)")
+    sys.exit(1)
 
 HEADERS = {
     "apikey": SERVICE_KEY,

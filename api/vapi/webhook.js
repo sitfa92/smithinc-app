@@ -11,6 +11,8 @@ const RESEND_API_KEY = String(process.env.RESEND_API_KEY || "").trim();
 const ALERT_FROM_EMAIL = String(process.env.ALERT_FROM_EMAIL || "onboarding@meet-serenity.online").trim();
 const CALENDLY_US_LINK = String(process.env.CALENDLY_US_LINK || "https://calendly.com/").trim();
 const CALENDLY_INTL_LINK = String(process.env.CALENDLY_INTL_LINK || "https://calendly.com/").trim();
+const CALENDLY_GENERAL_LINK = String(process.env.CALENDLY_GENERAL_LINK || "https://calendly.com/meetserenity").trim();
+const APP_BOOKING_PAGE = String(process.env.APP_BOOKING_PAGE || "https://meet-serenity.online/book").trim();
 const MJ_VA_EMAIL = "marthajohn223355@gmail.com";
 const REQUIRED_ADMIN_EMAILS = ["sitfa92@gmail.com", "marthajohn223355@gmail.com"];
 const ADMIN_NOTIFICATION_EMAILS = String(
@@ -167,6 +169,11 @@ function isUSPhone(phone = "") {
   return String(phone || "").trim().startsWith("+1");
 }
 
+function chooseVoiceCalendlyLink(phone = "") {
+  if (isUSPhone(phone)) return CALENDLY_US_LINK || CALENDLY_GENERAL_LINK;
+  return CALENDLY_INTL_LINK || CALENDLY_GENERAL_LINK || CALENDLY_US_LINK;
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -275,11 +282,12 @@ async function sendCallerBookingConfirmationEmail({
   const normalizedEmail = String(email || "").trim().toLowerCase();
   if (!/.+@.+\..+/.test(normalizedEmail)) return { ok: false, skipped: true, reason: "invalid_email" };
 
-  const calendlyLink = isUSPhone(callerPhone) ? CALENDLY_US_LINK : CALENDLY_INTL_LINK;
+  const calendlyLink = chooseVoiceCalendlyLink(callerPhone);
   const linkLabel = isUSPhone(callerPhone) ? "US Consultation Link" : "International Consultation Link";
   const safeName = escapeHtml(name || "there");
   const safeServiceType = escapeHtml(serviceType || "Consultation");
   const safeCalendlyLink = escapeHtml(calendlyLink);
+  const safeBookingPage = escapeHtml(APP_BOOKING_PAGE);
 
   const subject = "Booking request received - Smith Inc";
   const html = `<!DOCTYPE html>
@@ -293,8 +301,9 @@ async function sendCallerBookingConfirmationEmail({
           <h2 style="margin:0 0 20px;font-size:20px;color:#111;">Booking Request Received ✓</h2>
           <p style="margin:0 0 12px;color:#444;line-height:1.7;">Hi <strong>${safeName}</strong>,</p>
           <p style="margin:0 0 20px;color:#444;line-height:1.7;">We've received your ${safeServiceType} request and will follow up shortly.</p>
-          <p style="margin:0 0 12px;color:#444;line-height:1.7;">To speed up scheduling, use your consultation link below:</p>
+          <p style="margin:0 0 12px;color:#444;line-height:1.7;">To speed up scheduling, use your consultation link below or book directly on the app:</p>
           <p style="margin:0 0 20px;"><a href="${safeCalendlyLink}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;letter-spacing:0.04em;">${linkLabel}</a></p>
+          <p style="margin:0 0 20px;"><a href="${safeBookingPage}" style="display:inline-block;background:#fff;color:#111;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;letter-spacing:0.04em;border:1px solid #ddd;">Book on Meet Serenity</a></p>
           <p style="margin:0 0 20px;color:#666;font-size:13px;line-height:1.7;">If the button does not work, copy this link into your browser:<br>${safeCalendlyLink}</p>
           <p style="margin:0;color:#444;line-height:1.7;">— <strong>The Smith Inc Team</strong></p>
         </td></tr>
@@ -309,6 +318,7 @@ async function sendCallerBookingConfirmationEmail({
     `We've received your ${serviceType || "Consultation"} request and will follow up shortly.`,
     "",
     `Consultation link: ${calendlyLink}`,
+    `Book on app: ${APP_BOOKING_PAGE}`,
     "",
     "- The Smith Inc Team",
   ].join("\n");
