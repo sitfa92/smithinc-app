@@ -1,5 +1,6 @@
 import React from "react";
 import SeoTopicCluster from "../components/SeoTopicCluster";
+import { trackGoogleAdsConversion, trackUnifiedGa4Event } from "../ga4SeoTracker";
 import "../App.css";
 
 const inp = {
@@ -19,6 +20,7 @@ export default function PublicBrandAmbassadorSubmission() {
   const [form, setForm] = React.useState({
     name: "",
     email: "",
+    location: "",
     company: "",
     website: "",
     notes: "",
@@ -43,6 +45,7 @@ export default function PublicBrandAmbassadorSubmission() {
       const payload = {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
+        location: form.location.trim(),
         company: form.company.trim(),
         website: form.website.trim(),
         notes: [form.notes.trim(), referralNote].filter(Boolean).join("\n"),
@@ -65,7 +68,21 @@ export default function PublicBrandAmbassadorSubmission() {
       }
 
       setSuccess(true);
-      setForm({ name: "", email: "", company: "", website: "", notes: "", referral_source: "", referral_name: "" });
+      trackUnifiedGa4Event({
+        eventName: "lead_submit",
+        payload: {
+          lead_type: "brand_ambassador_submission",
+          referral_source: form.referral_source || "",
+          conversion_value: 75,
+          currency: "USD",
+        },
+      });
+      trackGoogleAdsConversion({
+        label: import.meta.env.VITE_GOOGLE_ADS_AMBASSADOR_LEAD_LABEL,
+        value: 75,
+        currency: "USD",
+      });
+      setForm({ name: "", email: "", location: "", company: "", website: "", notes: "", referral_source: "", referral_name: "" });
       setTimeout(() => setSuccess(false), 3500);
     } catch (err) {
       setError(err.message || "Failed to submit brand ambassador application.");
@@ -80,7 +97,7 @@ export default function PublicBrandAmbassadorSubmission() {
         <div className="lx-auth-panel" style={{ textAlign: "center" }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>✦</div>
           <h1 className="lx-auth-title">Submission Received</h1>
-          <p style={{ color: "#888", fontSize: 14, lineHeight: 1.7, marginTop: 8 }}>
+          <p style={{ color: "#767676", fontSize: 14, lineHeight: 1.7, marginTop: 8 }}>
             Thanks for applying as a brand ambassador with Meet Serenity.<br />
             Our team will review your submission and follow up shortly.
           </p>
@@ -100,8 +117,10 @@ export default function PublicBrandAmbassadorSubmission() {
 
         <form onSubmit={handleSubmit}>
           <div className="lx-field">
-            <label className="lx-label">Full Name *</label>
+            <label className="lx-label" htmlFor="ambassador-name">Full Name *</label>
             <input
+              id="ambassador-name"
+              autoComplete="name"
               value={form.name}
               placeholder="Your full name"
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -111,8 +130,10 @@ export default function PublicBrandAmbassadorSubmission() {
           </div>
 
           <div className="lx-field">
-            <label className="lx-label">Email *</label>
+            <label className="lx-label" htmlFor="ambassador-email">Email *</label>
             <input
+              id="ambassador-email"
+              autoComplete="email"
               value={form.email}
               placeholder="you@brand.com"
               type="email"
@@ -123,8 +144,10 @@ export default function PublicBrandAmbassadorSubmission() {
           </div>
 
           <div className="lx-field">
-            <label className="lx-label">Company / Platform</label>
+            <label className="lx-label" htmlFor="ambassador-company">Company / Platform</label>
             <input
+              id="ambassador-company"
+              autoComplete="organization"
               value={form.company}
               placeholder="Your brand or platform"
               onChange={(e) => setForm({ ...form, company: e.target.value })}
@@ -134,8 +157,23 @@ export default function PublicBrandAmbassadorSubmission() {
           </div>
 
           <div className="lx-field">
-            <label className="lx-label">Website / Social Link</label>
+            <label className="lx-label" htmlFor="ambassador-location">Location</label>
             <input
+              id="ambassador-location"
+              autoComplete="address-level2"
+              value={form.location}
+              placeholder="City, State / Country"
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+              disabled={loading}
+              style={inp}
+            />
+          </div>
+
+          <div className="lx-field">
+            <label className="lx-label" htmlFor="ambassador-website">Website / Social Link</label>
+            <input
+              id="ambassador-website"
+              autoComplete="url"
               value={form.website}
               placeholder="https://..."
               onChange={(e) => setForm({ ...form, website: e.target.value })}
@@ -145,8 +183,9 @@ export default function PublicBrandAmbassadorSubmission() {
           </div>
 
           <div className="lx-field">
-            <label className="lx-label">Notes</label>
+            <label className="lx-label" htmlFor="ambassador-notes">Notes</label>
             <textarea
+              id="ambassador-notes"
               value={form.notes}
               placeholder="Tell us about your audience, niche, and collaboration goals..."
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
@@ -156,11 +195,11 @@ export default function PublicBrandAmbassadorSubmission() {
           </div>
 
           <div style={{ borderTop: "1px solid #e8e4dc", margin: "20px 0 18px", paddingTop: 18 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888", marginBottom: 14 }}>How did you find us?</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#767676", marginBottom: 14 }}>How did you find us?</div>
             <div className="lx-field">
-              <label className="lx-label">How did you hear about us?</label>
-              <select value={form.referral_source} onChange={(e) => setForm({ ...form, referral_source: e.target.value })} disabled={loading} style={inp}>
-                <option value="">Select an option…</option>
+              <label className="lx-label" htmlFor="ambassador-referral-source">How did you hear about us?</label>
+              <select id="ambassador-referral-source" value={form.referral_source} onChange={(e) => setForm({ ...form, referral_source: e.target.value })} disabled={loading} style={inp}>
+                <option value="">Select an option...</option>
                 <option value="Instagram">Instagram</option>
                 <option value="TikTok">TikTok</option>
                 <option value="Google">Google</option>
@@ -172,8 +211,8 @@ export default function PublicBrandAmbassadorSubmission() {
             </div>
             {(form.referral_source === "Referred by a friend or contact" || form.referral_source === "Other" || form.referral_source === "Word of mouth") && (
               <div className="lx-field">
-                <label className="lx-label">Referred by (name or @handle)</label>
-                <input value={form.referral_name} placeholder="e.g. Jane Smith or @janedoe" onChange={(e) => setForm({ ...form, referral_name: e.target.value })} disabled={loading} style={inp} />
+                <label className="lx-label" htmlFor="ambassador-referral-name">Referred by (name or @handle)</label>
+                <input id="ambassador-referral-name" value={form.referral_name} placeholder="e.g. Jane Smith or @janedoe" onChange={(e) => setForm({ ...form, referral_name: e.target.value })} disabled={loading} style={inp} />
               </div>
             )}
           </div>

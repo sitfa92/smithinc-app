@@ -1,5 +1,6 @@
 import React from "react";
 import SeoTopicCluster from "../components/SeoTopicCluster";
+import { trackGoogleAdsConversion, trackUnifiedGa4Event } from "../ga4SeoTracker";
 import "../App.css";
 
 const inp = {
@@ -19,6 +20,7 @@ export default function PublicPartnerSubmission() {
   const [form, setForm] = React.useState({
     name: "",
     email: "",
+    location: "",
     company: "",
     website: "",
     notes: "",
@@ -43,6 +45,7 @@ export default function PublicPartnerSubmission() {
       const payload = {
         name: form.name.trim(),
         email: form.email.trim().toLowerCase(),
+        location: form.location.trim(),
         company: form.company.trim(),
         website: form.website.trim(),
         notes: [form.notes.trim(), referralNote].filter(Boolean).join("\n"),
@@ -64,7 +67,21 @@ export default function PublicPartnerSubmission() {
       }
 
       setSuccess(true);
-      setForm({ name: "", email: "", company: "", website: "", notes: "", referral_source: "", referral_name: "" });
+      trackUnifiedGa4Event({
+        eventName: "lead_submit",
+        payload: {
+          lead_type: "partner_submission",
+          referral_source: form.referral_source || "",
+          conversion_value: 90,
+          currency: "USD",
+        },
+      });
+      trackGoogleAdsConversion({
+        label: import.meta.env.VITE_GOOGLE_ADS_PARTNER_LEAD_LABEL,
+        value: 90,
+        currency: "USD",
+      });
+      setForm({ name: "", email: "", location: "", company: "", website: "", notes: "", referral_source: "", referral_name: "" });
       setTimeout(() => setSuccess(false), 3500);
     } catch (err) {
       setError(err.message || "Failed to submit partner application.");
@@ -79,7 +96,7 @@ export default function PublicPartnerSubmission() {
         <div className="lx-auth-panel" style={{ textAlign: "center" }}>
           <div style={{ fontSize: 40, marginBottom: 16 }}>✦</div>
           <h1 className="lx-auth-title">Submission Received</h1>
-          <p style={{ color: "#888", fontSize: 14, lineHeight: 1.7, marginTop: 8 }}>
+          <p style={{ color: "#767676", fontSize: 14, lineHeight: 1.7, marginTop: 8 }}>
             Thanks for applying to partner with Meet Serenity.<br />
             Our team will review your submission and follow up shortly.
           </p>
@@ -99,8 +116,10 @@ export default function PublicPartnerSubmission() {
 
         <form onSubmit={handleSubmit}>
           <div className="lx-field">
-            <label className="lx-label">Full Name *</label>
+            <label className="lx-label" htmlFor="partner-name">Full Name *</label>
             <input
+              id="partner-name"
+              autoComplete="name"
               value={form.name}
               placeholder="Your full name"
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -110,8 +129,10 @@ export default function PublicPartnerSubmission() {
           </div>
 
           <div className="lx-field">
-            <label className="lx-label">Email *</label>
+            <label className="lx-label" htmlFor="partner-email">Email *</label>
             <input
+              id="partner-email"
+              autoComplete="email"
               value={form.email}
               placeholder="you@company.com"
               type="email"
@@ -122,8 +143,10 @@ export default function PublicPartnerSubmission() {
           </div>
 
           <div className="lx-field">
-            <label className="lx-label">Company</label>
+            <label className="lx-label" htmlFor="partner-company">Company</label>
             <input
+              id="partner-company"
+              autoComplete="organization"
               value={form.company}
               placeholder="Your company name"
               onChange={(e) => setForm({ ...form, company: e.target.value })}
@@ -133,8 +156,23 @@ export default function PublicPartnerSubmission() {
           </div>
 
           <div className="lx-field">
-            <label className="lx-label">Website</label>
+            <label className="lx-label" htmlFor="partner-location">Location</label>
             <input
+              id="partner-location"
+              autoComplete="address-level2"
+              value={form.location}
+              placeholder="City, State / Country"
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+              disabled={loading}
+              style={inp}
+            />
+          </div>
+
+          <div className="lx-field">
+            <label className="lx-label" htmlFor="partner-website">Website</label>
+            <input
+              id="partner-website"
+              autoComplete="url"
               value={form.website}
               placeholder="https://yourcompany.com"
               onChange={(e) => setForm({ ...form, website: e.target.value })}
@@ -144,10 +182,11 @@ export default function PublicPartnerSubmission() {
           </div>
 
           <div className="lx-field">
-            <label className="lx-label">Notes</label>
+            <label className="lx-label" htmlFor="partner-notes">Notes</label>
             <textarea
+              id="partner-notes"
               value={form.notes}
-              placeholder="Tell us what kind of partnership you are proposing…"
+              placeholder="Tell us what kind of partnership you are proposing..."
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
               disabled={loading}
               style={{ ...inp, minHeight: 120, resize: "vertical" }}
@@ -155,11 +194,11 @@ export default function PublicPartnerSubmission() {
           </div>
 
           <div style={{ borderTop: "1px solid #e8e4dc", margin: "20px 0 18px", paddingTop: 18 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#888", marginBottom: 14 }}>How did you find us?</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#767676", marginBottom: 14 }}>How did you find us?</div>
             <div className="lx-field">
-              <label className="lx-label">How did you hear about us?</label>
-              <select value={form.referral_source} onChange={(e) => setForm({ ...form, referral_source: e.target.value })} disabled={loading} style={inp}>
-                <option value="">Select an option…</option>
+              <label className="lx-label" htmlFor="partner-referral-source">How did you hear about us?</label>
+              <select id="partner-referral-source" value={form.referral_source} onChange={(e) => setForm({ ...form, referral_source: e.target.value })} disabled={loading} style={inp}>
+                <option value="">Select an option...</option>
                 <option value="Instagram">Instagram</option>
                 <option value="TikTok">TikTok</option>
                 <option value="Google">Google</option>
@@ -171,8 +210,8 @@ export default function PublicPartnerSubmission() {
             </div>
             {(form.referral_source === "Referred by a friend or contact" || form.referral_source === "Other" || form.referral_source === "Word of mouth") && (
               <div className="lx-field">
-                <label className="lx-label">Referred by (name or @handle)</label>
-                <input value={form.referral_name} placeholder="e.g. Jane Smith or @janedoe" onChange={(e) => setForm({ ...form, referral_name: e.target.value })} disabled={loading} style={inp} />
+                <label className="lx-label" htmlFor="partner-referral-name">Referred by (name or @handle)</label>
+                <input id="partner-referral-name" value={form.referral_name} placeholder="e.g. Jane Smith or @janedoe" onChange={(e) => setForm({ ...form, referral_name: e.target.value })} disabled={loading} style={inp} />
               </div>
             )}
           </div>
