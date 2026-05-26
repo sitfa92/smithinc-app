@@ -6,7 +6,6 @@ export const AuthContext = React.createContext(null);
 
 const OWNER_PRIORITY_EMAILS = new Set([
   "sitfa92@gmail.com",
-  "sita92@gmail.com",
 ]);
 
 const useProvideAuth = () => {

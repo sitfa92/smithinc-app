@@ -2,7 +2,6 @@ import { supabase } from "./supabase";
 
 export const DEFAULT_ROLE_BY_EMAIL = {
   "sitfa92@gmail.com": "owner",
-  "sita92@gmail.com": "owner",
   "marthajohn223355@gmail.com": "va",
   "chizzyboi72@gmail.com": "agent",
   "melissaluke_@hotmail.com": "agency_admin",
@@ -14,7 +13,6 @@ export const isStaticallyAllowed = (email) =>
 
 export const ANALYTICS_ALLOWED_EMAILS = new Set([
   "sitfa92@gmail.com",
-  "sita92@gmail.com",
   "marthajohn223355@gmail.com",
 ]);
 export const canAccessAnalyticsForEmail = (email) =>

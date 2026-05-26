@@ -5,7 +5,6 @@ const FALLBACK_ADMIN_EMAILS = new Set([
 ]);
 const OWNER_PRIORITY_EMAILS = new Set([
   "sitfa92@gmail.com",
-  "sita92@gmail.com",
 ]);
 
 const normalizeEmail = (v) => String(v || "").trim().toLowerCase();
