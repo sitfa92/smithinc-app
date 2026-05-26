@@ -108,6 +108,16 @@ const sections = [
           { label: "Elite", price: "USh 169,244.42", text: "Premium support for committed talent who want the highest-touch development experience." },
         ],
       },
+      {
+        currency: "INR",
+        symbol: "₹",
+        label: "Mumbai, India — Indian rupee",
+        tiers: [
+          { label: "Starter", price: "₹3,900", text: "Affordable entry support for confidence, structure, and steady early progress." },
+          { label: "Growth", price: "₹7,200", text: "Balanced coaching depth for sharper positioning, stronger assets, and better accountability." },
+          { label: "Elite", price: "₹11,500", text: "Premium support for committed talent who want the highest-touch development experience." },
+        ],
+      },
     ],
   },
   {
@@ -180,6 +190,7 @@ function getDefaultTierCurrency() {
   if (inSet("CI", "SN", "BJ", "BF", "ML", "NE", "TG", "GW")) return "XOF";
   if (inSet("KE")) return "KES";
   if (inSet("UG", "TZ", "RW", "BI", "SS", "ET")) return "UGX";
+  if (inSet("IN")) return "INR";
   if (inSet("GB", "IE")) return "GBP";
   if (inSet("US", "CA", "MX", "BR", "AR", "CL", "CO", "PE")) return "USD";
 
@@ -195,6 +206,9 @@ function getDefaultTierCurrency() {
   }
   if (timeZone.includes("africa/kampala") || timeZone.includes("africa/kigali") || timeZone.includes("africa/dar_es_salaam")) {
     return "UGX";
+  }
+  if (timeZone.includes("asia/kolkata") || timeZone.includes("asia/calcutta")) {
+    return "INR";
   }
   if (timeZone.includes("europe/london") || timeZone.includes("europe/dublin")) {
     return "GBP";
