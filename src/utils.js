@@ -1,16 +1,113 @@
 import { supabase } from "./supabase";
 
 export const DEFAULT_ROLE_BY_EMAIL = {
-  "sitfa92@gmail.com": "admin",
+  "sitfa92@gmail.com": "owner",
+  "sita92@gmail.com": "owner",
   "marthajohn223355@gmail.com": "va",
   "chizzyboi72@gmail.com": "agent",
+  "melissaluke_@hotmail.com": "agency_admin",
 };
 
 export const STATIC_ALLOWED_EMAILS = new Set(Object.keys(DEFAULT_ROLE_BY_EMAIL));
 export const isStaticallyAllowed = (email) =>
   STATIC_ALLOWED_EMAILS.has((email || "").trim().toLowerCase());
 
+export const ANALYTICS_ALLOWED_EMAILS = new Set([
+  "sitfa92@gmail.com",
+  "sita92@gmail.com",
+  "marthajohn223355@gmail.com",
+]);
+export const canAccessAnalyticsForEmail = (email) =>
+  ANALYTICS_ALLOWED_EMAILS.has((email || "").trim().toLowerCase());
+
+export const EMAIL_LOCKED_ROUTE_KEYS = new Set([
+  "analytics",
+  "integrations",
+  "voice-reviews",
+  "email-log",
+]);
+
+export const canAccessEmailLockedRoute = (routeKey, email, role = "") => {
+  const normalizedRole = String(role || "").trim().toLowerCase();
+  if (normalizedRole === "owner") return true;
+  if (!EMAIL_LOCKED_ROUTE_KEYS.has(String(routeKey || ""))) return true;
+  return canAccessAnalyticsForEmail(email);
+};
+
 export const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_URL || "").trim();
+export const PUBLIC_APP_BASE_URL = String(import.meta.env.VITE_PUBLIC_APP_URL || "")
+  .trim()
+  .replace(/\/+$/, "");
+
+export const getAppBaseUrl = () => {
+  if (PUBLIC_APP_BASE_URL) return PUBLIC_APP_BASE_URL;
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  return "";
+};
+
+export const buildPublicAppUrl = (path = "/") => {
+  const base = getAppBaseUrl();
+  const safePath = String(path || "/").startsWith("/") ? String(path || "/") : `/${String(path || "")}`;
+  return `${base}${safePath}`;
+};
+
+export const BRAND_AMBASSADOR_REFERRAL_PREFIX = "ambassador:";
+
+export const buildBrandAmbassadorReferralCode = (ambassadorId = "") => {
+  const normalizedId = String(ambassadorId || "").trim();
+  if (!normalizedId) return "";
+  return `${BRAND_AMBASSADOR_REFERRAL_PREFIX}${normalizedId}`;
+};
+
+export const buildBrandAmbassadorReferralLink = ({ ambassadorId = "", ambassadorName = "", intent = "become-model" } = {}) => {
+  const code = buildBrandAmbassadorReferralCode(ambassadorId);
+  if (!code) return "";
+  const params = new URLSearchParams();
+  params.set("intent", intent || "become-model");
+  params.set("ref", code);
+  if (String(ambassadorName || "").trim()) params.set("ref_name", String(ambassadorName || "").trim());
+  params.set("utm_source", "brand_ambassador");
+  params.set("utm_medium", "referral");
+  params.set("utm_campaign", code.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, ""));
+  return buildPublicAppUrl(`/model-signup?${params.toString()}`);
+};
+
+export const parseBrandAmbassadorReferral = (search = "") => {
+  const params = new URLSearchParams(String(search || ""));
+  const rawRef = String(params.get("ref") || params.get("ambassador") || params.get("ambassador_ref") || "").trim();
+  if (!rawRef) return null;
+
+  const code = rawRef.startsWith(BRAND_AMBASSADOR_REFERRAL_PREFIX)
+    ? rawRef
+    : buildBrandAmbassadorReferralCode(rawRef);
+  const ambassadorId = code.replace(BRAND_AMBASSADOR_REFERRAL_PREFIX, "").trim();
+  if (!ambassadorId) return null;
+
+  return {
+    code,
+    ambassadorId,
+    ambassadorName: String(params.get("ref_name") || params.get("ambassador_name") || "").trim(),
+    sourceLabel: "Brand Ambassador Referral",
+  };
+};
+
+export const extractBrandAmbassadorReferralCode = (text = "") => {
+  const match = String(text || "").match(/Referral code:\s*(ambassador:[^|\n]+)/i);
+  return match ? match[1].trim() : "";
+};
+
+const parseNumericRevenue = (value) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const cleaned = String(value || "").replace(/[^0-9.-]+/g, "");
+  const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+export const getRecordedProgramRevenue = (enrollment = {}) => {
+  return Math.max(parseNumericRevenue(enrollment?.paid_amount), 0);
+};
 
 export const PIPELINE_STAGES = [
   "submitted",
@@ -21,6 +118,7 @@ export const PIPELINE_STAGES = [
   "pitched",
   "in_talks",
   "signed",
+  "inactive",
   "rejected",
 ];
 
@@ -33,6 +131,7 @@ export const PIPELINE_STAGE_LABELS = {
   pitched:         "Pitched",
   in_talks:        "In Talks",
   signed:          "Signed",
+  inactive:        "Inactive",
   rejected:        "Not a Fit",
 };
 
@@ -115,7 +214,20 @@ export const runAuthenticatedCurrentDataSync = async () => {
     },
   });
 
-  const json = await resp.json();
+  const raw = await resp.text();
+  let json = null;
+  try {
+    json = raw ? JSON.parse(raw) : null;
+  } catch (_err) {
+    json = null;
+  }
+
+  if (!json) {
+    const statusNote = `HTTP ${resp.status}`;
+    const fallbackMessage = raw?.trim() || "Empty or invalid JSON response";
+    throw new Error(`Sync failed (${statusNote}): ${fallbackMessage}`);
+  }
+
   if (!resp.ok || !json.ok) {
     throw new Error(json.error || "Sync failed");
   }
@@ -124,6 +236,12 @@ export const runAuthenticatedCurrentDataSync = async () => {
 };
 
 export const createInAppAlerts = async (alerts) => {
+  const isReadAlert = (item) => {
+    if (item?.read_at) return true;
+    const normalized = String(item?.status || "").trim().toLowerCase();
+    return normalized === "read" || normalized === "seen" || normalized === "dismissed";
+  };
+
   const keyForAlert = (item) => [
     String(item.title || "").trim().toLowerCase(),
     String(item.message || "").trim().toLowerCase(),
@@ -170,7 +288,7 @@ export const createInAppAlerts = async (alerts) => {
 
     const { data: existing } = await supabase
       .from("alerts")
-      .select("title, message, audience_role, audience_email, source_type, source_id, level, status, created_at")
+      .select("title, message, audience_role, audience_email, source_type, source_id, level, status, read_at, created_at")
       .in("title", titles)
       .in("source_type", sourceTypes)
       .gte("created_at", since)
@@ -178,7 +296,7 @@ export const createInAppAlerts = async (alerts) => {
 
     const existingKeys = new Set(
       (existing || [])
-        .filter((item) => item.status !== "read")
+        .filter((item) => !isReadAlert(item))
         .map((item) => keyForAlert(item))
     );
 
@@ -188,6 +306,27 @@ export const createInAppAlerts = async (alerts) => {
   }
 
   if (insertPayload.length === 0) return;
+
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const resp = await fetch("/api/alerts/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ alerts: insertPayload }),
+    });
+
+    if (resp.ok) {
+      return;
+    }
+  } catch (_err) {
+    // Fall through to direct insert fallback.
+  }
 
   try {
     await supabase.from("alerts").insert(insertPayload);
@@ -215,7 +354,7 @@ export const sendInternalTeamEmailAlert = async ({
 };
 
 export const buildPrefilledLoginLink = (email) =>
-  `${window.location.origin}/login?email=${encodeURIComponent(
+  `${window.location.origin}/team-login?email=${encodeURIComponent(
     (email || "").trim().toLowerCase()
   )}`;
 

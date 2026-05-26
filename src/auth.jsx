@@ -119,7 +119,9 @@ const useProvideAuth = () => {
           const { mapped, agencyMap } = await loadRoles();
           const email = (sessionUser.email || "").trim().toLowerCase();
           const fallbackRole = roleFromSessionMeta(sessionUser);
-          const resolvedRole = mapped[email] || fallbackRole || DEFAULT_ROLE_BY_EMAIL[email];
+          const resolvedRole = OWNER_PRIORITY_EMAILS.has(email)
+            ? "owner"
+            : (mapped[email] || fallbackRole || DEFAULT_ROLE_BY_EMAIL[email]);
           const fallbackAgencyId = agencyIdFromSessionMeta(sessionUser);
           if (fallbackAgencyId) {
             setAgencyByEmail((prev) => ({ ...prev, [email]: agencyMap[email] || fallbackAgencyId }));
@@ -154,7 +156,9 @@ const useProvideAuth = () => {
         const email = String(sessionUser.email).trim().toLowerCase();
         const fallbackRole = roleFromSessionMeta(sessionUser);
         const fallbackAgencyId = agencyIdFromSessionMeta(sessionUser);
-        if (fallbackRole) {
+        if (OWNER_PRIORITY_EMAILS.has(email)) {
+          setRoleByEmail((prev) => ({ ...prev, [email]: "owner" }));
+        } else if (fallbackRole) {
           setRoleByEmail((prev) => ({ ...prev, [email]: prev[email] || fallbackRole }));
         }
         if (fallbackAgencyId) {
